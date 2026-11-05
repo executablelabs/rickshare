@@ -27,6 +27,14 @@ test("marks only the current tab as the current page", async () => {
   expect(within(nav).getByRole("link", { current: "page" })).toHaveTextContent("Money");
 });
 
+test("sends the bare trip URL to the Plan tab", async () => {
+  const router = createAppRouter(createMemoryHistory({ initialEntries: ["/trips/india26"] }));
+  await router.load();
+  render(<AppProviders router={router} />);
+  expect(await screen.findByRole("heading", { name: "Plan", level: 1 })).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe("/trips/india26/plan");
+});
+
 test("does not wrap pages outside a trip", async () => {
   const router = createAppRouter(createMemoryHistory({ initialEntries: ["/"] }));
   await router.load();
