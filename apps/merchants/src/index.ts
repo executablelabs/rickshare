@@ -1,4 +1,11 @@
-import { app } from "./app";
+import { createApp } from "./app";
 import { config } from "./config";
+import { createMerchantRuntime } from "./runtime";
 
-export default { port: config.PORT, fetch: app.fetch };
+const runtime = createMerchantRuntime();
+if (config.TRIP_FACTORY_ADDRESS) runtime.service().start(config.MERCHANT_POLL_INTERVAL_MS);
+process.once("SIGTERM", () => {
+  runtime.close();
+  process.exit(0);
+});
+export default { port: config.PORT, fetch: createApp({ service: runtime.service() }).fetch };

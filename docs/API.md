@@ -80,3 +80,29 @@ correct issuer/audience/authorized party, expiry, nonce and fresh auth_time.
 Approval identity must match the wallet's immutable linked subject. Raw World
 subjects and ID tokens are never returned to clients; PKCE verifiers are
 encrypted at rest. The signup flow should link World before the first deposit.
+
+## Mock merchants (A10)
+
+The merchant app runs on its own origin (8790 by default):
+
+- GET `/catalog`: three operators/items; configured operators include their
+  actual signing/payment address. Unconfigured keys never get invented addresses.
+- POST `/quotes`: `{ merchantId, itemId, vaultAddress, quantity, startsAt }`.
+  Returns SignedQuote with vaultAddress, chainId, location, exact base-unit total,
+  quoteHash and EIP-712 signature. Prices/title/location/payee come from the
+  configured catalog, not request fields. The vault must belong to the configured
+  factory and allow that merchant.
+- GET `/tickets/:token`: paid ticket HTML and a locally rendered QR code.
+- GET `/internal/tickets/:vault/:proposalId`: immutable ticket bundle, payload
+  and hash, requiring `Authorization: Bearer MERCHANTS_API_SECRET`.
+
+The API and merchant process share MERCHANTS_API_SECRET through their ignored
+environment files. Browser clients do not receive this secret. A9's ticket
+endpoint authenticates the participant and verifies the bundle hash against the
+chain before returning the ticket URL.
+
+Merchant quotes, prepared tickets, delivery jobs and scan cursors are durable.
+On restart, queued jobs resume even after the block cursor advanced. If a
+fulfillment receipt was lost, the worker checks the persisted ticket hash
+against the paid onchain proposal before retrying. Tickets stay unavailable
+until the chain confirms payment for that exact payload.

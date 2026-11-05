@@ -19,5 +19,15 @@ export const config = z
     MERCHANT_2_PRIVATE_KEY: privateKey,
     MERCHANT_3_PRIVATE_KEY: privateKey,
     PUBLIC_URL: z.preprocess(blankToUndefined, z.string().url().default("http://localhost:8790")),
+    MERCHANT_DATABASE_PATH: z.preprocess(
+      blankToUndefined,
+      z.string().min(1).default("merchants.sqlite"),
+    ),
+    MERCHANTS_API_SECRET: z.preprocess(blankToUndefined, z.string().min(32).optional()),
+    MERCHANT_POLL_INTERVAL_MS: z.preprocess(
+      blankToUndefined,
+      z.coerce.number().int().min(500).max(60000).default(2000),
+    ),
+    ARC_START_BLOCK: z.preprocess(blankToUndefined, z.string().regex(/^\d+$/).default("0")),
   })
   .parse(process.env);

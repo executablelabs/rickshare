@@ -3,6 +3,7 @@ export {
   asHex,
   contractQuote,
   inviteTypedData,
+  type QuoteTerms,
   quoteTypedData,
   SignedQuote,
   vaultDomain,

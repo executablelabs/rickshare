@@ -14,6 +14,7 @@ export const SignedQuote = Quote.extend({
   signature: HexSchema.refine((value) => value.length >= 130 && value.length <= 8194),
 });
 export type SignedQuote = z.infer<typeof SignedQuote>;
+export type QuoteTerms = Omit<SignedQuote, "quoteHash" | "signature">;
 
 export const quoteTypes = {
   Quote: [
@@ -56,7 +57,7 @@ export function vaultDomain(chainId: number, vaultAddress: string) {
   } as const;
 }
 
-export function contractQuote(quote: SignedQuote) {
+export function contractQuote(quote: QuoteTerms) {
   return {
     quoteId: keccak256(stringToHex(quote.quoteId)),
     itemId: keccak256(stringToHex(quote.itemId)),
@@ -71,7 +72,7 @@ export function contractQuote(quote: SignedQuote) {
   };
 }
 
-export function quoteTypedData(quote: SignedQuote) {
+export function quoteTypedData(quote: QuoteTerms) {
   return {
     domain: vaultDomain(quote.chainId, quote.vaultAddress),
     types: quoteTypes,

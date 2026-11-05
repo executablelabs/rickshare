@@ -10,9 +10,12 @@
   "dependencies": {
     "@kitty/shared": "workspace:*",
     "hono": "4.13.16",
+    "qrcode": "1.5.4",
+    "viem": "2.57.16",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "1.4.4"
+    "@types/bun": "1.4.4",
+    "@types/qrcode": "1.5.6"
   }
 }
