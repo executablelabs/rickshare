@@ -1,0 +1,30 @@
+import { arcTestnet } from "@kitty/shared";
+import { getAddress, type Hex } from "viem";
+import { z } from "zod";
+
+const blankToUndefined = (value: unknown) => (value === "" ? undefined : value);
+const address = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{40}$/)
+  .transform((value) => getAddress(value));
+const privateKey = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{64}$/)
+  .transform((value) => value as Hex);
+
+export const deploymentConfig = z.object({
+  ARC_RPC_URL: z.preprocess(
+    blankToUndefined,
+    z.string().url().default(arcTestnet.rpcUrls.default.http[0]),
+  ),
+  DEPLOYER_PRIVATE_KEY: privateKey,
+  AGENT_ADDRESS: address,
+  VERIFIER_ADDRESS: address,
+  MERCHANT_1_ADDRESS: address,
+  MERCHANT_2_ADDRESS: address,
+  MERCHANT_3_ADDRESS: address,
+});
+
+export function readDeploymentConfig() {
+  return deploymentConfig.parse(process.env);
+}
