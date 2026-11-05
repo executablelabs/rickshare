@@ -1,0 +1,8 @@
+{
+  "name": "@kitty/contracts",
+  "private": true,
+  "scripts": {
+    "typecheck": "forge build",
+    "test": "forge fmt --check && forge test"
+  }
+}

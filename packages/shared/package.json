@@ -1,0 +1,22 @@
+{
+  "name": "@kitty/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./abi": "./src/abi.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "abi": "wagmi generate"
+  },
+  "dependencies": {
+    "viem": "2.57.16",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.4",
+    "@wagmi/cli": "2.10.1"
+  }
+}

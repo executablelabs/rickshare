@@ -1,0 +1,62 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "tailwindcss";
+
+:root {
+  --paper: #f3f5f7;
+  --card: #ffffff;
+  --ink: #16213e;
+  --ink-muted: #5b6475;
+  --rule: #dce1e8;
+  --stamp: #2b44c6;
+  --marigold: #e9a21b;
+  --declined: #b23a2e;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-rule: var(--rule);
+  --color-stamp: var(--stamp);
+  --color-marigold: var(--marigold);
+  --color-declined: var(--declined);
+  --font-sans: "Geist Variable", sans-serif;
+  --font-display: "Bricolage Grotesque Variable", sans-serif;
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
+  --radius-control: 12px;
+  --radius-ticket: 16px;
+  --radius-sheet: 20px;
+  --radius-pill: 9999px;
+}
+
+@layer base {
+  body {
+    @apply bg-paper font-sans text-base font-normal text-ink;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display font-semibold;
+    line-height: 1.15;
+  }
+
+  h1 {
+    @apply text-2xl;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--stamp);
+    outline-offset: 2px;
+  }
+}

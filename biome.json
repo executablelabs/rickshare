@@ -1,0 +1,25 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.5/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/out",
+      "!**/cache",
+      "!**/coverage",
+      "!packages/contracts/lib",
+      "!packages/shared/src/abi.ts",
+      "!**/routeTree.gen.ts"
+    ]
+  },
+  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
+  "linter": { "rules": { "preset": "recommended" } },
+  "css": { "parser": { "tailwindDirectives": true } },
+  "overrides": [
+    {
+      "includes": ["AGENTS.md", "README.md", "SCAFFOLD.md", "WORKPLAN.md", "docs/DESIGN.md"],
+      "formatter": { "enabled": false }
+    }
+  ]
+}

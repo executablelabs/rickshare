@@ -1,0 +1,38 @@
+[
+  {
+    "id": "elephanta-walks",
+    "name": "Elephanta Walks",
+    "items": [
+      {
+        "id": "elephanta-ferry-walk",
+        "title": "Elephanta Caves ferry and guided walk",
+        "location": "Mumbai",
+        "unitPrice": "25000000"
+      }
+    ]
+  },
+  {
+    "id": "goa-adventures",
+    "name": "Goa Adventures",
+    "items": [
+      {
+        "id": "arambol-paragliding",
+        "title": "Tandem paragliding in Arambol",
+        "location": "Goa",
+        "unitPrice": "42000000"
+      }
+    ]
+  },
+  {
+    "id": "deccan-day-tours",
+    "name": "Deccan Day Tours",
+    "items": [
+      {
+        "id": "ajanta-ellora-tour",
+        "title": "Ajanta and Ellora day tour",
+        "location": "Chhatrapati Sambhajinagar",
+        "unitPrice": "60000000"
+      }
+    ]
+  }
+]
