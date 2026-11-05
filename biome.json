@@ -10,7 +10,8 @@
       "!**/coverage",
       "!packages/contracts/lib",
       "!packages/shared/src/abi.ts",
-      "!**/routeTree.gen.ts"
+      "!**/routeTree.gen.ts",
+      "!apps/api/drizzle/meta"
     ]
   },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
