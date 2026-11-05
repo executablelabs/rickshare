@@ -31,13 +31,13 @@ export function createClaudeModel(client: Anthropic): AgentModel {
 function toModelMessages(history: ChatMessage[]): Anthropic.Beta.BetaMessageParam[] {
   // The conversation sent to the model must open with a member's message.
   const firstMemberIndex = history.findIndex((message) => message.role === "member");
-  return history
-    .slice(Math.max(firstMemberIndex, 0))
-    .map((message) =>
-      message.role === "agent"
-        ? { role: "assistant", content: message.text }
-        : { role: "user", content: `Message from member ${message.author}:\n${message.text}` },
-    );
+  return history.slice(Math.max(firstMemberIndex, 0)).map((message) =>
+    message.role === "agent"
+      ? { role: "assistant", content: message.text }
+      : // JSON keeps the sender out of reach of the text: a header typed inside `text`
+        // stays a quoted string and cannot pose as another member's message.
+        { role: "user", content: JSON.stringify({ from: message.author, text: message.text }) },
+  );
 }
 
 function textOf(response: ModelResponse): string {
