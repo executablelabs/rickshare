@@ -35,6 +35,8 @@
   --radius-ticket: 16px;
   --radius-sheet: 20px;
   --radius-pill: 9999px;
+  /* The only shadow in the system, under open sheets. */
+  --shadow-sheet: 0 -4px 24px rgb(22 33 62 / 0.12);
 }
 
 @layer base {
@@ -58,5 +60,26 @@
   :focus-visible {
     outline: 2px solid var(--stamp);
     outline-offset: 2px;
+  }
+}
+
+/* vaul hard-codes 500ms timings in injected CSS and in inline styles it sets after a drag or on
+   close. Only !important outranks inline styles, so it is the one way to get the 200ms slide from
+   DESIGN.md and no motion under reduced motion. */
+[data-vaul-drawer],
+[data-vaul-overlay] {
+  /* biome-ignore lint/complexity/noImportantStyles: must override vaul's inline transition */
+  transition-duration: 200ms !important;
+  /* biome-ignore lint/complexity/noImportantStyles: must override vaul's injected animation */
+  animation-duration: 200ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-vaul-drawer],
+  [data-vaul-overlay] {
+    /* biome-ignore lint/complexity/noImportantStyles: must override vaul's inline transition */
+    transition-duration: 0s !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must override vaul's injected animation */
+    animation-duration: 0s !important;
   }
 }
