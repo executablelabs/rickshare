@@ -5,14 +5,12 @@ import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { config } from "../config";
 import * as schema from "./schema";
 
-const migrationsFolder = fileURLToPath(new URL("../../drizzle", import.meta.url));
-
 export function createDatabase(path = config.DATABASE_PATH) {
   const sqlite = new Database(path, { create: true });
   sqlite.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
-  const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder });
-  return db;
+  const database = drizzle(sqlite, { schema });
+  migrate(database, { migrationsFolder: fileURLToPath(new URL("../../drizzle", import.meta.url)) });
+  return database;
 }
 
 export type AppDatabase = ReturnType<typeof createDatabase>;

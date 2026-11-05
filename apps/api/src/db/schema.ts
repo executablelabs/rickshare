@@ -1,4 +1,24 @@
-import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+export const authChallenges = sqliteTable(
+  "auth_challenges",
+  {
+    id: text("id").primaryKey(),
+    browserBinding: text("browser_binding").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [index("auth_challenges_expiry").on(table.expiresAt)],
+);
+
+export const authSessions = sqliteTable(
+  "auth_sessions",
+  {
+    id: text("id").primaryKey(),
+    address: text("address").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [index("auth_sessions_expiry").on(table.expiresAt)],
+);
 
 // Rows mirror the ChatMessage and ItineraryItem schemas in @kitty/shared. Money never lives here;
 // the chain is the source of truth for balances and proposals.

@@ -41,6 +41,14 @@ export const configSchema = z.object({
   TAVILY_API_KEY: optionalText,
   MERCHANTS_URL: z.preprocess(blankToUndefined, z.string().url().default("http://localhost:8790")),
   SESSION_SECRET: z.preprocess(blankToUndefined, z.string().min(32).optional()),
+  AUTH_NONCE_TTL_SECONDS: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().int().min(60).max(600).default(300),
+  ),
+  SESSION_TTL_SECONDS: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().int().min(60).max(604800).default(28800),
+  ),
 });
 
 export const config = configSchema.parse(process.env);
