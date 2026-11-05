@@ -28,6 +28,8 @@ async function deploy() {
   )
     throw new Error("WRONG_TOKEN_DECIMALS");
   const account = privateKeyToAccount(config.DEPLOYER_PRIVATE_KEY);
+  if ((await client.getBalance({ address: account.address })) === 0n)
+    throw new Error("DEPLOYER_NEEDS_ARC_GAS");
   const merchants = [
     config.MERCHANT_1_ADDRESS,
     config.MERCHANT_2_ADDRESS,
