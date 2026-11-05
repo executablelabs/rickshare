@@ -77,6 +77,31 @@ export const tripMetadata = sqliteTable("trip_metadata", {
   name: text("name").notNull(),
 });
 
+export const worldIdentities = sqliteTable("world_identities", {
+  address: text("address").primaryKey(),
+  subjectHash: text("subject_hash").notNull().unique(),
+  linkedAt: integer("linked_at").notNull(),
+});
+
+export const worldFlows = sqliteTable(
+  "world_flows",
+  {
+    id: text("id").primaryKey(),
+    address: text("address").notNull(),
+    sessionHash: text("session_hash").notNull(),
+    nonce: text("nonce").notNull(),
+    verifier: text("verifier").notNull(),
+    kind: text("kind").notNull(),
+    vault: text("vault"),
+    proposalId: text("proposal_id"),
+    expiresAt: integer("expires_at").notNull(),
+    status: text("status").notNull(),
+    result: text("result"),
+    errorCode: text("error_code"),
+  },
+  (table) => [index("world_flows_expiry").on(table.expiresAt)],
+);
+
 // Rows mirror the ChatMessage and ItineraryItem schemas in @kitty/shared. Money never lives here;
 // the chain is the source of truth for balances and proposals.
 

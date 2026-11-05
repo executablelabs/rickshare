@@ -31,11 +31,11 @@ export const configSchema = z.object({
   WORLD_REDIRECT_URI: optionalUrl,
   WORLD_MAX_AUTH_AGE_SECONDS: z.preprocess(
     blankToUndefined,
-    z.coerce.number().int().positive().default(300),
+    z.coerce.number().int().min(1).max(900).default(300),
   ),
   ATTESTATION_TTL_SECONDS: z.preprocess(
     blankToUndefined,
-    z.coerce.number().int().positive().default(300),
+    z.coerce.number().int().min(1).max(900).default(300),
   ),
   ANTHROPIC_API_KEY: optionalText,
   TAVILY_API_KEY: optionalText,
