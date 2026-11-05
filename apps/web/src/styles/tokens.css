@@ -35,6 +35,8 @@
   --radius-ticket: 16px;
   --radius-sheet: 20px;
   --radius-pill: 9999px;
+  /* The only shadow in the system, under open sheets. */
+  --shadow-sheet: 0 -4px 24px rgb(22 33 62 / 0.12);
 }
 
 @layer base {
@@ -58,5 +60,20 @@
   :focus-visible {
     outline: 2px solid var(--stamp);
     outline-offset: 2px;
+  }
+}
+
+/* vaul injects a 500ms timing on [data-vaul-drawer] at runtime; the extra `html` outranks it
+   so sheets slide in 200ms per DESIGN.md. */
+html [data-vaul-drawer] {
+  transition-duration: 200ms;
+  animation-duration: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html [data-vaul-drawer],
+  html [data-vaul-overlay] {
+    transition-duration: 0s;
+    animation-duration: 0s;
   }
 }
