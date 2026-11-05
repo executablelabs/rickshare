@@ -1,5 +1,5 @@
-import { ARC_USDC, arcTestnet } from "@kitty/shared";
-import { erc20Abi, tripFactoryAbi } from "@kitty/shared/abi";
+import { ARC_USDC, arcTestnet } from "@rickshare/shared";
+import { erc20Abi, tripFactoryAbi } from "@rickshare/shared/abi";
 import { createPublicClient, createWalletClient, encodeDeployData, type Hex, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";

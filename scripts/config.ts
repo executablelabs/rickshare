@@ -1,4 +1,4 @@
-import { arcTestnet } from "@kitty/shared";
+import { arcTestnet } from "@rickshare/shared";
 import { getAddress, type Hex } from "viem";
 import { z } from "zod";
 

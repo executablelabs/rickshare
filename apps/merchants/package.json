@@ -1,5 +1,5 @@
 {
-  "name": "@kitty/merchants",
+  "name": "@rickshare/merchants",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@kitty/shared": "workspace:*",
+    "@rickshare/shared": "workspace:*",
     "hono": "4.13.16",
     "qrcode": "1.5.4",
     "viem": "2.57.16",

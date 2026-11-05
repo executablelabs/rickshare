@@ -1,4 +1,4 @@
-import { Address, IsoDate, type MerchantCatalog, UsdcAmount } from "@kitty/shared";
+import { Address, IsoDate, type MerchantCatalog, UsdcAmount } from "@rickshare/shared";
 import { z } from "zod";
 
 // Tool inputs come from the model, so they are validated here even though the tool

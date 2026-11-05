@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { Address } from "@kitty/shared";
+import { Address } from "@rickshare/shared";
 import { Hono } from "hono";
 import { html } from "hono/html";
 import QRCode from "qrcode";

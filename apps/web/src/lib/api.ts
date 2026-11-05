@@ -1,4 +1,4 @@
-import type { AppType } from "@kitty/api";
+import type { AppType } from "@rickshare/api";
 import { hc } from "hono/client";
 import { config } from "../config";
 

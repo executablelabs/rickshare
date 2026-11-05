@@ -1,4 +1,4 @@
-import { USDC_DECIMALS } from "@kitty/shared";
+import { USDC_DECIMALS } from "@rickshare/shared";
 
 const scale = 10n ** BigInt(USDC_DECIMALS);
 

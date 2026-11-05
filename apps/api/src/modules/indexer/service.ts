@@ -1,4 +1,4 @@
-import { Proposal, Trip, TripEvent } from "@kitty/shared";
+import { Proposal, Trip, TripEvent } from "@rickshare/shared";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { type Address, getAddress } from "viem";
 import type { AppDatabase } from "../../db/client";

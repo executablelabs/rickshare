@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ChatMessage } from "@kitty/shared";
+import type { ChatMessage } from "@rickshare/shared";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import type { ChatStore } from "../chat/service";

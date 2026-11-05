@@ -1,5 +1,5 @@
 {
-  "name": "@kitty/contracts",
+  "name": "@rickshare/contracts",
   "private": true,
   "scripts": {
     "typecheck": "forge build",

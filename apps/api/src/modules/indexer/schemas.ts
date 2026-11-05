@@ -1,4 +1,4 @@
-import { Address } from "@kitty/shared";
+import { Address } from "@rickshare/shared";
 import { getAddress } from "viem";
 import { z } from "zod";
 

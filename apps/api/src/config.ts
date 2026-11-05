@@ -1,4 +1,4 @@
-import { Address } from "@kitty/shared";
+import { Address } from "@rickshare/shared";
 import { z } from "zod";
 
 const blankToUndefined = (value: unknown) => (value === "" ? undefined : value);

@@ -1,4 +1,4 @@
-import { asHex, quoteTypedData, SignedQuote, TicketBundle } from "@kitty/shared";
+import { asHex, quoteTypedData, SignedQuote, TicketBundle } from "@rickshare/shared";
 import { and, eq, sql } from "drizzle-orm";
 import { getAddress, hashTypedData, keccak256, stringToHex, verifyTypedData } from "viem";
 import type { AppDatabase } from "../../db/client";

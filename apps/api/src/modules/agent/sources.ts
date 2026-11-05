@@ -1,4 +1,4 @@
-import { MerchantCatalog } from "@kitty/shared";
+import { MerchantCatalog } from "@rickshare/shared";
 import { AppError } from "../../lib/errors";
 import { type CatalogMerchant, type SearchResult, TavilySearchResponse } from "./schemas";
 

@@ -1,5 +1,5 @@
-import { arcTestnet, asHex, contractQuote, type SignedQuote } from "@kitty/shared";
-import { tripFactoryAbi, tripVaultAbi } from "@kitty/shared/abi";
+import { arcTestnet, asHex, contractQuote, type SignedQuote } from "@rickshare/shared";
+import { tripFactoryAbi, tripVaultAbi } from "@rickshare/shared/abi";
 import { type Address, getAddress, type Hex, parseEventLogs } from "viem";
 import { AppError } from "../../lib/errors";
 import { arcFees, assertArcChain, createArcClient, createArcWallet } from "../chain/clients";

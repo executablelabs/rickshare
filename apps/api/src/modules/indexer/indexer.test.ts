@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { Member } from "@kitty/shared";
+import type { Member } from "@rickshare/shared";
 import { eq } from "drizzle-orm";
 import { getAddress, type Hex } from "viem";
 import { type AppDatabase, createDatabase } from "../../db/client";
