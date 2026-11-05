@@ -54,35 +54,40 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismiss],
   );
 
+  const renderToast = (toast: ToastItem) => (
+    <div
+      key={toast.id}
+      className="pointer-events-auto flex w-full max-w-[400px] items-center gap-3 rounded-control bg-ink py-1 pr-1 pl-4 text-sm text-card"
+    >
+      {toast.tone === "success" ? (
+        <CheckCircle aria-hidden="true" size={20} className="shrink-0" />
+      ) : (
+        <WarningCircle aria-hidden="true" size={20} className="shrink-0" />
+      )}
+      <p className="flex-1 py-2">{toast.message}</p>
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={() => dismiss(toast.id)}
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-control"
+      >
+        <X aria-hidden="true" size={20} />
+      </button>
+    </div>
+  );
+
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex flex-col items-center gap-2 px-5 lg:bottom-6"
-      >
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className="pointer-events-auto flex w-full max-w-[400px] items-center gap-3 rounded-control bg-ink py-1 pr-1 pl-4 text-sm text-card"
-          >
-            {toast.tone === "success" ? (
-              <CheckCircle aria-hidden="true" size={20} className="shrink-0" />
-            ) : (
-              <WarningCircle aria-hidden="true" size={20} className="shrink-0" />
-            )}
-            <p className="flex-1 py-2">{toast.message}</p>
-            <button
-              type="button"
-              aria-label="Dismiss"
-              onClick={() => dismiss(toast.id)}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-control"
-            >
-              <X aria-hidden="true" size={20} />
-            </button>
-          </div>
-        ))}
+      {/* Clears the mobile bottom nav, which grows by the safe-area inset. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-5 lg:bottom-6">
+        {/* Both live regions stay mounted so screen readers announce what is added to them. */}
+        <div role="status" className="flex w-full flex-col items-center gap-2">
+          {toasts.filter((toast) => toast.tone === "success").map(renderToast)}
+        </div>
+        <div role="alert" className="flex w-full flex-col items-center gap-2">
+          {toasts.filter((toast) => toast.tone === "error").map(renderToast)}
+        </div>
       </div>
     </ToastContext.Provider>
   );

@@ -43,6 +43,8 @@ test("keeps an error toast until it is dismissed", () => {
     </ToastProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Show" }));
+  expect(screen.getByRole("alert")).toHaveTextContent(message);
+  expect(screen.getByRole("status")).not.toHaveTextContent(message);
 
   act(() => {
     vi.advanceTimersByTime(SUCCESS_TOAST_MS * 3);
