@@ -14,7 +14,9 @@
     "test": "bun --filter './packages/*' --filter './apps/*' test",
     "abi": "bun --filter @kitty/shared abi",
     "check": "bun run lint && bun run typecheck && bun run test",
-    "contracts:deploy": "bun --env-file packages/contracts/.env run scripts/deploy.ts"
+    "contracts:deploy": "bun --env-file packages/contracts/.env scripts/deploy.ts",
+    "demo:prepare": "bun run scripts/prepare.ts",
+    "demo:seed": "bun --env-file scripts/demo.env scripts/seed.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.5",

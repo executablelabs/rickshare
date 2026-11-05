@@ -10,3 +10,5 @@ coverage/
 packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
+.local/
+scripts/demo.env

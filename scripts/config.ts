@@ -28,3 +28,22 @@ export const deploymentConfig = z.object({
 export function readDeploymentConfig() {
   return deploymentConfig.parse(process.env);
 }
+
+export const seedConfig = deploymentConfig.extend({
+  TRIP_FACTORY_ADDRESS: z.preprocess(blankToUndefined, address.optional()),
+  DEMO_MEMBER_1_PRIVATE_KEY: privateKey,
+  DEMO_MEMBER_2_PRIVATE_KEY: privateKey,
+  DEMO_MEMBER_3_PRIVATE_KEY: privateKey,
+  DEMO_DEPOSIT_USDC: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^\d+(\.\d{1,6})?$/)
+      .default("100"),
+  ),
+  DEMO_TRIP_NAME: z.preprocess(blankToUndefined, z.string().min(1).max(40).default("India 26")),
+});
+
+export function readSeedConfig() {
+  return seedConfig.parse(process.env);
+}
