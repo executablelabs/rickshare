@@ -4,7 +4,7 @@ Instructions for coding agents in this repository. Read this file fully before e
 
 ## What we are building
 
-Kitty is a shared trip fund for a group of friends. An AI agent finds activities and proposes purchases. Each person approves only their own share. A smart contract on Arc holds the money and is the only thing that can move it. Merchants are paid when the ticket is issued. Leftovers go back to whoever put them in.
+Rickshare is a shared trip fund for a group of friends. An AI agent finds activities and proposes purchases. Each person approves only their own share. A smart contract on Arc holds the money and is the only thing that can move it. Merchants are paid when the ticket is issued. Leftovers go back to whoever put them in.
 
 Core invariant, never break it: **a member's money moves only with that member's approval, or within limits that member set.** Any change that could weaken this must be called out under "Risk" in the PR.
 
