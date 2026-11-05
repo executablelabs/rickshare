@@ -8,11 +8,21 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   error?: string;
 }
 
-export function Field({ label, hint, error, className, ...inputProps }: FieldProps) {
+export function Field({
+  label,
+  hint,
+  error,
+  className,
+  "aria-describedby": extraDescribedBy,
+  "aria-invalid": ariaInvalid,
+  ...inputProps
+}: FieldProps) {
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
-  const describedBy = [hint && hintId, error && errorId].filter(Boolean).join(" ");
+  const describedBy = [hint && hintId, error && errorId, extraDescribedBy]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={cx("flex flex-col gap-1.5", className)}>
@@ -20,15 +30,16 @@ export function Field({ label, hint, error, className, ...inputProps }: FieldPro
         {label}
       </label>
       <input
+        {...inputProps}
         id={id}
-        aria-invalid={error ? true : undefined}
+        // A visible error always marks the input invalid, whatever the caller passes.
+        aria-invalid={error ? true : ariaInvalid}
         aria-describedby={describedBy || undefined}
         className={cx(
           "h-12 rounded-control bg-card px-4 text-base text-ink ring-1 ring-inset",
           "placeholder:text-ink-muted disabled:opacity-50",
           error ? "ring-declined" : "ring-rule",
         )}
-        {...inputProps}
       />
       {hint && (
         <p id={hintId} className="text-sm text-ink-muted">
