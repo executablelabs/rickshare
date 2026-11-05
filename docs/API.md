@@ -106,3 +106,29 @@ On restart, queued jobs resume even after the block cursor advanced. If a
 fulfillment receipt was lost, the worker checks the persisted ticket hash
 against the paid onchain proposal before retrying. Tickets stay unavailable
 until the chain confirms payment for that exact payload.
+
+## Proposal submission and tickets (A9)
+
+- GET `/merchants`: authenticated merchant catalog.
+- POST `/trips/:tripId/quotes`: authenticated trip-member proxy for a merchant
+  quote; body is merchantId, itemId, quantity and startsAt. The trip path supplies
+  the vault address.
+- GET `/trips/:tripId/proposals`: authenticated `{ proposals }` projection.
+- POST `/trips/:tripId/proposals`: `{ quote: SignedQuote, shares: [{ member,
+  amount }] }`, where amount is a decimal string of USDC base units. Returns
+  `{ proposalId, transactionHash, indexed }` after a successful chain receipt.
+  `indexed: false` means the financial transaction succeeded and projection
+  refresh is pending; it is not a failed purchase submission.
+- GET `/trips/:tripId/proposals/:proposalId/ticket`: authenticated Ticket for a
+  participant, only after fulfillment. The API verifies the exact raw ticket
+  payload hash, vault, proposal, holder set and URL protocol before returning it.
+
+The internal agent port is `ProposalService.submitProposal({ tripId, quote,
+shares })`, with bigint share amounts. It returns proposalId and transactionHash.
+The quote must retain all SignedQuote fields throughout the agent turn.
+
+Submission intent is durable and keyed by the canonical signed quote digest.
+Identical retries return the known receipt; ambiguous RPC failures never trigger
+another broadcast of that quote. Once the indexer sees its Proposed event, a
+retry can recover the actual proposal ID. A quote cannot be reused with different
+participants or amounts. All proposer transactions share a serialized queue.

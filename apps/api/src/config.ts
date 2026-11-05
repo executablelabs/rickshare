@@ -40,6 +40,7 @@ export const configSchema = z.object({
   ANTHROPIC_API_KEY: optionalText,
   TAVILY_API_KEY: optionalText,
   MERCHANTS_URL: z.preprocess(blankToUndefined, z.string().url().default("http://localhost:8790")),
+  MERCHANTS_API_SECRET: z.preprocess(blankToUndefined, z.string().min(32).optional()),
   SESSION_SECRET: z.preprocess(blankToUndefined, z.string().min(32).optional()),
   AUTH_NONCE_TTL_SECONDS: z.preprocess(
     blankToUndefined,

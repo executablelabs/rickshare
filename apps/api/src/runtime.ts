@@ -12,12 +12,17 @@ import { AuthService } from "./modules/auth/service";
 import { assertArcChain, createArcClient } from "./modules/chain/clients";
 import { IndexerService } from "./modules/indexer/service";
 import { createIndexSource } from "./modules/indexer/source";
+import { createProposalChain } from "./modules/proposals/chain";
+import { MerchantClient } from "./modules/proposals/merchants";
+import { ProposalService } from "./modules/proposals/service";
 
 export type RuntimeOptions = {
   db?: AppDatabase;
   auth?: AuthService;
   indexer?: IndexerService;
   world?: WorldApprovalService;
+  proposals?: ProposalService;
+  merchants?: MerchantClient;
 };
 
 export function createRuntime(options: RuntimeOptions = {}) {
@@ -25,6 +30,8 @@ export function createRuntime(options: RuntimeOptions = {}) {
   let auth = options.auth;
   let indexer = options.indexer;
   let world = options.world;
+  let proposals = options.proposals;
+  let merchants = options.merchants;
   const db = () => {
     database ??= createDatabase();
     return database;
@@ -100,6 +107,22 @@ export function createRuntime(options: RuntimeOptions = {}) {
         },
       );
       return world;
+    },
+    merchants: (): MerchantClient => {
+      merchants ??= new MerchantClient(config.MERCHANTS_URL, config.MERCHANTS_API_SECRET);
+      return merchants;
+    },
+    proposals: (): ProposalService => {
+      if (proposals) return proposals;
+      if (!config.AGENT_PRIVATE_KEY || !config.TRIP_FACTORY_ADDRESS)
+        throw new AppError("AGENT_NOT_CONFIGURED", "The purchase proposer is not configured.", 503);
+      proposals = new ProposalService(
+        db(),
+        createProposalChain(getAddress(config.TRIP_FACTORY_ADDRESS), config.AGENT_PRIVATE_KEY),
+        runtime.merchants(),
+        () => runtime.indexer().sync(),
+      );
+      return proposals;
     },
     close: () => {
       indexer?.stop();
