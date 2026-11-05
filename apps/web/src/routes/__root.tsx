@@ -1,13 +1,5 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createRootRoute({
-  component: Root,
+  component: Outlet,
 });
-
-function Root() {
-  return (
-    <main className="px-5 py-5">
-      <Outlet />
-    </main>
-  );
-}
