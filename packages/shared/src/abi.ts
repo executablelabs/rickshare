@@ -325,6 +325,16 @@ export const tripVaultAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      { name: 'id', internalType: 'uint256', type: 'uint256' },
+      { name: 'ticketHash', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'fulfill',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [{ name: 'member', internalType: 'address', type: 'address' }],
     name: 'getBalance',
     outputs: [
@@ -502,6 +512,13 @@ export const tripVaultAbi = [
   {
     type: 'function',
     inputs: [{ name: 'id', internalType: 'uint256', type: 'uint256' }],
+    name: 'refund',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'id', internalType: 'uint256', type: 'uint256' }],
     name: 'reject',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -513,6 +530,13 @@ export const tripVaultAbi = [
       { name: 'totalCap', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'setPolicy',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'settle',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -581,6 +605,13 @@ export const tripVaultAbi = [
     stateMutability: 'view',
   },
   {
+    type: 'function',
+    inputs: [{ name: 'amount', internalType: 'uint256', type: 'uint256' }],
+    name: 'withdraw',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
     type: 'event',
     anonymous: false,
     inputs: [
@@ -600,6 +631,25 @@ export const tripVaultAbi = [
     name: 'Deposited',
   },
   { type: 'event', anonymous: false, inputs: [], name: 'EIP712DomainChanged' },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'proposalId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'ticketHash',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: false,
+      },
+    ],
+    name: 'Fulfilled',
+  },
   {
     type: 'event',
     anonymous: false,
@@ -698,6 +748,19 @@ export const tripVaultAbi = [
         type: 'uint256',
         indexed: true,
       },
+    ],
+    name: 'Refunded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'proposalId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
       {
         name: 'member',
         internalType: 'address',
@@ -707,6 +770,7 @@ export const tripVaultAbi = [
     ],
     name: 'Rejected',
   },
+  { type: 'event', anonymous: false, inputs: [], name: 'Settled' },
   {
     type: 'event',
     anonymous: false,
@@ -732,8 +796,29 @@ export const tripVaultAbi = [
     ],
     name: 'ShareChanged',
   },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'member',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'amount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'Withdrawn',
+  },
   { type: 'error', inputs: [], name: 'AlreadyApproved' },
   { type: 'error', inputs: [], name: 'AlreadyMember' },
+  { type: 'error', inputs: [], name: 'AlreadySettled' },
+  { type: 'error', inputs: [], name: 'InsufficientBalance' },
   { type: 'error', inputs: [], name: 'InvalidAmount' },
   { type: 'error', inputs: [], name: 'InvalidAttestation' },
   { type: 'error', inputs: [], name: 'InvalidConfiguration' },
@@ -747,9 +832,11 @@ export const tripVaultAbi = [
   { type: 'error', inputs: [], name: 'NotMember' },
   { type: 'error', inputs: [], name: 'NotParticipant' },
   { type: 'error', inputs: [], name: 'OnlyAgent' },
+  { type: 'error', inputs: [], name: 'OnlyMerchant' },
   { type: 'error', inputs: [], name: 'ProposalExpired' },
   { type: 'error', inputs: [], name: 'QuoteAlreadyUsed' },
   { type: 'error', inputs: [], name: 'ReentrancyGuardReentrantCall' },
+  { type: 'error', inputs: [], name: 'RefundNotReady' },
   {
     type: 'error',
     inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
@@ -762,5 +849,6 @@ export const tripVaultAbi = [
   },
   { type: 'error', inputs: [], name: 'TransferMismatch' },
   { type: 'error', inputs: [], name: 'TripEnded' },
+  { type: 'error', inputs: [], name: 'TripNotEnded' },
   { type: 'error', inputs: [], name: 'UnknownProposal' },
 ] as const

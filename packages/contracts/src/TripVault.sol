@@ -115,6 +115,11 @@ contract TripVault is EIP712, ReentrancyGuard {
     error ProposalExpired();
     error InvalidAttestation();
     error AlreadyApproved();
+    error OnlyMerchant();
+    error RefundNotReady();
+    error InsufficientBalance();
+    error TripNotEnded();
+    error AlreadySettled();
 
     event MemberJoined(address indexed member);
     event Deposited(address indexed member, uint256 amount);
@@ -125,6 +130,10 @@ contract TripVault is EIP712, ReentrancyGuard {
     event ShareChanged(uint256 indexed proposalId, address indexed member, ShareState state);
     event Locked(uint256 indexed proposalId);
     event Rejected(uint256 indexed proposalId, address indexed member);
+    event Fulfilled(uint256 indexed proposalId, bytes32 ticketHash);
+    event Refunded(uint256 indexed proposalId);
+    event Withdrawn(address indexed member, uint256 amount);
+    event Settled();
 
     constructor(
         address token_,
@@ -340,6 +349,68 @@ contract TripVault is EIP712, ReentrancyGuard {
         shareState[id][msg.sender] = ShareState.Approved;
         emit ShareChanged(id, msg.sender, ShareState.Approved);
         _tryLock(id);
+    }
+
+    function fulfill(uint256 id, bytes32 ticketHash) external nonReentrant {
+        _requireProposal(id);
+        Proposal storage proposal = proposals[id];
+        if (proposal.status != ProposalStatus.Locked) revert InvalidProposalState();
+        if (msg.sender != proposal.merchant) revert OnlyMerchant();
+        if (block.timestamp >= proposal.deadline) revert ProposalExpired();
+        if (ticketHash == bytes32(0)) revert InvalidProposal();
+        proposal.status = ProposalStatus.Fulfilled;
+        proposal.ticketHash = ticketHash;
+        address[] storage participants = proposalMembers[id];
+        for (uint256 i; i < participants.length; ++i) {
+            address member = participants[i];
+            uint256 amount = shareAmount[id][member];
+            balances[member].locked -= amount;
+            balances[member].spent += amount;
+        }
+        totalLocked -= proposal.total;
+        token.safeTransfer(proposal.merchant, proposal.total);
+        emit Fulfilled(id, ticketHash);
+    }
+
+    function refund(uint256 id) external nonReentrant {
+        _requireProposal(id);
+        Proposal storage proposal = proposals[id];
+        if (proposal.status != ProposalStatus.Pending && proposal.status != ProposalStatus.Locked) {
+            revert InvalidProposalState();
+        }
+        if (block.timestamp < proposal.deadline) revert RefundNotReady();
+        if (proposal.status == ProposalStatus.Locked) {
+            address[] storage participants = proposalMembers[id];
+            for (uint256 i; i < participants.length; ++i) {
+                address member = participants[i];
+                uint256 amount = shareAmount[id][member];
+                balances[member].locked -= amount;
+                balances[member].available += amount;
+            }
+            totalLocked -= proposal.total;
+            totalAvailable += proposal.total;
+        }
+        proposal.status = ProposalStatus.Refunded;
+        emit Refunded(id);
+    }
+
+    function withdraw(uint256 amount) external nonReentrant {
+        _requireMember(msg.sender);
+        if (amount == 0) revert InvalidAmount();
+        if (amount > balances[msg.sender].available) revert InsufficientBalance();
+        balances[msg.sender].available -= amount;
+        balances[msg.sender].withdrawn += amount;
+        totalAvailable -= amount;
+        token.safeTransfer(msg.sender, amount);
+        emit Withdrawn(msg.sender, amount);
+    }
+
+    function settle() external {
+        if (block.timestamp < endsAt) revert TripNotEnded();
+        if (settled) revert AlreadySettled();
+        // Refund each expired proposal separately; pull withdrawals cannot be blocked by another recipient.
+        settled = true;
+        emit Settled();
     }
 
     function _canAutoApprove(address member, uint256 amount) internal view returns (bool) {
