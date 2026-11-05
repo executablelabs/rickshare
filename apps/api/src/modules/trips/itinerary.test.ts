@@ -46,6 +46,27 @@ test("never moves another trip's item into this trip", () => {
   expect(itinerary.list("other-trip")).toEqual([otherItem]);
 });
 
+test("never drops or duplicates an item that has tickets", () => {
+  const db = createDatabase(":memory:");
+  const itinerary = createItineraryStore(db);
+  const [ticketed] = itinerary.replace("india26", [ferry]);
+  if (!ticketed) throw new Error("expected the ferry to be saved");
+  db.update(itineraryItems)
+    .set({ ticketUrls: ["https://tickets.example/abc"] })
+    .run();
+
+  const withoutIt = itinerary.replace("india26", [{ ...ferry, title: "Dinner" }]);
+  expect(withoutIt.map((item) => item.id)).toContain(ticketed.id);
+
+  const twice = itinerary.replace("india26", [
+    { ...ferry, id: ticketed.id },
+    { ...ferry, id: ticketed.id, title: "Copy" },
+  ]);
+  const withTickets = twice.filter((item) => item.ticketUrls.length > 0);
+  expect(withTickets.map((item) => item.id)).toEqual([ticketed.id]);
+  expect(twice).toHaveLength(2);
+});
+
 test("an empty replace clears the trip", () => {
   const itinerary = createItineraryStore(createDatabase(":memory:"));
   itinerary.replace("india26", [ferry]);

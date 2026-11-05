@@ -40,8 +40,9 @@ export function createItineraryStore(db: AppDatabase) {
     list,
 
     /**
-     * Replaces a trip's itinerary. Ticket links of kept items survive, since they come from
-     * merchants, not from the drafts. Ids that do not belong to this trip become new items.
+     * Replaces a trip's itinerary with the drafts. Ticket links come from merchants, not from
+     * drafts: a kept item keeps its tickets, and an item with tickets is never dropped, because
+     * members paid for them. Ids that do not belong to this trip become new items.
      */
     replace(tripId: string, drafts: ItineraryDraft[]): ItineraryItem[] {
       db.transaction((tx) => {
@@ -55,21 +56,24 @@ export function createItineraryStore(db: AppDatabase) {
         );
         tx.delete(itineraryItems).where(eq(itineraryItems.tripId, tripId)).run();
 
-        const keptIds = new Set<string>();
-        const rows = drafts.map((draft) => {
+        const rows: ItineraryRow[] = [];
+        for (const draft of drafts) {
           const previous = draft.id ? existing.get(draft.id) : undefined;
-          const id = previous && !keptIds.has(previous.id) ? previous.id : Bun.randomUUIDv7();
-          keptIds.add(id);
-          return {
-            id,
+          // Each existing item is kept at most once, so its tickets never show up twice.
+          if (previous) existing.delete(previous.id);
+          rows.push({
+            id: previous?.id ?? Bun.randomUUIDv7(),
             tripId,
             startsAt: draft.startsAt,
             title: draft.title,
             location: draft.location,
             proposalId: draft.proposalId,
             ticketUrls: previous?.ticketUrls ?? [],
-          };
-        });
+          });
+        }
+        for (const leftOut of existing.values()) {
+          if (leftOut.ticketUrls.length > 0) rows.push(leftOut);
+        }
         if (rows.length > 0) tx.insert(itineraryItems).values(rows).run();
       });
       return list(tripId);
