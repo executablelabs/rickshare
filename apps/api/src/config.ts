@@ -49,6 +49,11 @@ export const configSchema = z.object({
     blankToUndefined,
     z.coerce.number().int().min(60).max(604800).default(28800),
   ),
+  ARC_START_BLOCK: z.preprocess(blankToUndefined, z.string().regex(/^\d+$/).default("0")),
+  INDEXER_POLL_INTERVAL_MS: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().int().min(500).max(60000).default(2000),
+  ),
 });
 
 export const config = configSchema.parse(process.env);
