@@ -11,6 +11,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.6.0",
     "@hono/zod-validator": "0.9.1",
     "@kitty/shared": "workspace:*",
     "drizzle-orm": "0.45.4",
