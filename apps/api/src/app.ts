@@ -7,6 +7,7 @@ import { createApprovalRoutes } from "./modules/approvals/routes";
 import { createAuthRoutes } from "./modules/auth/routes";
 import type { AuthEnv } from "./modules/auth/service";
 import { createIndexerRoutes } from "./modules/indexer/routes";
+import { createProposalRoutes } from "./modules/proposals/routes";
 import { createRuntime, type Runtime, type RuntimeOptions } from "./runtime";
 
 export function createApp(options: RuntimeOptions & { runtime?: Runtime } = {}) {
@@ -20,7 +21,11 @@ export function createApp(options: RuntimeOptions & { runtime?: Runtime } = {}) 
     .get("/health", (context) => context.json({ status: "ok" } as const))
     .route("/auth", createAuthRoutes(runtime.auth))
     .route("/", createIndexerRoutes(runtime.auth, runtime.indexer))
-    .route("/", createApprovalRoutes(runtime.auth, runtime.world));
+    .route("/", createApprovalRoutes(runtime.auth, runtime.world))
+    .route(
+      "/",
+      createProposalRoutes(runtime.auth, runtime.indexer, runtime.proposals, runtime.merchants),
+    );
 }
 
 export const app = createApp();

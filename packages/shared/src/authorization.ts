@@ -10,9 +10,13 @@ export const SignedQuote = Quote.extend({
   vaultAddress: Address,
   chainId: z.number().int().positive(),
   quantity: z.number().int().min(1).max(32),
+  unitPrice: z.string().regex(/^\d{1,78}$/),
+  total: z.string().regex(/^\d{1,78}$/),
   quoteHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
-  signature: HexSchema.refine((value) => value.length >= 130 && value.length <= 8194),
-});
+  signature: HexSchema.refine(
+    (value) => value.length >= 130 && value.length <= 8194 && value.length % 2 === 0,
+  ),
+}).strict();
 export type SignedQuote = z.infer<typeof SignedQuote>;
 export type QuoteTerms = Omit<SignedQuote, "quoteHash" | "signature">;
 
