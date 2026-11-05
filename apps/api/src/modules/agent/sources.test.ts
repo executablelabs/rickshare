@@ -62,3 +62,11 @@ test("catalog validates merchant prices as USDC base units", async () => {
     createMerchantCatalog("http://m.test", stubFetch(200, badPrice))(),
   ).rejects.toThrow();
 });
+
+test("catalog keeps a path prefix in the merchants url", async () => {
+  for (const base of ["https://host.test/merchants", "https://host.test/merchants/"]) {
+    const calls: Request[] = [];
+    await createMerchantCatalog(base, stubFetch(200, [], calls))();
+    expect(calls[0]?.url).toBe("https://host.test/merchants/catalog");
+  }
+});

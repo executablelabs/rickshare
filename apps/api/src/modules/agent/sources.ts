@@ -24,8 +24,13 @@ export function createTavilySearch(apiKey: string, fetchImpl: typeof fetch = fet
 }
 
 export function createMerchantCatalog(merchantsUrl: string, fetchImpl: typeof fetch = fetch) {
+  // Relative to the configured URL, so a path prefix such as /merchants is kept.
+  const catalogUrl = new URL(
+    "catalog",
+    merchantsUrl.endsWith("/") ? merchantsUrl : `${merchantsUrl}/`,
+  );
   return async function listMerchants(): Promise<CatalogMerchant[]> {
-    const response = await fetchImpl(new URL("/catalog", merchantsUrl), {
+    const response = await fetchImpl(catalogUrl, {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
