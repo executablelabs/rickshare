@@ -101,3 +101,12 @@ export const worldFlows = sqliteTable(
   },
   (table) => [index("world_flows_expiry").on(table.expiresAt)],
 );
+
+export const proposalSubmissions = sqliteTable("proposal_submissions", {
+  quoteHash: text("quote_hash").primaryKey(),
+  vault: text("vault").notNull(),
+  intent: text("intent").notNull(),
+  status: text("status").notNull(),
+  transactionHash: text("transaction_hash"),
+  proposalId: text("proposal_id"),
+});

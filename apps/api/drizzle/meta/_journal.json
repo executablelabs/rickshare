@@ -22,6 +22,13 @@
       "when": 1793915689811,
       "tag": "0002_world_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793917997619,
+      "tag": "0003_proposal_submissions",
+      "breakpoints": true
     }
   ]
 }
