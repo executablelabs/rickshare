@@ -1,13 +1,19 @@
 import { USDC_DECIMALS } from "@kitty/shared";
 
-const baseUnitsPerCent = 10n ** BigInt(USDC_DECIMALS - 2);
+const scale = 10n ** BigInt(USDC_DECIMALS);
 
-/** Formats USDC base units as dollars, rounding half up to the cent without floating point. */
+/**
+ * Formats USDC base units as dollars without floating point. Shows cents, plus any sub-cent
+ * digits, and never rounds: a member must see exactly the amount they approve.
+ */
 export function formatUsd(baseUnits: bigint): string {
   const sign = baseUnits < 0n ? "-" : "";
   const magnitude = baseUnits < 0n ? -baseUnits : baseUnits;
-  const totalCents = (magnitude + baseUnitsPerCent / 2n) / baseUnitsPerCent;
-  const dollars = (totalCents / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const cents = (totalCents % 100n).toString().padStart(2, "0");
-  return `${sign}$${dollars}.${cents}`;
+  const dollars = (magnitude / scale).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const fraction = (magnitude % scale)
+    .toString()
+    .padStart(USDC_DECIMALS, "0")
+    .replace(/0+$/, "")
+    .padEnd(2, "0");
+  return `${sign}$${dollars}.${fraction}`;
 }

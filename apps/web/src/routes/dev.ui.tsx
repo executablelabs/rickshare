@@ -62,7 +62,7 @@ function UiGallery() {
           <Amount value={42_000_000n} />
           <Amount value={84_000_000n} display className="text-3xl" />
           <span className="text-sm text-ink-muted">
-            Your share <Amount value={1_234_567_891n} />
+            Your share <Amount value={28_333_333n} />
           </span>
         </p>
       </Section>
