@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { type QuoteTerms, quoteTypedData, type SignedQuote } from "@kitty/shared";
+import { type QuoteTerms, quoteTypedData, type SignedQuote } from "@rickshare/shared";
 import { getAddress, type Hex, hashTypedData, keccak256, stringToHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { type AppDatabase, createDatabase } from "../../db/client";

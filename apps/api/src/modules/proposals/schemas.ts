@@ -1,4 +1,4 @@
-import { Address, SignedQuote } from "@kitty/shared";
+import { Address, SignedQuote } from "@rickshare/shared";
 import { getAddress } from "viem";
 import { z } from "zod";
 

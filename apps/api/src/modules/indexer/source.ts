@@ -1,5 +1,5 @@
-import { arcTestnet, Member, Proposal } from "@kitty/shared";
-import { tripFactoryAbi, tripVaultAbi } from "@kitty/shared/abi";
+import { arcTestnet, Member, Proposal } from "@rickshare/shared";
+import { tripFactoryAbi, tripVaultAbi } from "@rickshare/shared/abi";
 import { type Address, getAddress } from "viem";
 import { AppError } from "../../lib/errors";
 import { assertArcChain, createArcClient } from "../chain/clients";

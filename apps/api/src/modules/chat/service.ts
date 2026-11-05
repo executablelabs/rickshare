@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@kitty/shared";
+import type { ChatMessage } from "@rickshare/shared";
 import { and, desc, eq } from "drizzle-orm";
 import type { AppDatabase } from "../../db/client";
 import { chatMessages } from "../../db/schema";

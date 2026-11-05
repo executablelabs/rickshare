@@ -1,7 +1,7 @@
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
-import { ARC_USDC, arcTestnet } from "@kitty/shared";
-import { erc20Abi, tripFactoryAbi, tripVaultAbi } from "@kitty/shared/abi";
+import { ARC_USDC, arcTestnet } from "@rickshare/shared";
+import { erc20Abi, tripFactoryAbi, tripVaultAbi } from "@rickshare/shared/abi";
 import {
   createPublicClient,
   createTestClient,

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { approvalTypedData } from "@kitty/shared";
+import { approvalTypedData } from "@rickshare/shared";
 import { and, eq, gt, lte } from "drizzle-orm";
 import { type Address, getAddress, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";

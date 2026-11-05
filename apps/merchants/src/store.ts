@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { SignedQuote } from "@kitty/shared";
+import { SignedQuote } from "@rickshare/shared";
 import { getAddress } from "viem";
 
 export type DeliveryJob = {

@@ -1,4 +1,4 @@
-import type { Member, Proposal, TripEvent } from "@kitty/shared";
+import type { Member, Proposal, TripEvent } from "@rickshare/shared";
 import type { Address, Hex } from "viem";
 
 export type ChainEvent = {

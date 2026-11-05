@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { approvalTypedData } from "@kitty/shared";
+import { approvalTypedData } from "@rickshare/shared";
 import { getAddress, verifyMessage, verifyTypedData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";

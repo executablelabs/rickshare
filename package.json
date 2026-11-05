@@ -1,5 +1,5 @@
 {
-  "name": "kitty",
+  "name": "rickshare",
   "private": true,
   "packageManager": "bun@1.4.4",
   "workspaces": [
@@ -12,7 +12,7 @@
     "fmt": "biome format --write .",
     "typecheck": "bun --filter './packages/*' --filter './apps/*' typecheck && tsc -p tsconfig.scripts.json",
     "test": "bun --filter './packages/*' --filter './apps/*' test",
-    "abi": "bun --filter @kitty/shared abi",
+    "abi": "bun --filter @rickshare/shared abi",
     "check": "bun run lint && bun run typecheck && bun run test",
     "contracts:deploy": "bun --env-file packages/contracts/.env scripts/deploy.ts",
     "demo:prepare": "bun run scripts/prepare.ts",
@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.5",
-    "@kitty/shared": "workspace:*",
+    "@rickshare/shared": "workspace:*",
     "@types/bun": "1.4.4",
     "typescript": "5.9.3",
     "viem": "2.57.16",

@@ -1,5 +1,5 @@
 // Test-only fixtures for the agent module; nothing in src imports this outside *.test.ts.
-import type { Member, SignedQuote, Trip } from "@kitty/shared";
+import type { Member, SignedQuote, Trip } from "@rickshare/shared";
 import type { ItineraryDraft } from "../trips/itinerary";
 import type { AgentPorts } from "./tools";
 

@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { type ItineraryItem, SignedQuote, Trip } from "@kitty/shared";
+import { type ItineraryItem, SignedQuote, Trip } from "@rickshare/shared";
 import { z } from "zod";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";

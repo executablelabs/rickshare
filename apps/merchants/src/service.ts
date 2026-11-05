@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { type QuoteTerms, quoteTypedData, SignedQuote, Ticket } from "@kitty/shared";
+import { type QuoteTerms, quoteTypedData, SignedQuote, Ticket } from "@rickshare/shared";
 import { getAddress, hashTypedData, keccak256, stringToHex } from "viem";
 import type { PrivateKeyAccount } from "viem/accounts";
 import catalogData from "./catalog.json";

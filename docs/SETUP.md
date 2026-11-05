@@ -1,6 +1,6 @@
 # S0 development setup
 
-Rickshare uses the `kitty` workspace name and `@kitty/*` package names specified in
+Rickshare uses the `rickshare` workspace name and `@rickshare/*` package names specified in
 SCAFFOLD.md. This scaffold supplies infrastructure and shared v0 interfaces; the
 trip, wallet, agent and payment features are subsequent WORKPLAN tasks.
 
@@ -48,7 +48,7 @@ addresses. A10 supplies actual signing identities and quote/delivery behavior.
 - `bun run dev`: runs only the three app workspaces in parallel; root scripts
   cannot recurse. Parallel mode prevents the web's type-only API dependency from
   waiting for the long-running API process to exit.
-- `bun run --filter @kitty/web build`: typecheck and production web build.
+- `bun run --filter @rickshare/web build`: typecheck and production web build.
 - `bun run abi`: Foundry build and ABI generation into `packages/shared/src/abi.ts`.
 
 Route-tree and ABI files are generated; regenerate them through the Vite router
