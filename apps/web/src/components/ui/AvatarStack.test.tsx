@@ -14,6 +14,11 @@ test("names everyone in the accessible label, including hidden members", () => {
   expect(screen.getByText("+1")).toBeInTheDocument();
 });
 
+test.each([0, -1])("always shows at least one avatar when max is %i", (max) => {
+  render(<AvatarStack members={members} max={max} />);
+  expect(screen.getByText("+3")).toBeInTheDocument();
+});
+
 test("shows no overflow count when everyone fits", () => {
   render(<AvatarStack members={members.slice(0, 2)} />);
   expect(screen.queryByText(/^\+/)).not.toBeInTheDocument();

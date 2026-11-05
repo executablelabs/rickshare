@@ -12,7 +12,7 @@ export function listNames(names: string[]): string {
 }
 
 export function AvatarStack({ members, max = 3 }: AvatarStackProps) {
-  const visible = members.slice(0, max);
+  const visible = members.slice(0, Math.max(1, max));
   const hiddenCount = members.length - visible.length;
 
   return (
