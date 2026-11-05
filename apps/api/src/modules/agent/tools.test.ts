@@ -231,7 +231,7 @@ describe("other tools", () => {
 
   test("passes itinerary drafts through and rejects unknown tools", async () => {
     const fake = createFakePorts();
-    const run = createToolRun(TRIP.id, fake.ports, () => NOW);
+    const run = createToolRun(TRIP.id, fake.ports, () => NOW, ["1"]);
     const item = {
       id: null,
       startsAt: "2026-12-14T10:00:00.000Z",
@@ -245,5 +245,21 @@ describe("other tools", () => {
     });
     expect(fake.itineraries).toEqual([[item]]);
     expect((await run.execute("send_funds", {})).isError).toBe(true);
+  });
+
+  test("links itinerary items only to proposals of this trip", async () => {
+    const fake = createFakePorts();
+    const run = createToolRun(TRIP.id, fake.ports, () => NOW, ["1"]);
+    const item = {
+      id: null,
+      startsAt: "2026-12-14T10:00:00.000Z",
+      title: "Paragliding",
+      location: "Arambol",
+      proposalId: "other-trip-9",
+    };
+    const result = await run.execute("update_itinerary", { items: [item] });
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("other-trip-9 is not a proposal of this trip");
+    expect(fake.itineraries).toEqual([]);
   });
 });

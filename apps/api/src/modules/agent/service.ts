@@ -90,7 +90,7 @@ export function createAgentService({
 
   async function plan(tripId: string, history: ChatMessage[]) {
     const messages = toModelMessages(history);
-    const tools = createToolRun(tripId, ports, now);
+    const tools = createToolRun(tripId, ports, now, chat.agentProposalIds(tripId));
     const finish = (text: string) => ({ text, proposalIds: [...tools.proposalIds] });
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {

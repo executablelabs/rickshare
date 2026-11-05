@@ -1,5 +1,5 @@
 import type { ChatMessage } from "@kitty/shared";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { AppDatabase } from "../../db/client";
 import { chatMessages } from "../../db/schema";
 
@@ -28,6 +28,16 @@ export function createChatStore(db: AppDatabase, now: () => Date = () => new Dat
         .returning()
         .get();
       return toChatMessage(row);
+    },
+
+    /** Every proposal id the agent has announced in this trip's chat. */
+    agentProposalIds(tripId: string): string[] {
+      return db
+        .select({ proposalIds: chatMessages.proposalIds })
+        .from(chatMessages)
+        .where(and(eq(chatMessages.tripId, tripId), eq(chatMessages.role, "agent")))
+        .all()
+        .flatMap((row) => row.proposalIds);
     },
 
     /** The latest `limit` messages of a trip, oldest first. */

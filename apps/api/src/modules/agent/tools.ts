@@ -156,8 +156,16 @@ function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   return parsed.data;
 }
 
-/** Runs tools for one agent turn. Quotes are only usable within the turn that fetched them. */
-export function createToolRun(tripId: string, ports: AgentPorts, now: () => Date) {
+/**
+ * Runs tools for one agent turn. Quotes are only usable within the turn that fetched them.
+ * `knownProposalIds` are the proposals the agent made on this trip in earlier turns.
+ */
+export function createToolRun(
+  tripId: string,
+  ports: AgentPorts,
+  now: () => Date,
+  knownProposalIds: readonly string[] = [],
+) {
   const quotes = new Map<string, Quote>();
   const proposalIds: string[] = [];
 
@@ -250,6 +258,15 @@ export function createToolRun(tripId: string, ports: AgentPorts, now: () => Date
         return proposePurchase(input);
       case "update_itinerary": {
         const { items } = parseInput(UpdateItineraryInput, input);
+        const tripProposals = new Set([...knownProposalIds, ...proposalIds]);
+        const unknown = items.find(
+          (item) => item.proposalId && !tripProposals.has(item.proposalId),
+        );
+        if (unknown) {
+          throw new ToolRejection(
+            `${unknown.proposalId} is not a proposal of this trip. Use a proposalId from propose_purchase, or null.`,
+          );
+        }
         const saved = ports.replaceItinerary(tripId, items);
         return JSON.stringify({ itineraryItems: saved.length });
       }

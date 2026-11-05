@@ -22,6 +22,21 @@ test("lists the most recent messages of one trip, oldest first", () => {
   expect(chat.listRecent("india26", 2).map((message) => message.text)).toEqual(["two", "three"]);
 });
 
+test("collects the proposal ids the agent announced in one trip", () => {
+  const chat = createChatStore(createDatabase(":memory:"));
+  chat.append({ tripId: "india26", role: "agent", author: null, text: "a", proposalIds: ["1"] });
+  chat.append({ tripId: "india26", role: "member", author: member, text: "b", proposalIds: ["x"] });
+  chat.append({
+    tripId: "india26",
+    role: "agent",
+    author: null,
+    text: "c",
+    proposalIds: ["2", "3"],
+  });
+  chat.append({ tripId: "other", role: "agent", author: null, text: "d", proposalIds: ["9"] });
+  expect(chat.agentProposalIds("india26")).toEqual(["1", "2", "3"]);
+});
+
 test("returns stored messages in the shared ChatMessage shape", () => {
   const chat = createChatStore(createDatabase(":memory:"));
   const saved = chat.append({
