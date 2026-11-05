@@ -201,6 +201,13 @@ export const tripVaultAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'QUOTE_TYPEHASH',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'agent',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
@@ -283,6 +290,50 @@ export const tripVaultAbi = [
   },
   {
     type: 'function',
+    inputs: [{ name: 'id', internalType: 'uint256', type: 'uint256' }],
+    name: 'getProposal',
+    outputs: [
+      {
+        name: '',
+        internalType: 'struct TripVault.Proposal',
+        type: 'tuple',
+        components: [
+          { name: 'merchant', internalType: 'address', type: 'address' },
+          { name: 'total', internalType: 'uint256', type: 'uint256' },
+          { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+          { name: 'quoteExpiresAt', internalType: 'uint256', type: 'uint256' },
+          { name: 'startsAt', internalType: 'uint256', type: 'uint256' },
+          { name: 'quoteHash', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'ticketHash', internalType: 'bytes32', type: 'bytes32' },
+          {
+            name: 'status',
+            internalType: 'enum TripVault.ProposalStatus',
+            type: 'uint8',
+          },
+          { name: 'title', internalType: 'string', type: 'string' },
+          { name: 'location', internalType: 'string', type: 'string' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'id', internalType: 'uint256', type: 'uint256' }],
+    name: 'getShares',
+    outputs: [
+      { name: 'participants', internalType: 'address[]', type: 'address[]' },
+      { name: 'amounts', internalType: 'uint256[]', type: 'uint256[]' },
+      {
+        name: 'states',
+        internalType: 'enum TripVault.ShareState[]',
+        type: 'uint8[]',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'member', internalType: 'address', type: 'address' },
       { name: 'deadline', internalType: 'uint256', type: 'uint256' },
@@ -310,6 +361,13 @@ export const tripVaultAbi = [
   },
   {
     type: 'function',
+    inputs: [{ name: 'id', internalType: 'uint256', type: 'uint256' }],
+    name: 'lock',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [],
     name: 'members',
     outputs: [{ name: '', internalType: 'address[]', type: 'address[]' }],
@@ -327,6 +385,74 @@ export const tripVaultAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'proposalCount',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'quote',
+        internalType: 'struct TripVault.Quote',
+        type: 'tuple',
+        components: [
+          { name: 'quoteId', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'itemId', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'merchant', internalType: 'address', type: 'address' },
+          { name: 'title', internalType: 'string', type: 'string' },
+          { name: 'location', internalType: 'string', type: 'string' },
+          { name: 'unitPrice', internalType: 'uint256', type: 'uint256' },
+          { name: 'quantity', internalType: 'uint256', type: 'uint256' },
+          { name: 'total', internalType: 'uint256', type: 'uint256' },
+          { name: 'startsAt', internalType: 'uint256', type: 'uint256' },
+          { name: 'expiresAt', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+      { name: 'participants', internalType: 'address[]', type: 'address[]' },
+      { name: 'amounts', internalType: 'uint256[]', type: 'uint256[]' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'merchantSignature', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'propose',
+    outputs: [{ name: 'id', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'quote',
+        internalType: 'struct TripVault.Quote',
+        type: 'tuple',
+        components: [
+          { name: 'quoteId', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'itemId', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'merchant', internalType: 'address', type: 'address' },
+          { name: 'title', internalType: 'string', type: 'string' },
+          { name: 'location', internalType: 'string', type: 'string' },
+          { name: 'unitPrice', internalType: 'uint256', type: 'uint256' },
+          { name: 'quantity', internalType: 'uint256', type: 'uint256' },
+          { name: 'total', internalType: 'uint256', type: 'uint256' },
+          { name: 'startsAt', internalType: 'uint256', type: 'uint256' },
+          { name: 'expiresAt', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+    ],
+    name: 'quoteDigest',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'id', internalType: 'uint256', type: 'uint256' }],
+    name: 'reject',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'autoApproveMax', internalType: 'uint256', type: 'uint256' },
       { name: 'totalCap', internalType: 'uint256', type: 'uint256' },
@@ -340,6 +466,28 @@ export const tripVaultAbi = [
     inputs: [],
     name: 'settled',
     outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'address', type: 'address' },
+    ],
+    name: 'shareAmount',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'address', type: 'address' },
+    ],
+    name: 'shareState',
+    outputs: [
+      { name: '', internalType: 'enum TripVault.ShareState', type: 'uint8' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -361,6 +509,13 @@ export const tripVaultAbi = [
     inputs: [],
     name: 'totalLocked',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    name: 'usedQuotes',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
     stateMutability: 'view',
   },
   {
@@ -390,6 +545,19 @@ export const tripVaultAbi = [
     name: 'Deposited',
   },
   { type: 'event', anonymous: false, inputs: [], name: 'EIP712DomainChanged' },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'proposalId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'Locked',
+  },
   {
     type: 'event',
     anonymous: false,
@@ -428,14 +596,102 @@ export const tripVaultAbi = [
     ],
     name: 'PolicySet',
   },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'proposalId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'merchant',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'quoteHash',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: false,
+      },
+      {
+        name: 'total',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'deadline',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'Proposed',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'proposalId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'member',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'Rejected',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'proposalId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'member',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'state',
+        internalType: 'enum TripVault.ShareState',
+        type: 'uint8',
+        indexed: false,
+      },
+    ],
+    name: 'ShareChanged',
+  },
   { type: 'error', inputs: [], name: 'AlreadyMember' },
   { type: 'error', inputs: [], name: 'InvalidAmount' },
   { type: 'error', inputs: [], name: 'InvalidConfiguration' },
   { type: 'error', inputs: [], name: 'InvalidInvite' },
+  { type: 'error', inputs: [], name: 'InvalidMerchantQuote' },
   { type: 'error', inputs: [], name: 'InvalidPolicy' },
+  { type: 'error', inputs: [], name: 'InvalidProposal' },
+  { type: 'error', inputs: [], name: 'InvalidProposalState' },
   { type: 'error', inputs: [], name: 'InvalidShortString' },
   { type: 'error', inputs: [], name: 'MemberLimit' },
   { type: 'error', inputs: [], name: 'NotMember' },
+  { type: 'error', inputs: [], name: 'NotParticipant' },
+  { type: 'error', inputs: [], name: 'OnlyAgent' },
+  { type: 'error', inputs: [], name: 'ProposalExpired' },
+  { type: 'error', inputs: [], name: 'QuoteAlreadyUsed' },
   { type: 'error', inputs: [], name: 'ReentrancyGuardReentrantCall' },
   {
     type: 'error',
@@ -449,4 +705,5 @@ export const tripVaultAbi = [
   },
   { type: 'error', inputs: [], name: 'TransferMismatch' },
   { type: 'error', inputs: [], name: 'TripEnded' },
+  { type: 'error', inputs: [], name: 'UnknownProposal' },
 ] as const
