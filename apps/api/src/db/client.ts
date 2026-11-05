@@ -9,7 +9,14 @@ export function createDatabase(path = config.DATABASE_PATH) {
   const sqlite = new Database(path, { create: true });
   sqlite.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   const database = drizzle(sqlite, { schema });
-  migrate(database, { migrationsFolder: fileURLToPath(new URL("../../drizzle", import.meta.url)) });
+  try {
+    migrate(database, {
+      migrationsFolder: fileURLToPath(new URL("../../drizzle", import.meta.url)),
+    });
+  } catch (error) {
+    sqlite.close();
+    throw error;
+  }
   return database;
 }
 
