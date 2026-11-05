@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
+import { AppError } from "../../lib/errors";
 import {
   ALLOWLISTED_MERCHANT,
   ANGIE,
@@ -207,6 +208,25 @@ describe("other tools", () => {
       content: "search_activities is unavailable right now.",
       isError: true,
     });
+  });
+
+  test("logs a stable cause code without the raw error text", async () => {
+    const stderr = spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const fake = createFakePorts({
+        searchActivities: async () => {
+          throw new AppError("SEARCH_FAILED", "key tvly-secret rejected", 502);
+        },
+      });
+      await createToolRun(TRIP.id, fake.ports, () => NOW).execute("search_activities", {
+        query: "goa",
+      });
+      const logged = stderr.mock.calls.map(([line]) => String(line)).join("");
+      expect(logged).toContain('"code":"AGENT_TOOL_FAILED.SEARCH_FAILED"');
+      expect(logged).not.toContain("tvly-secret");
+    } finally {
+      stderr.mockRestore();
+    }
   });
 
   test("passes itinerary drafts through and rejects unknown tools", async () => {

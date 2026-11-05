@@ -265,8 +265,8 @@ export function createToolRun(tripId: string, ports: AgentPorts, now: () => Date
         return { content: await run(name, input), isError: false };
       } catch (error) {
         if (error instanceof ToolRejection) return { content: error.message, isError: true };
-        // Service and validation failures stay out of the model's context; the code is logged.
-        logger.error("AGENT_TOOL_FAILED");
+        // Failure details stay out of the model's context; a stable cause code is logged.
+        logger.error(failureCode("AGENT_TOOL_FAILED", error));
         return { content: `${name} is unavailable right now.`, isError: true };
       }
     },

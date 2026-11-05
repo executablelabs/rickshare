@@ -77,7 +77,7 @@ export function createAgentService({
       });
     } catch (error) {
       if (error instanceof Anthropic.APIError) {
-        logger.error("AGENT_MODEL_FAILED");
+        logger.error(`AGENT_MODEL_FAILED.${error.status ?? "CONNECTION"}`);
         throw new AppError(
           "AGENT_UNAVAILABLE",
           "The trip agent is unavailable right now. Try again in a moment.",
