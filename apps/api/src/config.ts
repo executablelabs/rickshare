@@ -15,7 +15,7 @@ const optionalPrivateKey = z.preprocess(
 
 export const configSchema = z.object({
   PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65535).default(8787)),
-  DATABASE_PATH: z.preprocess(blankToUndefined, z.string().min(1).default("kitty.sqlite")),
+  DATABASE_PATH: z.preprocess(blankToUndefined, z.string().min(1).default("rickshare.sqlite")),
   WEB_ORIGIN: z.preprocess(blankToUndefined, z.string().url().default("http://localhost:5173")),
   ARC_RPC_URL: optionalUrl,
   ARC_WS_URL: optionalUrl,
