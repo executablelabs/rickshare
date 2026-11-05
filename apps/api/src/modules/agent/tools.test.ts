@@ -48,6 +48,19 @@ describe("propose_purchase", () => {
     expect(run.proposalIds).toEqual(["1"]);
   });
 
+  test("submits the trip's own member address, whatever casing the model used", async () => {
+    const fake = createFakePorts();
+    const run = await runWithQuote(fake.ports);
+    await run.execute("propose_purchase", {
+      quoteId: "q-paragliding",
+      shares: [
+        { member: ANGIE.replace("a1", "A1"), amount: "42000000" },
+        { member: GITAU.replace("c3", "C3"), amount: "42000000" },
+      ],
+    });
+    expect(fake.submitted[0]?.shares.map((share) => share.member)).toEqual([ANGIE, GITAU]);
+  });
+
   test("rejects a payee or any other extra field instead of ignoring it", async () => {
     const fake = createFakePorts();
     const run = await runWithQuote(fake.ports);

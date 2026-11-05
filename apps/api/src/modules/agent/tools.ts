@@ -19,7 +19,10 @@ import { wrapUntrusted } from "./untrusted";
 export interface AgentPorts {
   searchActivities(query: string): Promise<SearchResult[]>;
   listMerchants(): Promise<CatalogMerchant[]>;
-  /** A signed quote from an allowlisted merchant (A10). */
+  /**
+   * A signed quote (A10). Implementations must return only quotes whose `merchant` is the
+   * allowlisted address of `merchantId`; A9 and the vault check the allowlist again.
+   */
   getQuote(request: z.infer<typeof GetQuoteInput>): Promise<Quote>;
   getTripState(tripId: string): Promise<Trip>;
   /** Verifies the quote and submits it with the proposer key (A9). */
@@ -169,18 +172,22 @@ export function createToolRun(tripId: string, ports: AgentPorts, now: () => Date
     }
 
     const trip = Trip.parse(await ports.getTripState(tripId));
-    const memberAddresses = new Set(trip.members.map((member) => member.address.toLowerCase()));
-    const seen = new Set<string>();
+    // Shares are matched case-insensitively but submitted with the trip's own address, so the
+    // model's casing never reaches the chain.
+    const membersByAddress = new Map(
+      trip.members.map((member) => [member.address.toLowerCase(), member.address]),
+    );
+    const resolvedShares: Array<{ member: string; amount: bigint }> = [];
     let sum = 0n;
     for (const share of shares) {
-      const address = share.member.toLowerCase();
-      if (!memberAddresses.has(address)) {
-        throw new ToolRejection(`${share.member} is not a member of this trip.`);
+      const member = membersByAddress.get(share.member.toLowerCase());
+      if (!member) throw new ToolRejection(`${share.member} is not a member of this trip.`);
+      if (resolvedShares.some((resolved) => resolved.member === member)) {
+        throw new ToolRejection(`${share.member} has more than one share.`);
       }
-      if (seen.has(address)) throw new ToolRejection(`${share.member} has more than one share.`);
-      seen.add(address);
       const amount = BigInt(share.amount);
       if (amount === 0n) throw new ToolRejection("Every share must be more than zero.");
+      resolvedShares.push({ member, amount });
       sum += amount;
     }
     if (sum !== BigInt(quote.total)) {
@@ -196,11 +203,7 @@ export function createToolRun(tripId: string, ports: AgentPorts, now: () => Date
     try {
       // The quote goes through untouched: its merchant is the payee, and nothing the model
       // wrote can replace it.
-      ({ proposalId } = await ports.submitProposal({
-        tripId,
-        quote,
-        shares: shares.map((share) => ({ member: share.member, amount: BigInt(share.amount) })),
-      }));
+      ({ proposalId } = await ports.submitProposal({ tripId, quote, shares: resolvedShares }));
     } catch (error) {
       logger.error(failureCode("AGENT_PROPOSAL_UNCONFIRMED", error));
       throw new ToolRejection(
