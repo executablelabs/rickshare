@@ -17,6 +17,9 @@ contract TripVault is EIP712, ReentrancyGuard {
     bytes32 public constant QUOTE_TYPEHASH = keccak256(
         "Quote(bytes32 quoteId,bytes32 itemId,address merchant,string title,string location,uint256 unitPrice,uint256 quantity,uint256 total,uint256 startsAt,uint256 expiresAt)"
     );
+    uint256 public constant MAX_APPROVAL_TTL = 15 minutes;
+    bytes32 public constant APPROVAL_TYPEHASH =
+        keccak256("Approval(uint256 proposalId,address member,uint256 amount,uint256 nonce,uint256 deadline)");
 
     enum ProposalStatus {
         Pending,
@@ -90,6 +93,8 @@ contract TripVault is EIP712, ReentrancyGuard {
     mapping(uint256 => mapping(address => uint256)) public shareAmount;
     mapping(uint256 => mapping(address => ShareState)) public shareState;
     mapping(bytes32 => bool) public usedQuotes;
+    mapping(address => uint256) public approvalNonces;
+    mapping(uint256 => mapping(address => uint256)) public approvalExpiresAt;
 
     error InvalidConfiguration();
     error TripEnded();
@@ -108,6 +113,8 @@ contract TripVault is EIP712, ReentrancyGuard {
     error InvalidProposalState();
     error NotParticipant();
     error ProposalExpired();
+    error InvalidAttestation();
+    error AlreadyApproved();
 
     event MemberJoined(address indexed member);
     event Deposited(address indexed member, uint256 amount);
@@ -284,6 +291,11 @@ contract TripVault is EIP712, ReentrancyGuard {
             address member = participants[i];
             amounts[i] = shareAmount[id][member];
             states[i] = shareState[id][member];
+            if (proposals[id].status == ProposalStatus.Pending) {
+                states[i] = _manualApprovalValid(id, member)
+                    ? ShareState.Approved
+                    : _canAutoApprove(member, amounts[i]) ? ShareState.Auto : ShareState.Waiting;
+            }
         }
     }
 
@@ -301,6 +313,33 @@ contract TripVault is EIP712, ReentrancyGuard {
         proposals[id].status = ProposalStatus.Rejected;
         emit ShareChanged(id, msg.sender, ShareState.Rejected);
         emit Rejected(id, msg.sender);
+    }
+
+    function approvalDigest(uint256 id, address member, uint256 nonce, uint256 deadline) public view returns (bytes32) {
+        _requireProposal(id);
+        return _hashTypedDataV4(
+            keccak256(abi.encode(APPROVAL_TYPEHASH, id, member, shareAmount[id][member], nonce, deadline))
+        );
+    }
+
+    function approve(uint256 id, uint256 nonce, uint256 deadline, bytes calldata attestation) external nonReentrant {
+        _requireActive();
+        _requirePending(id);
+        _requireUnexpired(id);
+        if (shareAmount[id][msg.sender] == 0) revert NotParticipant();
+        if (_manualApprovalValid(id, msg.sender)) revert AlreadyApproved();
+        if (
+            nonce != approvalNonces[msg.sender] || deadline <= block.timestamp
+                || deadline > block.timestamp + MAX_APPROVAL_TTL || deadline > proposals[id].deadline
+                || !SignatureChecker.isValidSignatureNow(
+                    verifier, approvalDigest(id, msg.sender, nonce, deadline), attestation
+                )
+        ) revert InvalidAttestation();
+        approvalNonces[msg.sender] = nonce + 1;
+        approvalExpiresAt[id][msg.sender] = deadline;
+        shareState[id][msg.sender] = ShareState.Approved;
+        emit ShareChanged(id, msg.sender, ShareState.Approved);
+        _tryLock(id);
     }
 
     function _canAutoApprove(address member, uint256 amount) internal view returns (bool) {
@@ -340,8 +379,8 @@ contract TripVault is EIP712, ReentrancyGuard {
         return true;
     }
 
-    function _manualApprovalValid(uint256, address) internal view virtual returns (bool) {
-        return false;
+    function _manualApprovalValid(uint256 id, address member) internal view returns (bool) {
+        return shareState[id][member] == ShareState.Approved && block.timestamp < approvalExpiresAt[id][member];
     }
 
     function _requireProposal(uint256 id) internal view {

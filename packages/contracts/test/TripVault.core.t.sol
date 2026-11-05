@@ -10,6 +10,7 @@ contract TripVaultCoreTest is Test {
     TripVault internal vault;
     uint256 internal constant ALICE_KEY = 0xA11CE;
     uint256 internal constant MERCHANT_KEY = 0xCAFE;
+    uint256 internal constant VERIFIER_KEY = 0xF00D;
     address internal alice;
     address internal bob;
     address internal agent;
@@ -21,7 +22,7 @@ contract TripVaultCoreTest is Test {
         alice = vm.addr(ALICE_KEY);
         bob = makeAddr("bob");
         agent = makeAddr("agent");
-        verifier = makeAddr("verifier");
+        verifier = vm.addr(VERIFIER_KEY);
         merchant = vm.addr(MERCHANT_KEY);
         usdc = new MockUSDC();
         end = block.timestamp + 7 days;
