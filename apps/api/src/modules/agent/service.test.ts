@@ -212,6 +212,29 @@ describe("hidden instructions in a search result", () => {
 });
 
 describe("concurrent messages", () => {
+  test("the first queued turn cannot react to a later message", async () => {
+    const chat = createChatStore(createDatabase(":memory:"), () => NOW);
+    const received: string[][] = [];
+    const model: AgentModel = {
+      createMessage: async (request) => {
+        received.push(
+          request.messages
+            .filter((message) => message.role === "user")
+            .map((message) => JSON.parse(String(message.content)).text),
+        );
+        await Bun.sleep(1);
+        return respond("end_turn", text("Noted."));
+      },
+    };
+    const agent = createAgentService({ model, ports: createFakePorts().ports, chat });
+    await Promise.all([
+      agent.reply({ ...ask, text: "first request" }),
+      agent.reply({ ...ask, text: "later request" }),
+    ]);
+    expect(received[0]).toEqual(["first request"]);
+    expect(received[1]).toEqual(["first request", "later request"]);
+  });
+
   test("run one turn per trip at a time, each seeing the earlier reply", async () => {
     const chat = createChatStore(createDatabase(":memory:"), () => NOW);
     const seen: string[][] = [];
@@ -237,7 +260,7 @@ describe("concurrent messages", () => {
 
     // The other trip ran alongside; the second india26 turn saw the first one's reply.
     expect(maxActive).toBe(2);
-    expect(seen).toContainEqual(["user", "user", "assistant"]);
+    expect(seen).toContainEqual(["user", "assistant", "user"]);
   });
 
   test("a failed turn does not block the next one", async () => {
