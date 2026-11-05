@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { type ItineraryItem, Quote, Trip } from "@kitty/shared";
+import { type ItineraryItem, SignedQuote, Trip } from "@kitty/shared";
 import { z } from "zod";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
@@ -20,15 +20,16 @@ export interface AgentPorts {
   searchActivities(query: string): Promise<SearchResult[]>;
   listMerchants(): Promise<CatalogMerchant[]>;
   /**
-   * A signed quote (A10). Implementations must return only quotes whose `merchant` is the
-   * allowlisted address of `merchantId`; A9 and the vault check the allowlist again.
+   * The merchant's quote response (A10), untrusted until it parses as a SignedQuote. The agent
+   * also checks it against this trip's vault and the merchant's listed address; A9 and the
+   * vault verify the signature and allowlist again.
    */
-  getQuote(request: z.infer<typeof GetQuoteInput>): Promise<Quote>;
+  getQuote(request: z.infer<typeof GetQuoteInput>): Promise<unknown>;
   getTripState(tripId: string): Promise<Trip>;
   /** Verifies the quote and submits it with the proposer key (A9). */
   submitProposal(request: {
     tripId: string;
-    quote: Quote;
+    quote: SignedQuote;
     shares: Array<{ member: string; amount: bigint }>;
   }): Promise<{ proposalId: string }>;
   replaceItinerary(tripId: string, drafts: ItineraryDraft[]): ItineraryItem[];
@@ -166,7 +167,7 @@ export function createToolRun(
   now: () => Date,
   knownProposalIds: readonly string[] = [],
 ) {
-  const quotes = new Map<string, Quote>();
+  const quotes = new Map<string, SignedQuote>();
   const proposalIds: string[] = [];
 
   async function proposePurchase(input: unknown): Promise<string> {
@@ -233,9 +234,26 @@ export function createToolRun(
         return wrapUntrusted("merchant_catalog", await ports.listMerchants());
       case "get_quote": {
         const request = parseInput(GetQuoteInput, input);
-        const quote = Quote.parse(await ports.getQuote(request));
+        const listing = (await ports.listMerchants()).find(
+          (merchant) => merchant.id === request.merchantId,
+        );
+        if (!listing) {
+          throw new ToolRejection(`${request.merchantId} is not a merchant from list_merchants.`);
+        }
+        // SignedQuote keeps the vault, chain and location the signature covers; the older
+        // Quote schema would strip them and the proposal could never be verified.
+        const quote = SignedQuote.parse(await ports.getQuote(request));
         if (quote.itemId !== request.itemId || quote.quantity !== request.quantity) {
           throw new ToolRejection("The merchant quoted a different item. Try again.");
+        }
+        const trip = Trip.parse(await ports.getTripState(tripId));
+        if (quote.vaultAddress.toLowerCase() !== trip.vaultAddress.toLowerCase()) {
+          throw new ToolRejection("The merchant quoted for a different trip. Try again.");
+        }
+        if (listing.address && listing.address.toLowerCase() !== quote.merchant.toLowerCase()) {
+          throw new ToolRejection(
+            "The quote would pay someone other than the listed merchant, so it was refused.",
+          );
         }
         quotes.set(quote.quoteId, quote);
         const { quoteId, title, unitPrice, quantity, total, startsAt, expiresAt } = quote;

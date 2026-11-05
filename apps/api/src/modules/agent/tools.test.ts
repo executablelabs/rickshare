@@ -189,6 +189,48 @@ describe("other tools", () => {
     expect(tripState.content).not.toContain(TRIP.vaultAddress);
   });
 
+  test.each([
+    [
+      "another trip's vault",
+      { vaultAddress: "0x3333333333333333333333333333333333333333" },
+      "different trip",
+    ],
+    [
+      "a payee other than the listed merchant",
+      { merchant: "0x00000000000000000000000000000000000000ee" },
+      "other than the listed merchant",
+    ],
+  ])("refuses a quote bound to %s", async (_case, overrides, message) => {
+    const fake = createFakePorts({ getQuote: async () => paraglidingQuote(overrides) });
+    const run = createToolRun(TRIP.id, fake.ports, () => NOW);
+    const result = await run.execute("get_quote", quoteRequest);
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain(message);
+    const proposal = await run.execute("propose_purchase", {
+      quoteId: "q-paragliding",
+      shares: evenShares,
+    });
+    expect(proposal.content).toContain("Unknown quoteId");
+    expect(fake.submitted).toEqual([]);
+  });
+
+  test("refuses a merchant id that is not in the catalog", async () => {
+    const run = createToolRun(TRIP.id, createFakePorts().ports, () => NOW);
+    const result = await run.execute("get_quote", { ...quoteRequest, merchantId: "evil-tours" });
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain("not a merchant from list_merchants");
+  });
+
+  test("refuses an unsigned quote without the vault binding", async () => {
+    const bindingFields = new Set(["location", "vaultAddress", "chainId"]);
+    const unbound = Object.fromEntries(
+      Object.entries(paraglidingQuote()).filter(([field]) => !bindingFields.has(field)),
+    );
+    const fake = createFakePorts({ getQuote: async () => unbound });
+    const run = createToolRun(TRIP.id, fake.ports, () => NOW);
+    expect((await run.execute("get_quote", quoteRequest)).isError).toBe(true);
+  });
+
   test("rejects a quote for a different item than requested", async () => {
     const fake = createFakePorts({ getQuote: async () => paraglidingQuote({ quantity: 3 }) });
     const run = createToolRun(TRIP.id, fake.ports, () => NOW);
