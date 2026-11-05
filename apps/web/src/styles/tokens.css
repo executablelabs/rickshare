@@ -63,17 +63,23 @@
   }
 }
 
-/* vaul injects a 500ms timing on [data-vaul-drawer] at runtime; the extra `html` outranks it
-   so sheets slide in 200ms per DESIGN.md. */
-html [data-vaul-drawer] {
-  transition-duration: 200ms;
-  animation-duration: 200ms;
+/* vaul hard-codes 500ms timings in injected CSS and in inline styles it sets after a drag or on
+   close. Only !important outranks inline styles, so it is the one way to get the 200ms slide from
+   DESIGN.md and no motion under reduced motion. */
+[data-vaul-drawer],
+[data-vaul-overlay] {
+  /* biome-ignore lint/complexity/noImportantStyles: must override vaul's inline transition */
+  transition-duration: 200ms !important;
+  /* biome-ignore lint/complexity/noImportantStyles: must override vaul's injected animation */
+  animation-duration: 200ms !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html [data-vaul-drawer],
-  html [data-vaul-overlay] {
-    transition-duration: 0s;
-    animation-duration: 0s;
+  [data-vaul-drawer],
+  [data-vaul-overlay] {
+    /* biome-ignore lint/complexity/noImportantStyles: must override vaul's inline transition */
+    transition-duration: 0s !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must override vaul's injected animation */
+    animation-duration: 0s !important;
   }
 }
