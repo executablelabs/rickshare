@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getAddress } from "viem";
 import { config } from "./config";
 import { type AppDatabase, createDatabase } from "./db/client";
-import { worldIdentities } from "./db/schema";
+import { indexedVaults, worldIdentities } from "./db/schema";
 import { AppError } from "./lib/errors";
 import { createApprovalReader } from "./modules/approvals/chain";
 import { WorldOidcProvider } from "./modules/approvals/oidc";
@@ -15,6 +15,8 @@ import { createIndexSource } from "./modules/indexer/source";
 import { createProposalChain } from "./modules/proposals/chain";
 import { MerchantClient } from "./modules/proposals/merchants";
 import { ProposalService } from "./modules/proposals/service";
+import { createTripChain } from "./modules/trips/chain";
+import { TripService } from "./modules/trips/service";
 
 export type RuntimeOptions = {
   db?: AppDatabase;
@@ -23,6 +25,7 @@ export type RuntimeOptions = {
   world?: WorldApprovalService;
   proposals?: ProposalService;
   merchants?: MerchantClient;
+  trips?: TripService;
 };
 
 export function createRuntime(options: RuntimeOptions = {}) {
@@ -32,6 +35,7 @@ export function createRuntime(options: RuntimeOptions = {}) {
   let world = options.world;
   let proposals = options.proposals;
   let merchants = options.merchants;
+  let trips = options.trips;
   const db = () => {
     database ??= createDatabase();
     return database;
@@ -104,6 +108,21 @@ export function createRuntime(options: RuntimeOptions = {}) {
           attestationTtlSeconds: config.ATTESTATION_TTL_SECONDS,
           issuer: config.WORLD_ISSUER,
           clientId: config.WORLD_CLIENT_ID,
+          onLinked: (address) => {
+            const projections = runtime.indexer();
+            for (const row of db()
+              .select()
+              .from(indexedVaults)
+              .where(eq(indexedVaults.scope, projections.cursorId))
+              .all()) {
+              if (
+                projections
+                  .getTrip(row.address)
+                  .members.some((member) => member.address.toLowerCase() === address.toLowerCase())
+              )
+                projections.refreshMetadata(row.address);
+            }
+          },
         },
       );
       return world;
@@ -123,6 +142,18 @@ export function createRuntime(options: RuntimeOptions = {}) {
         () => runtime.indexer().sync(),
       );
       return proposals;
+    },
+    trips: (): TripService => {
+      if (trips) return trips;
+      if (!config.TRIP_FACTORY_ADDRESS)
+        throw new AppError("CHAIN_NOT_CONFIGURED", "The trip factory is not configured.", 503);
+      trips = new TripService(
+        db(),
+        createTripChain(getAddress(config.TRIP_FACTORY_ADDRESS)),
+        runtime.indexer(),
+        { origin: runtime.auth().origin, digest: (token) => runtime.auth().digest(token) },
+      );
+      return trips;
     },
     close: () => {
       indexer?.stop();

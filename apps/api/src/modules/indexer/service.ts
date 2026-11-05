@@ -6,9 +6,11 @@ import {
   chainCursors,
   chainEvents,
   indexedVaults,
+  memberMetadata,
   projectedProposals,
   tripEvents,
   tripMetadata,
+  worldIdentities,
 } from "../../db/schema";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
@@ -162,7 +164,20 @@ export class IndexerService {
           ensName: null,
           vaultAddress: snapshot.address,
           endsAt: snapshot.endsAt,
-          members: snapshot.members,
+          members: snapshot.members.map((member) => ({
+            ...member,
+            displayName:
+              transaction
+                .select()
+                .from(memberMetadata)
+                .where(eq(memberMetadata.id, `${tripId}:${member.address.toLowerCase()}`))
+                .get()?.displayName ?? member.displayName,
+            worldLinked: !!transaction
+              .select()
+              .from(worldIdentities)
+              .where(eq(worldIdentities.address, member.address.toLowerCase()))
+              .get(),
+          })),
         });
         const payload = JSON.stringify(trip);
         const born = created.find((row) => row.vault.toLowerCase() === tripId);
@@ -255,6 +270,54 @@ export class IndexerService {
       .get();
     if (!row) throw new AppError("TRIP_NOT_FOUND", "This trip has not been indexed.", 404);
     return Trip.parse(JSON.parse(row.payload));
+  }
+
+  refreshMetadata(tripId: string) {
+    const id = tripId.toLowerCase();
+    const committed = this.db.transaction((transaction) => {
+      const row = transaction
+        .select()
+        .from(indexedVaults)
+        .where(and(eq(indexedVaults.address, id), eq(indexedVaults.scope, this.cursorId)))
+        .get();
+      if (!row) return null;
+      const previous = Trip.parse(JSON.parse(row.payload));
+      const name =
+        transaction.select().from(tripMetadata).where(eq(tripMetadata.tripId, id)).get()?.name ??
+        previous.name;
+      const trip = Trip.parse({
+        ...previous,
+        name,
+        members: previous.members.map((member) => ({
+          ...member,
+          displayName:
+            transaction
+              .select()
+              .from(memberMetadata)
+              .where(eq(memberMetadata.id, `${id}:${member.address.toLowerCase()}`))
+              .get()?.displayName ?? member.displayName,
+          worldLinked: !!transaction
+            .select()
+            .from(worldIdentities)
+            .where(eq(worldIdentities.address, member.address.toLowerCase()))
+            .get(),
+        })),
+      });
+      if (JSON.stringify(trip) === row.payload) return null;
+      transaction
+        .update(indexedVaults)
+        .set({ payload: JSON.stringify(trip) })
+        .where(eq(indexedVaults.address, id))
+        .run();
+      const data: TripEvent = { type: "balances.updated", members: trip.members };
+      const event = transaction
+        .insert(tripEvents)
+        .values({ tripId: id, payload: JSON.stringify(data) })
+        .returning()
+        .get();
+      return { id: event.id.toString(), tripId: id, data };
+    });
+    if (committed) this.bus.publish(committed);
   }
 
   requireMember(tripId: string, member: string): Trip {
