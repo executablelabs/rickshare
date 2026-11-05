@@ -1,4 +1,4 @@
-import { arcTestnet, asHex } from "@kitty/shared";
+import { arcTestnet, asHex } from "@rickshare/shared";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { config } from "../../config";

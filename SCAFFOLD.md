@@ -1,6 +1,6 @@
 # SCAFFOLD.md
 
-One-time scaffold of the Kitty monorepo. Read `AGENTS.md` first; its commit and PR rules apply.
+One-time scaffold of the Rickshare monorepo. Read `AGENTS.md` first; its commit and PR rules apply.
 
 Goal: a wired, empty repo where `bun install && bun run check && bun run dev` work, CI is green, and both tracks can start without touching each other's folders. Do not implement features. Each app gets a health check and one real test. Exception: `packages/shared` v0 schemas are written here because both tracks build against them.
 
@@ -18,7 +18,7 @@ Goal: a wired, empty repo where `bun install && bun run check && bun run dev` wo
 │  └─ web/          React + Vite + TS, port 5173
 ├─ packages/
 │  ├─ contracts/    Foundry
-│  └─ shared/       @kitty/shared: schemas, chains, ABIs, deployments
+│  └─ shared/       @rickshare/shared: schemas, chains, ABIs, deployments
 ├─ docs/
 │  ├─ DESIGN.md
 │  └─ changes/
@@ -35,7 +35,7 @@ Goal: a wired, empty repo where `bun install && bun run check && bun run dev` wo
 `package.json`:
 ```json
 {
-  "name": "kitty",
+  "name": "rickshare",
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
@@ -44,7 +44,7 @@ Goal: a wired, empty repo where `bun install && bun run check && bun run dev` wo
     "fmt": "biome format --write .",
     "typecheck": "bun --filter './packages/*' --filter './apps/*' typecheck",
     "test": "bun --filter './packages/*' --filter './apps/*' test",
-    "abi": "bun --filter @kitty/shared abi",
+    "abi": "bun --filter @rickshare/shared abi",
     "check": "bun run lint && bun run typecheck && bun run test"
   }
 }
@@ -56,7 +56,7 @@ Verify the filters exclude the root package so scripts do not recurse. Add `.git
 - `tsconfig.base.json`: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`, `moduleResolution: "bundler"`, `target: "ES2022"`, `skipLibCheck`.
 
 ### Step 3: `feat(shared): add v0 schemas and chain config`
-Package `@kitty/shared` with scripts `typecheck` (`tsc --noEmit`), `test` (`bun test`), `abi` (`wagmi generate`). Dependencies: `zod`, `viem`; dev: `@wagmi/cli`.
+Package `@rickshare/shared` with scripts `typecheck` (`tsc --noEmit`), `test` (`bun test`), `abi` (`wagmi generate`). Dependencies: `zod`, `viem`; dev: `@wagmi/cli`.
 
 `src/chains.ts`: export `arcTestnet`. Use it from `viem/chains` if present; otherwise `defineChain` with id `5042002`, native currency USDC with 18 decimals, RPC `https://rpc.testnet.arc.network`, explorer `https://testnet.arcscan.app`. Also export `ARC_USDC = "0x3600000000000000000000000000000000000000"` and `USDC_DECIMALS = 6`.
 
@@ -179,7 +179,7 @@ Add `src/money.ts` with `parseUsdc(string): bigint` and `formatUsdc(bigint): str
 - `package.json` with `typecheck` = `forge build`, `test` = `forge fmt --check && forge test`.
 
 ### Step 5: `chore(api): add hono api skeleton`
-- Dependencies: `hono`, `zod`, `@hono/zod-validator`, `drizzle-orm`, `viem`, `jose`, `@kitty/shared` (workspace). Dev: `drizzle-kit`, `@types/bun`, `typescript`.
+- Dependencies: `hono`, `zod`, `@hono/zod-validator`, `drizzle-orm`, `viem`, `jose`, `@rickshare/shared` (workspace). Dev: `drizzle-kit`, `@types/bun`, `typescript`.
 - `src/index.ts`: `export default { port: config.PORT, fetch: app.fetch }`.
 - `src/app.ts`: Hono app with `GET /health`; export `type AppType = typeof app`.
 - `src/config.ts`: zod-parsed env (all keys from `.env.example`, optional where a later task adds them).

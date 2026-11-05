@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { ARC_USDC, asHex, contractQuote, inviteTypedData } from "@kitty/shared";
-import { erc20Abi, tripVaultAbi } from "@kitty/shared/abi";
+import { ARC_USDC, asHex, contractQuote, inviteTypedData } from "@rickshare/shared";
+import { erc20Abi, tripVaultAbi } from "@rickshare/shared/abi";
 import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
 import { createApp as createMerchantApp } from "../../../merchants/src/app";

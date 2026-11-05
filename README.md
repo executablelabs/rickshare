@@ -5,7 +5,7 @@ A shared trip fund where an AI agent plans and books, and nobody's money moves w
 Friends add money to one trip. The agent finds activities and proposes purchases, each naming who it is for. Each person approves only their share, either with a fresh World ID check or automatically within limits they set. The contract on Arc pays the merchant when the ticket is issued and returns leftovers to whoever put them in.
 
 ## How it works
-1. **Create a trip.** Each member gets a name under the trip (for example `bashy.india26.kitty.eth`) and sets personal limits.
+1. **Create a trip.** Each member gets a name under the trip (for example `bashy.india26.rickshare.eth`) and sets personal limits.
 2. **Add money.** USDC on Arc goes into the trip vault and is tracked per person.
 3. **The agent proposes.** It searches, gets a signed quote from an allowlisted merchant and proposes a purchase with participants and shares.
 4. **Each participant consents.** Shares within a member's own limit are approved automatically. Anything above needs a fresh World ID authentication plus a transaction from that member's wallet. Anyone can decline; non-participants are never charged.

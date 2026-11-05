@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { arcTestnet, asHex, inviteTypedData } from "@kitty/shared";
+import { arcTestnet, asHex, inviteTypedData } from "@rickshare/shared";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { type Address, getAddress, type Hex } from "viem";
 import type { AppDatabase } from "../../db/client";

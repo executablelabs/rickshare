@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { arcTestnet } from "@kitty/shared";
+import { arcTestnet } from "@rickshare/shared";
 import { and, eq, gt, lte } from "drizzle-orm";
 import { type Address, getAddress, type Hex } from "viem";
 import { parseSiweMessage, validateSiweMessage } from "viem/siwe";

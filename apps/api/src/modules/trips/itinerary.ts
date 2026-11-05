@@ -1,4 +1,4 @@
-import type { ItineraryItem } from "@kitty/shared";
+import type { ItineraryItem } from "@rickshare/shared";
 import { asc, eq } from "drizzle-orm";
 import type { AppDatabase } from "../../db/client";
 import { itineraryItems } from "../../db/schema";

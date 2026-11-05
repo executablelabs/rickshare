@@ -1,4 +1,4 @@
-import type { Member } from "@kitty/shared";
+import type { Member } from "@rickshare/shared";
 import { Avatar } from "./Avatar";
 
 export interface AvatarStackProps {

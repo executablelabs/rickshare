@@ -1,4 +1,4 @@
-import { asHex } from "@kitty/shared";
+import { asHex } from "@rickshare/shared";
 import { eq } from "drizzle-orm";
 import { getAddress } from "viem";
 import { config } from "./config";

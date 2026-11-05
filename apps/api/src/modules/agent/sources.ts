@@ -1,10 +1,6 @@
+import { MerchantCatalog } from "@rickshare/shared";
 import { AppError } from "../../lib/errors";
-import {
-  type CatalogMerchant,
-  MerchantCatalogResponse,
-  type SearchResult,
-  TavilySearchResponse,
-} from "./schemas";
+import { type CatalogMerchant, type SearchResult, TavilySearchResponse } from "./schemas";
 
 const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -36,6 +32,6 @@ export function createMerchantCatalog(merchantsUrl: string, fetchImpl: typeof fe
     if (!response.ok) {
       throw new AppError("MERCHANTS_UNAVAILABLE", "The merchant list is unavailable.", 502);
     }
-    return MerchantCatalogResponse.parse(await response.json());
+    return MerchantCatalog.parse(await response.json());
   };
 }

@@ -1,4 +1,4 @@
-import { asHex } from "@kitty/shared";
+import { asHex } from "@rickshare/shared";
 import { getAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createMerchantChain } from "./chain";

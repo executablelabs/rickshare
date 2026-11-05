@@ -1,4 +1,4 @@
-import { Address, IsoDate, UsdcAmount } from "@kitty/shared";
+import { Address, IsoDate, type MerchantCatalog, UsdcAmount } from "@rickshare/shared";
 import { z } from "zod";
 
 // Tool inputs come from the model, so they are validated here even though the tool
@@ -43,20 +43,5 @@ export const SearchResult = z.object({
 
 export const TavilySearchResponse = z.object({ results: z.array(SearchResult) });
 
-export const CatalogMerchant = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  items: z.array(
-    z.object({
-      id: z.string().min(1),
-      title: z.string().min(1),
-      location: z.string().min(1),
-      unitPrice: UsdcAmount,
-    }),
-  ),
-});
-
-export const MerchantCatalogResponse = z.array(CatalogMerchant);
-
 export type SearchResult = z.infer<typeof SearchResult>;
-export type CatalogMerchant = z.infer<typeof CatalogMerchant>;
+export type CatalogMerchant = z.infer<typeof MerchantCatalog>[number];

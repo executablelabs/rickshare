@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { ARC_USDC, arcTestnet, parseUsdc } from "@kitty/shared";
-import { erc20Abi, tripFactoryAbi, tripVaultAbi } from "@kitty/shared/abi";
+import { ARC_USDC, arcTestnet, parseUsdc } from "@rickshare/shared";
+import { erc20Abi, tripFactoryAbi, tripVaultAbi } from "@rickshare/shared/abi";
 import {
   createPublicClient,
   createTestClient,

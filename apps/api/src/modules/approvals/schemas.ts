@@ -1,4 +1,4 @@
-import { Address, Hex, UsdcAmount } from "@kitty/shared";
+import { Address, Hex, UsdcAmount } from "@rickshare/shared";
 import { getAddress } from "viem";
 import { z } from "zod";
 

@@ -1,5 +1,5 @@
-import { ARC_USDC, arcTestnet, inviteTypedData, type WalletTransaction } from "@kitty/shared";
-import { tripFactoryAbi, tripVaultAbi } from "@kitty/shared/abi";
+import { ARC_USDC, arcTestnet, inviteTypedData, type WalletTransaction } from "@rickshare/shared";
+import { tripFactoryAbi, tripVaultAbi } from "@rickshare/shared/abi";
 import {
   type Address,
   encodeFunctionData,

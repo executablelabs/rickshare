@@ -141,7 +141,7 @@ export const memberMetadata = sqliteTable("member_metadata", {
   displayName: text("display_name").notNull(),
 });
 
-// Rows mirror the ChatMessage and ItineraryItem schemas in @kitty/shared. Money never lives here;
+// Rows mirror the ChatMessage and ItineraryItem schemas in @rickshare/shared. Money never lives here;
 // the chain is the source of truth for balances and proposals.
 
 export const chatMessages = sqliteTable(

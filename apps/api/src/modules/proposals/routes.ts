@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { MerchantQuoteRequest } from "@kitty/shared";
+import { MerchantQuoteRequest } from "@rickshare/shared";
 import { Hono } from "hono";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";

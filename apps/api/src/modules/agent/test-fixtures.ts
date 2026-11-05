@@ -1,5 +1,5 @@
 // Test-only fixtures for the agent module; nothing in src imports this outside *.test.ts.
-import type { Member, Quote, Trip } from "@kitty/shared";
+import type { Member, SignedQuote, Trip } from "@rickshare/shared";
 import type { ItineraryDraft } from "../trips/itinerary";
 import type { AgentPorts } from "./tools";
 
@@ -33,7 +33,7 @@ export const TRIP: Trip = {
   members: [member(ANGIE, "Angie"), member(BASHY, "Bashy"), member(GITAU, "Gitau")],
 };
 
-export function paraglidingQuote(overrides: Partial<Quote> = {}): Quote {
+export function paraglidingQuote(overrides: Partial<SignedQuote> = {}): SignedQuote {
   return {
     quoteId: "q-paragliding",
     merchant: ALLOWLISTED_MERCHANT,
@@ -44,8 +44,11 @@ export function paraglidingQuote(overrides: Partial<Quote> = {}): Quote {
     total: "84000000",
     startsAt: "2026-12-14T10:00:00.000Z",
     expiresAt: "2026-12-10T08:10:00.000Z",
-    quoteHash: "0xabcd",
-    signature: "0x1234",
+    location: "Arambol, Goa",
+    vaultAddress: TRIP.vaultAddress,
+    chainId: 5042002,
+    quoteHash: `0x${"ab".repeat(32)}`,
+    signature: `0x${"12".repeat(65)}`,
     ...overrides,
   };
 }
@@ -59,6 +62,7 @@ export function createFakePorts(overrides: Partial<AgentPorts> = {}) {
       {
         id: "goa-adventures",
         name: "Goa Adventures",
+        address: ALLOWLISTED_MERCHANT,
         items: [
           {
             id: "arambol-paragliding",

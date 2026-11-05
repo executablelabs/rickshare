@@ -1,4 +1,4 @@
-import { MerchantCatalog, MerchantQuoteRequest, SignedQuote } from "@kitty/shared";
+import { MerchantCatalog, MerchantQuoteRequest, SignedQuote } from "@rickshare/shared";
 import { z } from "zod";
 import { AppError } from "../../lib/errors";
 

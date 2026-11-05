@@ -1,4 +1,4 @@
-import { Address, asHex, Hex } from "@kitty/shared";
+import { Address, asHex, Hex } from "@rickshare/shared";
 import { getAddress } from "viem";
 import { z } from "zod";
 

@@ -1,4 +1,4 @@
-import { asHex } from "@kitty/shared";
+import { asHex } from "@rickshare/shared";
 import { z } from "zod";
 
 export const LoginInput = z.object({

@@ -4,7 +4,7 @@ import { configSchema } from "./config";
 test("blank example values fall back to local defaults", () => {
   const config = configSchema.parse({ PORT: "", DATABASE_PATH: "", WORLD_CLIENT_SECRET: "" });
   expect(config.PORT).toBe(8787);
-  expect(config.DATABASE_PATH).toBe("kitty.sqlite");
+  expect(config.DATABASE_PATH).toBe("rickshare.sqlite");
   expect(config.WORLD_CLIENT_SECRET).toBeUndefined();
 });
 

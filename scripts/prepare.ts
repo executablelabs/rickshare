@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { arcTestnet } from "@kitty/shared";
+import { arcTestnet } from "@rickshare/shared";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 const root = new URL("../", import.meta.url);

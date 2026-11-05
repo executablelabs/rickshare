@@ -1,5 +1,5 @@
-import type { Member } from "@kitty/shared";
 import { CalendarBlank, ChatsCircle, Coins, type Icon } from "@phosphor-icons/react";
+import type { Member } from "@rickshare/shared";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { AvatarStack } from "../ui/AvatarStack";

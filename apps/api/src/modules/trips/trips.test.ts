@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { arcTestnet, inviteTypedData, type WalletTransaction } from "@kitty/shared";
+import { arcTestnet, inviteTypedData, type WalletTransaction } from "@rickshare/shared";
 import { getAddress, type Hex, verifyTypedData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { type AppDatabase, createDatabase } from "../../db/client";

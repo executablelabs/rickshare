@@ -1,5 +1,5 @@
 {
-  "name": "@kitty/api",
+  "name": "@rickshare/api",
   "private": true,
   "type": "module",
   "exports": {
@@ -13,7 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "1.6.0",
     "@hono/zod-validator": "0.9.1",
-    "@kitty/shared": "workspace:*",
+    "@rickshare/shared": "workspace:*",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.16",
     "jose": "6.2.15",
