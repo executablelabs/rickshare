@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { type ItineraryItem, Quote, Trip } from "@kitty/shared";
 import { z } from "zod";
+import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import type { ItineraryDraft } from "../trips/itinerary";
 import {
@@ -139,6 +140,13 @@ export interface ToolOutcome {
 /** A tool call the agent can correct, reported back to the model as an error result. */
 class ToolRejection extends Error {}
 
+/** A stable log code with the cause appended, without logging raw error text. */
+function failureCode(prefix: string, error: unknown): string {
+  if (error instanceof AppError) return `${prefix}.${error.code}`;
+  if (error instanceof z.ZodError) return `${prefix}.INVALID_RESPONSE`;
+  return `${prefix}.UNEXPECTED`;
+}
+
 function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const parsed = schema.safeParse(input);
   if (!parsed.success) throw new ToolRejection(`Invalid input. ${z.prettifyError(parsed.error)}`);
@@ -181,14 +189,24 @@ export function createToolRun(tripId: string, ports: AgentPorts, now: () => Date
       );
     }
 
-    // The quote goes through untouched: its merchant is the payee, and nothing the model
-    // wrote can replace it.
-    const { proposalId } = await ports.submitProposal({
-      tripId,
-      quote,
-      shares: shares.map((share) => ({ member: share.member, amount: BigInt(share.amount) })),
-    });
+    // A quote is used once, before submitting: if the submission fails after reaching the
+    // chain, a retry with the same quote must not create a second proposal.
     quotes.delete(quoteId);
+    let proposalId: string;
+    try {
+      // The quote goes through untouched: its merchant is the payee, and nothing the model
+      // wrote can replace it.
+      ({ proposalId } = await ports.submitProposal({
+        tripId,
+        quote,
+        shares: shares.map((share) => ({ member: share.member, amount: BigInt(share.amount) })),
+      }));
+    } catch (error) {
+      logger.error(failureCode("AGENT_PROPOSAL_UNCONFIRMED", error));
+      throw new ToolRejection(
+        "Submitting the proposal failed, but it may still go through. Do not propose it again. Tell the group to check the plan in a minute.",
+      );
+    }
     proposalIds.push(proposalId);
     return JSON.stringify({ proposalId, status: "pending" });
   }

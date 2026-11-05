@@ -138,6 +138,27 @@ describe("propose_purchase", () => {
   });
 });
 
+test("a failed submission is never retried with the same quote", async () => {
+  let attempts = 0;
+  const fake = createFakePorts({
+    submitProposal: async () => {
+      attempts += 1;
+      throw new Error("receipt timed out");
+    },
+  });
+  const run = await runWithQuote(fake.ports);
+  const proposal = { quoteId: "q-paragliding", shares: evenShares };
+
+  const first = await run.execute("propose_purchase", proposal);
+  expect(first).toMatchObject({ isError: true });
+  expect(first.content).toContain("Do not propose it again");
+
+  const retry = await run.execute("propose_purchase", proposal);
+  expect(retry.content).toContain("Unknown quoteId");
+  expect(attempts).toBe(1);
+  expect(run.proposalIds).toEqual([]);
+});
+
 describe("other tools", () => {
   test("wraps outside content and hides the payee and signature from the model", async () => {
     const fake = createFakePorts();
