@@ -1,0 +1,22 @@
+{
+  "name": "kitty",
+  "private": true,
+  "packageManager": "bun@1.4.4",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun --parallel --filter './apps/*' dev",
+    "lint": "biome ci .",
+    "fmt": "biome format --write .",
+    "typecheck": "bun --filter './packages/*' --filter './apps/*' typecheck",
+    "test": "bun --filter './packages/*' --filter './apps/*' test",
+    "abi": "bun --filter @kitty/shared abi",
+    "check": "bun run lint && bun run typecheck && bun run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.5",
+    "typescript": "5.9.3"
+  }
+}
