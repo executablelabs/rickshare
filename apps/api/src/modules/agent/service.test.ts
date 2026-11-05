@@ -211,6 +211,54 @@ describe("hidden instructions in a search result", () => {
   });
 });
 
+describe("concurrent messages", () => {
+  test("run one turn per trip at a time, each seeing the earlier reply", async () => {
+    const chat = createChatStore(createDatabase(":memory:"), () => NOW);
+    const seen: string[][] = [];
+    let active = 0;
+    let maxActive = 0;
+    const model: AgentModel = {
+      async createMessage(request) {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        seen.push(request.messages.map((message) => message.role));
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+        return respond("end_turn", text(`reply ${seen.length}`));
+      },
+    };
+    const agent = createAgentService({ model, ports: createFakePorts().ports, chat });
+
+    await Promise.all([
+      agent.reply(ask),
+      agent.reply({ ...ask, author: BASHY, text: "Me too" }),
+      agent.reply({ ...ask, tripId: "other-trip" }),
+    ]);
+
+    // The other trip ran alongside; the second india26 turn saw the first one's reply.
+    expect(maxActive).toBe(2);
+    expect(seen).toContainEqual(["user", "user", "assistant"]);
+  });
+
+  test("a failed turn does not block the next one", async () => {
+    const chat = createChatStore(createDatabase(":memory:"), () => NOW);
+    let calls = 0;
+    const model: AgentModel = {
+      async createMessage() {
+        calls += 1;
+        if (calls === 1) throw new Anthropic.APIConnectionError({ message: "offline" });
+        return respond("end_turn", text("Back again."));
+      },
+    };
+    const agent = createAgentService({ model, ports: createFakePorts().ports, chat });
+
+    const [first, second] = await Promise.allSettled([agent.reply(ask), agent.reply(ask)]);
+
+    expect(first.status).toBe("rejected");
+    expect(second.status === "fulfilled" && second.value.agentMessage.text).toBe("Back again.");
+  });
+});
+
 describe("stopping", () => {
   test("a refusal ends the turn without running tools", async () => {
     const run = setup([respond("refusal", toolUse("t1", "list_merchants", {}))]);

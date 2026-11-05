@@ -126,6 +126,25 @@ export function createAgentService({
     return finish(AGENT_REPLIES.unfinished);
   }
 
+  // One agent turn per trip at a time, so two members asking at once cannot both propose the
+  // same purchase; the later turn sees the earlier reply. This lock is per process.
+  const tripTurns = new Map<string, Promise<void>>();
+
+  function oneTurnAtATime<T>(tripId: string, turn: () => Promise<T>): Promise<T> {
+    const previous = tripTurns.get(tripId) ?? Promise.resolve();
+    const result = previous.then(turn);
+    // Only completion is tracked here; the caller still receives the turn's own error.
+    const settled = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    tripTurns.set(tripId, settled);
+    void settled.then(() => {
+      if (tripTurns.get(tripId) === settled) tripTurns.delete(tripId);
+    });
+    return result;
+  }
+
   return {
     /** Saves a member's message, lets the agent work, and saves and returns its reply. */
     async reply(request: { tripId: string; author: string; text: string }) {
@@ -136,16 +155,18 @@ export function createAgentService({
         text: request.text,
         proposalIds: [],
       });
-      const history = chat.listRecent(request.tripId, HISTORY_LIMIT);
-      const { text, proposalIds } = await plan(request.tripId, history);
-      const agentMessage = chat.append({
-        tripId: request.tripId,
-        role: "agent",
-        author: null,
-        text,
-        proposalIds,
+      return oneTurnAtATime(request.tripId, async () => {
+        const history = chat.listRecent(request.tripId, HISTORY_LIMIT);
+        const { text, proposalIds } = await plan(request.tripId, history);
+        const agentMessage = chat.append({
+          tripId: request.tripId,
+          role: "agent",
+          author: null,
+          text,
+          proposalIds,
+        });
+        return { memberMessage, agentMessage };
       });
-      return { memberMessage, agentMessage };
     },
   };
 }
