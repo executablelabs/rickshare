@@ -8,7 +8,11 @@ import type { ChainEvent, IndexSource } from "./types";
 const statuses = ["pending", "locked", "fulfilled", "refunded", "rejected"] as const;
 const states = ["waiting", "auto", "approved", "rejected"] as const;
 
-export function createIndexSource(factory: Address, client = createArcClient()): IndexSource {
+export function createIndexSource(
+  factory: Address,
+  client = createArcClient(),
+  isWorldLinked: (address: Address) => boolean = () => false,
+): IndexSource {
   return {
     chainId: arcTestnet.id,
     factory,
@@ -89,7 +93,7 @@ export function createIndexSource(factory: Address, client = createArcClient()):
             address: getAddress(member),
             displayName: `${member.slice(0, 6)}…${member.slice(-4)}`,
             ensName: null,
-            worldLinked: false,
+            worldLinked: isWorldLinked(member),
             policy: { autoApproveMax: policy[0].toString(), totalCap: policy[1].toString() },
             deposited: balance.deposited.toString(),
             spent: balance.spent.toString(),

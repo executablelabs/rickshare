@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
 import { handleError } from "./lib/errors";
+import { createApprovalRoutes } from "./modules/approvals/routes";
 import { createAuthRoutes } from "./modules/auth/routes";
 import type { AuthEnv } from "./modules/auth/service";
 import { createIndexerRoutes } from "./modules/indexer/routes";
@@ -18,7 +19,8 @@ export function createApp(options: RuntimeOptions & { runtime?: Runtime } = {}) 
     )
     .get("/health", (context) => context.json({ status: "ok" } as const))
     .route("/auth", createAuthRoutes(runtime.auth))
-    .route("/", createIndexerRoutes(runtime.auth, runtime.indexer));
+    .route("/", createIndexerRoutes(runtime.auth, runtime.indexer))
+    .route("/", createApprovalRoutes(runtime.auth, runtime.world));
 }
 
 export const app = createApp();

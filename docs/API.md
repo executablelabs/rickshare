@@ -46,3 +46,37 @@ The chain remains the money source of truth. Direct token transfers are never
 credited as vault deposits, and Arc's native/system token Transfer events are
 not counted a second time. Unexpected finalized-history changes stop indexing
 instead of silently serving a rewritten financial history.
+
+## World linking and payment approval (A8)
+
+Register an OIDC application with World and set WORLD_ISSUER,
+WORLD_CLIENT_ID, WORLD_CLIENT_SECRET and WORLD_REDIRECT_URI. The callback is the
+API's `/world/callback`, not a frontend route. Configure VERIFIER_PRIVATE_KEY to
+match the immutable verifier in the deployed vault. No test identity provider is
+enabled by runtime configuration.
+
+- GET `/world/status`: authenticated `{ linked }`.
+- POST `/world/link/start`: starts initial identity linking and returns
+  `{ requestId, authorizationUrl }`.
+- POST `/trips/:tripId/proposals/:proposalId/approval/start`: starts a fresh
+  World verification for the current wallet's exact purchase share. A previous
+  World link is required. Members cannot request an attestation for somebody else.
+- GET `/world/callback`: consumes the session-bound OAuth state once, verifies
+  the code/token, and redirects to WEB_ORIGIN with `world_request` and
+  `world_status` query parameters. These query parameters are informational;
+  the frontend must poll the authenticated request endpoint for the actual result.
+- GET `/world/requests/:requestId`: `{ status, errorCode, attestation }`.
+- POST `/world/requests/:requestId/cancel`: cancels a pending/in-flight request.
+
+Request statuses include pending, processing, verified, cancelled, failed and
+expired. An approval result includes vaultAddress, proposalId, member, amount,
+nonce, deadline, chainId and signature. Pass proposalId, nonce, deadline and
+signature to the vault's `approve` function using the same participant wallet.
+World verification does not send a transaction or spend money by itself.
+
+World calls use authorization-code flow with PKCE, one-time state and nonce,
+prompt=login and max_age=0. ID tokens require a trusted RS256 JWKS signature,
+correct issuer/audience/authorized party, expiry, nonce and fresh auth_time.
+Approval identity must match the wallet's immutable linked subject. Raw World
+subjects and ID tokens are never returned to clients; PKCE verifiers are
+encrypted at rest. The signup flow should link World before the first deposit.
