@@ -15,6 +15,13 @@
       "when": 1793915117444,
       "tag": "0001_chain_index",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793918317786,
+      "tag": "0002_chat_and_itinerary",
+      "breakpoints": true
     }
   ]
 }
