@@ -1,4 +1,4 @@
-CREATE TABLE `chat_messages` (
+CREATE TABLE IF NOT EXISTS `chat_messages` (
 	`id` text PRIMARY KEY NOT NULL,
 	`trip_id` text NOT NULL,
 	`role` text NOT NULL,
@@ -8,8 +8,8 @@ CREATE TABLE `chat_messages` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `chat_messages_trip_created_idx` ON `chat_messages` (`trip_id`,`created_at`,`id`);--> statement-breakpoint
-CREATE TABLE `itinerary_items` (
+CREATE INDEX IF NOT EXISTS `chat_messages_trip_created_idx` ON `chat_messages` (`trip_id`,`created_at`,`id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `itinerary_items` (
 	`id` text PRIMARY KEY NOT NULL,
 	`trip_id` text NOT NULL,
 	`starts_at` text NOT NULL,
@@ -19,4 +19,4 @@ CREATE TABLE `itinerary_items` (
 	`ticket_urls` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `itinerary_items_trip_starts_idx` ON `itinerary_items` (`trip_id`,`starts_at`);
+CREATE INDEX IF NOT EXISTS `itinerary_items_trip_starts_idx` ON `itinerary_items` (`trip_id`,`starts_at`);
