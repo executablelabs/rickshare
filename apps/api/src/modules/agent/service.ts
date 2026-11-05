@@ -148,14 +148,14 @@ export function createAgentService({
   return {
     /** Saves a member's message, lets the agent work, and saves and returns its reply. */
     async reply(request: { tripId: string; author: string; text: string }) {
-      const memberMessage = chat.append({
-        tripId: request.tripId,
-        role: "member",
-        author: request.author,
-        text: request.text,
-        proposalIds: [],
-      });
       return oneTurnAtATime(request.tripId, async () => {
+        const memberMessage = chat.append({
+          tripId: request.tripId,
+          role: "member",
+          author: request.author,
+          text: request.text,
+          proposalIds: [],
+        });
         const history = chat.listRecent(request.tripId, HISTORY_LIMIT);
         const { text, proposalIds } = await plan(request.tripId, history);
         const agentMessage = chat.append({
@@ -170,3 +170,5 @@ export function createAgentService({
     },
   };
 }
+
+export type AgentService = ReturnType<typeof createAgentService>;
