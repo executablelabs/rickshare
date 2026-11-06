@@ -99,6 +99,7 @@ test("upserts proposals in id order", () => {
 
 test("applies stream events to the cached feed", () => {
   const client = new QueryClient();
+  const invalidate = vi.spyOn(client, "invalidateQueries").mockResolvedValue();
   applyTripEvent(client, "t", {
     type: "chat.message",
     message: message("m1", "2026-12-01T10:00:00Z"),
@@ -109,6 +110,7 @@ test("applies stream events to the cached feed", () => {
   expect(client.getQueryData<Proposal[]>(planKeys.proposals("t"))).toEqual([
     proposal("1", "fulfilled"),
   ]);
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["trips", "t", "history"] });
 });
 
 test("encodes the vault approve call from the World attestation", () => {

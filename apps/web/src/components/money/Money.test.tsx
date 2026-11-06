@@ -1,3 +1,4 @@
+import { arcTestnet } from "@rickshare/shared";
 import { tripVaultAbi } from "@rickshare/shared/abi";
 import { createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -43,6 +44,15 @@ const transaction = (data: `0x${string}`) => ({
   value: "0x0",
   maxFeePerGas: "0x1",
   maxPriorityFeePerGas: "0x1",
+});
+const event = (id: string, amount: string) => ({
+  id,
+  name: "Deposited",
+  blockNumber: id,
+  logIndex: 0,
+  transactionHash: hash,
+  proposalId: null,
+  data: { member: me, amount },
 });
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -95,6 +105,31 @@ test("uses the fixed-block snapshot for own and group balances", async () => {
   expect(
     within(await screen.findByRole("region", { name: "The group" })).getAllByText("$72.50"),
   ).toHaveLength(2);
+});
+
+test("pages history using the server cursor and keeps overlapping immutable events once", async () => {
+  const cursors: Array<string | null> = [];
+  reads({
+    [`GET /trips/${tripId}/history`]: (_body, request) => {
+      const query = new URL(request.url).searchParams;
+      expect(query.get("limit")).toBe("20");
+      cursors.push(query.get("before"));
+      return {
+        body: query.has("before")
+          ? { events: [event("10", "1000000"), event("9", "2000000")], nextCursor: null }
+          : { events: [event("10", "1000000")], nextCursor: "10:0" },
+      };
+    },
+  });
+  await openMoney();
+  fireEvent.click(await screen.findByRole("button", { name: "Load older activity" }));
+  expect(await screen.findByText("Angie added $2.00")).toBeInTheDocument();
+  expect(screen.getAllByText("Angie added $1.00")).toHaveLength(1);
+  expect(cursors).toEqual([null, "10:0"]);
+  expect(screen.getAllByRole("link", { name: "View transaction" })[0]).toHaveAttribute(
+    "href",
+    `${arcTestnet.blockExplorers.default.url}/tx/${hash}`,
+  );
 });
 
 test("withdraws only the chosen own amount with six-decimal precision", async () => {
@@ -237,6 +272,27 @@ test("failed balance reads show an error without inventing a zero balance", asyn
   expect(await screen.findByText("Balances could not be loaded.")).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Your balance" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Withdraw money" })).not.toBeInTheDocument();
+});
+
+test("history errors can be retried without hiding the available balance", async () => {
+  let failed = true;
+  reads({
+    [`GET /trips/${tripId}/history`]: () =>
+      failed
+        ? {
+            status: 503,
+            body: { error: { code: "UNAVAILABLE", message: "History is unavailable." } },
+          }
+        : { body: { events: [], nextCursor: null } },
+  });
+  await openMoney();
+  expect(await screen.findByText("History is unavailable.")).toBeInTheDocument();
+  expect(
+    within(screen.getByRole("region", { name: "Your balance" })).getByText("$72.50"),
+  ).toBeInTheDocument();
+  failed = false;
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(await screen.findByText("No money activity yet.")).toBeInTheDocument();
 });
 
 test("rejects non-integer base-unit balances before enabling money actions", async () => {
