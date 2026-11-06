@@ -40,7 +40,7 @@ export interface AgentPorts {
 
 const nullableString = { type: ["string", "null"] };
 
-export const agentTools: Anthropic.Beta.BetaTool[] = [
+export const agentTools: Anthropic.Messages.Tool[] = [
   {
     name: "search_activities",
     description:

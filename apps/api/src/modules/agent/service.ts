@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import type { ChatMessage } from "@rickshare/shared";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
@@ -6,7 +6,8 @@ import type { ChatStore } from "../chat/service";
 import { SYSTEM_PROMPT } from "./prompt";
 import { type AgentPorts, agentTools, createToolRun } from "./tools";
 
-export const AGENT_MODEL = "claude-opus-5-5";
+/** A cheap OpenRouter model with strict tool calling; OPENROUTER_MODEL overrides it. */
+export const DEFAULT_AGENT_MODEL = "openai/gpt-oss-120b";
 const MAX_OUTPUT_TOKENS = 16_000;
 export const MAX_TOOL_ROUNDS = 10;
 const HISTORY_LIMIT = 40;
@@ -16,19 +17,23 @@ export const AGENT_REPLIES = {
   unfinished: "I couldn't finish planning that. Try asking again with a few more details.",
 };
 
-type ModelRequest = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
-type ModelResponse = Pick<Anthropic.Beta.BetaMessage, "content" | "stop_reason">;
+// The agent loop speaks the Messages API shape; openrouter.ts translates it for any model.
+export type ModelRequest = Anthropic.Messages.MessageCreateParamsNonStreaming;
+export type ModelResponse = Pick<Anthropic.Messages.Message, "content" | "stop_reason">;
 
 /** The one model call the agent makes; tests replace it with a scripted model. */
 export interface AgentModel {
   createMessage(request: ModelRequest): Promise<ModelResponse>;
 }
 
-export function createClaudeModel(client: Anthropic): AgentModel {
-  return { createMessage: (request) => client.beta.messages.create(request) };
+/** The model could not be reached or answered with something unusable. */
+export class ModelUnavailableError extends Error {
+  constructor(readonly code: string) {
+    super(`The agent model is unavailable (${code}).`);
+  }
 }
 
-function toModelMessages(history: ChatMessage[]): Anthropic.Beta.BetaMessageParam[] {
+function toModelMessages(history: ChatMessage[]): Anthropic.Messages.MessageParam[] {
   // The conversation sent to the model must open with a member's message.
   const firstMemberIndex = history.findIndex((message) => message.role === "member");
   return history.slice(Math.max(firstMemberIndex, 0)).map((message) =>
@@ -51,6 +56,8 @@ export interface AgentDependencies {
   model: AgentModel;
   ports: AgentPorts | ((tripId: string) => AgentPorts);
   chat: ChatStore;
+  /** An OpenRouter model id; it must be a Claude model, since the Messages API serves only those. */
+  modelId?: string;
   now?: () => Date;
 }
 
@@ -58,29 +65,26 @@ export function createAgentService({
   model,
   ports,
   chat,
+  modelId = DEFAULT_AGENT_MODEL,
   now = () => new Date(),
 }: AgentDependencies) {
-  async function callModel(messages: Anthropic.Beta.BetaMessageParam[]): Promise<ModelResponse> {
+  async function callModel(messages: Anthropic.Messages.MessageParam[]): Promise<ModelResponse> {
     try {
       return await model.createMessage({
-        model: AGENT_MODEL,
+        model: modelId,
         max_tokens: MAX_OUTPUT_TOKENS,
         system: [
-          { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+          // Static prompt first, clock last: providers cache the longest unchanged prefix.
+          { type: "text", text: SYSTEM_PROMPT },
           { type: "text", text: `Current UTC time: ${now().toISOString()}` },
         ],
         tools: agentTools,
         messages,
         output_config: { effort: "medium" },
-        // The static prompt has its own cache boundary before the changing clock context.
-        cache_control: { type: "ephemeral" },
-        // On a safety decline, the API retries on a fallback model inside the same call.
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
       });
     } catch (error) {
-      if (error instanceof Anthropic.APIError) {
-        logger.error(`AGENT_MODEL_FAILED.${error.status ?? "CONNECTION"}`);
+      if (error instanceof ModelUnavailableError) {
+        logger.error(`AGENT_MODEL_FAILED.${error.code}`);
         throw new AppError(
           "AGENT_UNAVAILABLE",
           "The trip agent is unavailable right now. Try again in a moment.",
@@ -110,7 +114,7 @@ export function createAgentService({
       }
 
       const toolCalls = response.content.filter(
-        (block): block is Anthropic.Beta.BetaToolUseBlock => block.type === "tool_use",
+        (block): block is Anthropic.Messages.ToolUseBlock => block.type === "tool_use",
       );
       // Only a complete tool_use turn runs tools; a max_tokens stop may hold a cut-off call.
       if (response.stop_reason !== "tool_use" || toolCalls.length === 0) {
@@ -118,7 +122,7 @@ export function createAgentService({
       }
 
       messages.push({ role: "assistant", content: response.content });
-      const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
+      const results: Anthropic.Messages.ToolResultBlockParam[] = [];
       // Sequential, so a quote fetched earlier in the same response is usable by a later call.
       for (const call of toolCalls) {
         const outcome = await tools.execute(call.name, call.input);
