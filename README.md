@@ -61,9 +61,11 @@ See each `.env.example`. Keys:
 ## Deployments (Arc testnet, chain 5042002)
 | Contract | Address |
 |---|---|
-| TripFactory | |
+| TripFactory | [`0x127a05d19df8201654128546f66a3f8d3eec84f3`](https://explorer.testnet.arc.io/address/0x127a05d19df8201654128546f66a3f8d3eec84f3) |
 | Demo TripVault | |
 | USDC (ERC-20 interface) | `0x3600000000000000000000000000000000000000` |
+
+Factory deployment confirmed at block `70991387`. The [deployment record](packages/shared/src/deployments/arcTestnet.json) contains the transaction hash and configured public role addresses.
 
 ## Sponsor integrations
 - **World ID Agent Pass:** step-up authentication before each approval above a member's limit. Denied, cancelled and expired paths are handled. Integration notes: `docs/world-debrief.md`.

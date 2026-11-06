@@ -25,6 +25,7 @@ const tabs: Array<{ to: TripTabPath; label: string; icon: Icon }> = [
 export interface AppShellProps {
   tripId: string;
   tripName?: string | undefined;
+  tripEnsName?: string | null | undefined;
   /** A short line under the trip name, e.g. "Ends 18 Dec". */
   subtitle?: string | undefined;
   members?: Array<Pick<Member, "address" | "displayName">> | undefined;
@@ -40,6 +41,7 @@ const railLink =
 export function AppShell({
   tripId,
   tripName,
+  tripEnsName,
   subtitle,
   members,
   aside,
@@ -117,6 +119,7 @@ export function AppShell({
               <div className="flex min-w-0 flex-col">
                 <p className="truncate font-display text-2xl font-semibold">{tripName}</p>
                 {subtitle && <p className="text-sm text-card/75">{subtitle}</p>}
+                {tripEnsName && <p className="break-all text-xs text-card/75">{tripEnsName}</p>}
               </div>
             ) : (
               <Wordmark tone="card" />

@@ -1,6 +1,6 @@
-import type { Trip } from "@rickshare/shared";
+import type { Trip, WalletTransaction } from "@rickshare/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { toWalletCall, useWallet } from "../../auth/wallet";
 import { formatUsd } from "../../lib/format-usd";
 import { memberOf, prepareMoneyAction, tripKeys, useMoney } from "../../lib/trips";
@@ -21,21 +21,44 @@ function useMoneyFlow(trip: Trip) {
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const runner = useStepRunner();
+  const batch = useRef<
+    { action: string; transactions: WalletTransaction[]; completed: number } | undefined
+  >(undefined);
   async function run(action: Parameters<typeof prepareMoneyAction>[1]) {
     return runner.run(async (next) => {
-      const transactions = await prepareMoneyAction(trip.id, action);
+      const key = JSON.stringify(action);
+      if (batch.current && batch.current.action !== key)
+        throw new Error("Check the previous attempt before changing this request.");
+      batch.current ??= {
+        action: key,
+        transactions: await prepareMoneyAction(trip.id, action),
+        completed: 0,
+      };
+      const current = batch.current;
       next();
-      for (const transaction of transactions)
-        await wallet.sendTransaction(toWalletCall(transaction));
+      for (const transaction of current.transactions.slice(current.completed)) {
+        try {
+          await wallet.sendTransaction(toWalletCall(transaction));
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            /user rejected|cancelled|denied|transaction failed/i.test(error.message)
+          )
+            batch.current = undefined;
+          throw error;
+        }
+        current.completed++;
+      }
       next();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: tripKeys.one(trip.id) }),
         queryClient.invalidateQueries({ queryKey: tripKeys.money(trip.id) }),
         queryClient.invalidateQueries({ queryKey: tripKeys.list }),
       ]);
+      batch.current = undefined;
     });
   }
-  return { runner, run };
+  return { runner, run, pending: !!batch.current };
 }
 
 function closeUnlessRunning(
@@ -56,7 +79,7 @@ function closeUnlessRunning(
 export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
   const money = useMoney(trip.id);
   const showToast = useToast();
-  const { runner, run } = useMoneyFlow(trip);
+  const { runner, run, pending } = useMoneyFlow(trip);
   const [amount, setAmount] = useState("");
   const [touched, setTouched] = useState(false);
   const value = parseUsd(amount);
@@ -65,14 +88,15 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
     ? undefined
     : value === null || value === 0n
       ? "Enter an amount above $0.00."
-      : wallet !== undefined && value > wallet
+      : !pending && wallet !== undefined && value > wallet
         ? `Your wallet has ${formatUsd(wallet)}. Add less, or top up your wallet first.`
         : undefined;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setTouched(true);
-    if (value === null || value === 0n || (wallet !== undefined && value > wallet)) return;
+    if (value === null || value === 0n || (!pending && wallet !== undefined && value > wallet))
+      return;
     if (await run({ action: "deposit", amount: value.toString() })) {
       onOpenChange(false);
       showToast(`${formatUsd(value)} added`);
@@ -83,6 +107,7 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
     <Sheet
       open={open}
       onOpenChange={closeUnlessRunning(runner, onOpenChange, () => {
+        if (pending) return;
         setAmount("");
         setTouched(false);
       })}
@@ -98,7 +123,7 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
           onChange={(event) => setAmount(event.target.value)}
           error={error}
           hint={wallet !== undefined ? `In your wallet: ${formatUsd(wallet)}` : undefined}
-          disabled={runner.running}
+          disabled={runner.running || pending}
           autoComplete="off"
         />
         <div className="flex gap-2">
@@ -106,7 +131,7 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
             <button
               key={quick}
               type="button"
-              disabled={runner.running}
+              disabled={runner.running || pending}
               onClick={() => setAmount(quick)}
               className="h-11 flex-1 rounded-control bg-paper font-semibold text-ink hover:bg-rule disabled:opacity-50"
             >
@@ -116,7 +141,13 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
         </div>
         <Steps labels={STEPS} current={runner.current} error={runner.error} />
         <Button type="submit" fullWidth disabled={runner.running}>
-          {runner.running ? "Adding…" : runner.error ? "Try again" : "Add money"}
+          {runner.running
+            ? "Adding…"
+            : pending
+              ? "Check previous attempt"
+              : runner.error
+                ? "Try again"
+                : "Add money"}
         </Button>
       </form>
     </Sheet>

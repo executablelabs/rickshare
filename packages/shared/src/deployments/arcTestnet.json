@@ -1,1 +1,15 @@
-{}
+{
+  "chainId": 5042002,
+  "factoryAddress": "0x127a05d19df8201654128546f66a3f8d3eec84f3",
+  "tokenAddress": "0x3600000000000000000000000000000000000000",
+  "deployerAddress": "0xdf186A690cA7C73803112a4D8457eeDBb80acaFf",
+  "agentAddress": "0x0Bb2F4B5852ed6ddF0a3d1B2DF1cb01009303770",
+  "verifierAddress": "0x43B14886d7E3621Cae7492b085eed9A2065f6F7E",
+  "merchantAddresses": [
+    "0x0628396c01bEA190D20f1AFD65CC320cDc4Cd312",
+    "0x7850D25Ad4d41F70BDd3B5794826fC51624AC6BF",
+    "0x589cf03697A793100B8754c7b1Cc2FCc1f6B3153"
+  ],
+  "deploymentBlock": "70991387",
+  "transactionHash": "0x43be7a4a7131a9c27c170721e079fcec608254fc0a97e611b494e86cfbfd5446"
+}

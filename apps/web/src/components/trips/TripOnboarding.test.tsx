@@ -62,6 +62,49 @@ const organizerInvites = (invites: unknown[]) => ({
   [`GET /trips/${tripId}/invites`]: () => ({ body: { invites } }),
 });
 
+test.each(["vault", "member", "chain", "type"])(
+  "refuses an invitation with a different %s before signing",
+  async (changed) => {
+    const friend = `0x${"5".repeat(40)}`;
+    const solo = tripFixture(tripId, me);
+    solo.members = solo.members.slice(0, 1);
+    stubApi({
+      ...tripRoutes(tripId, me, solo),
+      ...organizerInvites([
+        {
+          inviteId: "i1",
+          status: "claimed",
+          member: friend,
+          expiresAt: "2099-01-01T00:00:00.000Z",
+        },
+      ]),
+      [`GET /trips/${tripId}/invites/i1/authorization`]: () => ({
+        body: {
+          authorized: false,
+          typedData: {
+            domain: {
+              name: "Rickshare TripVault",
+              version: "1",
+              chainId: changed === "chain" ? 1 : 5042002,
+              verifyingContract: changed === "vault" ? me : solo.vaultAddress,
+            },
+            primaryType: changed === "type" ? "Permit" : "Invite",
+            message: { member: changed === "member" ? me : friend, deadline: "4070908800" },
+          },
+        },
+      }),
+    });
+    await renderAt(`/trips/${tripId}/plan`);
+    fireEvent.click(await screen.findByRole("button", { name: "Invite" }));
+    const sheet = await screen.findByRole("dialog", { name: "Invite friends" });
+    fireEvent.click(await within(sheet).findByRole("button", { name: "Let them in" }));
+    expect(
+      await screen.findByText("This invitation changed. Refresh the trip before signing."),
+    ).toBeInTheDocument();
+    expect(signTypedData).not.toHaveBeenCalled();
+  },
+);
+
 test("a new member sees the setup steps, without inviting unless they organized it", async () => {
   stubApi(tripRoutes(tripId, me));
   await renderAt(`/trips/${tripId}/plan`);
@@ -128,6 +171,33 @@ test("add money refuses more than the wallet holds before preparing anything", a
   expect(calls.some((call) => call.route.startsWith("POST"))).toBe(false);
 });
 
+test("a deposit retry resumes after the successful approval without preparing it again", async () => {
+  const calls = stubApi({
+    ...tripRoutes(tripId, me),
+    [`POST /trips/${tripId}/actions`]: () => ({
+      body: { action: "deposit", transactions: [tx(usdc), tx(vault)] },
+    }),
+  });
+  sendTransaction
+    .mockResolvedValueOnce(hash)
+    .mockRejectedValueOnce(new Error("Receipt unavailable"))
+    .mockResolvedValue(hash);
+  await renderAt(`/trips/${tripId}/money`);
+  fireEvent.click((await screen.findAllByRole("button", { name: "Add money" }))[0] as HTMLElement);
+  const sheet = await screen.findByRole("dialog", { name: "Add money" });
+  fireEvent.change(within(sheet).getByLabelText("Amount in USDC"), { target: { value: "50" } });
+  fireEvent.click(within(sheet).getByRole("button", { name: "Add money" }));
+  await within(sheet).findByText("Receipt unavailable");
+  fireEvent.click(within(sheet).getByRole("button", { name: "Check previous attempt" }));
+  expect(await screen.findByText("$50.00 added")).toBeInTheDocument();
+  expect(sendTransaction.mock.calls.map(([call]) => call.to)).toEqual([
+    getAddress(usdc),
+    getAddress(vault),
+    getAddress(vault),
+  ]);
+  expect(calls.filter((call) => call.route === `POST /trips/${tripId}/actions`)).toHaveLength(1);
+});
+
 test("my limits keeps a single approval within the total cap, then saves both", async () => {
   const calls = stubApi({
     ...tripRoutes(tripId, me),
@@ -171,7 +241,12 @@ test("the organizer lets a friend in by signing the invite with a numeric deadli
       body: {
         authorized: false,
         typedData: {
-          domain: { name: "TripVault", version: "1", chainId: 5042002, verifyingContract: vault },
+          domain: {
+            name: "Rickshare TripVault",
+            version: "1",
+            chainId: 5042002,
+            verifyingContract: solo.vaultAddress,
+          },
           types: {
             Invite: [
               { name: "member", type: "address" },
