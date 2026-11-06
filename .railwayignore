@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.env
+**/*.sqlite*
+.local
+coverage
+packages/contracts/lib
+packages/contracts/out
+packages/contracts/cache
+packages/contracts/broadcast
