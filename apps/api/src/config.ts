@@ -37,7 +37,6 @@ export const configSchema = z.object({
     blankToUndefined,
     z.coerce.number().int().min(1).max(900).default(300),
   ),
-  ANTHROPIC_API_KEY: optionalText,
   OPENROUTER_API_KEY: optionalText,
   OPENROUTER_MODEL: z.preprocess(
     blankToUndefined,

@@ -210,7 +210,7 @@ are wakeups, so out-of-order notifications cannot skip a persisted event.
 Ticket bearer URLs are never put in group itinerary event payloads. They remain
 in durable booking storage and are disclosed through participant-authorized,
 hash-verified ticket retrieval only. The backend returns Cache-Control: no-store
-for private data. Real agent replies require ANTHROPIC_API_KEY; search additionally
+for private data. Real agent replies require OPENROUTER_API_KEY; search additionally
 requires TAVILY_API_KEY. No model or verification mock is enabled by env flags.
 
 ## Money snapshots, history and wallet actions (B8 backend)
