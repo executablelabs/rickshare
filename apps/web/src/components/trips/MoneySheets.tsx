@@ -1,7 +1,7 @@
 import { arcTestnet, type Trip, type WalletTransaction } from "@rickshare/shared";
 import { tripVaultAbi } from "@rickshare/shared/abi";
 import { useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { encodeFunctionData } from "viem";
 import { toWalletCall, useWallet } from "../../auth/wallet";
 import { formatUsd } from "../../lib/format-usd";
@@ -85,11 +85,27 @@ export function useMoneyFlow(trip: Trip) {
         current.completed++;
       }
       next();
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: tripKeys.one(trip.id) }),
-        queryClient.invalidateQueries({ queryKey: tripKeys.money(trip.id) }),
-        queryClient.invalidateQueries({ queryKey: tripKeys.list }),
-      ]);
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          queryClient.invalidateQueries({ queryKey: tripKeys.list }),
+          new Promise<never>((_resolve, reject) => {
+            timeout = setTimeout(
+              () =>
+                reject(
+                  new ApiError(
+                    "TRIP_REFRESH_PENDING",
+                    "Your transaction is confirmed. The trip is still updating. Check the previous attempt.",
+                    503,
+                  ),
+                ),
+              15_000,
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeout);
+      }
       batch.current = undefined;
     });
   }
@@ -193,7 +209,7 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
 export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
   const wallet = useWallet();
   const showToast = useToast();
-  const { runner, run } = useMoneyFlow(trip);
+  const { runner, run, pending } = useMoneyFlow(trip);
   const me = memberOf(trip, wallet.address);
   const initial = {
     auto: me ? toUsdInput(BigInt(me.policy.autoApproveMax)) : "",
@@ -202,6 +218,15 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
   const [auto, setAuto] = useState(initial.auto);
   const [cap, setCap] = useState(initial.cap);
   const [touched, setTouched] = useState(false);
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (open && !wasOpen.current && !pending) {
+      setAuto(initial.auto);
+      setCap(initial.cap);
+      setTouched(false);
+    }
+    wasOpen.current = open;
+  }, [open, pending, initial.auto, initial.cap]);
   const autoValue = parseUsd(auto);
   const capValue = parseUsd(cap);
   const autoError =
@@ -232,6 +257,7 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
     <Sheet
       open={open}
       onOpenChange={closeUnlessRunning(runner, onOpenChange, () => {
+        if (pending) return;
         setAuto(initial.auto);
         setCap(initial.cap);
         setTouched(false);
@@ -248,7 +274,7 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
           onChange={(event) => setAuto(event.target.value)}
           hint="Per purchase. Use 0 to always be asked."
           error={autoError}
-          disabled={runner.running}
+          disabled={runner.running || pending}
         />
         <Field
           label="Total cap"
@@ -258,11 +284,17 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
           onChange={(event) => setCap(event.target.value)}
           hint="Automatic approvals stop once your spending on this trip reaches this."
           error={capError}
-          disabled={runner.running}
+          disabled={runner.running || pending}
         />
         <Steps labels={STEPS} current={runner.current} error={runner.error} />
         <Button type="submit" fullWidth disabled={runner.running}>
-          {runner.running ? "Saving…" : runner.error ? "Try again" : "Save limits"}
+          {runner.running
+            ? "Saving…"
+            : pending
+              ? "Check previous attempt"
+              : runner.error
+                ? "Try again"
+                : "Save limits"}
         </Button>
       </form>
     </Sheet>
