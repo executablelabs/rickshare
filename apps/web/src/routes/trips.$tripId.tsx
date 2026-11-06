@@ -2,14 +2,13 @@ import { createFileRoute, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { AuthGuard } from "../auth/AuthGuard";
 import { useSession } from "../auth/session";
 import { Loader } from "../components/brand/Loader";
+import { TravelArt, TravelError, TravelStamp } from "../components/brand/Travel";
 import { AppShell } from "../components/shell/AppShell";
 import { TripNames } from "../components/shell/TripNames";
-import { MoneyPanel } from "../components/trips/MoneyPanel";
 import { TripActionsProvider } from "../components/trips/TripActions";
-import { Button } from "../components/ui/Button";
 import { formatTripDates } from "../lib/format-date";
-import { messageOf } from "../lib/http";
-import { useTrip } from "../lib/trips";
+import { formatUsd } from "../lib/format-usd";
+import { memberOf, useTrip } from "../lib/trips";
 
 export const Route = createFileRoute("/trips/$tripId")({
   component: TripLayout,
@@ -28,22 +27,15 @@ function TripPage() {
   const auth = useSession();
   const trip = useTrip(tripId);
   // The Money tab already shows the money panel, so the side panel would repeat it.
-  const onMoneyTab = !!useMatchRoute()({ to: "/trips/$tripId/money", params: { tripId } });
+  const match = useMatchRoute();
+  const onItineraryTab = !!match({ to: "/trips/$tripId/itinerary", params: { tripId } });
   const signOut = () => void auth.signOut();
 
   if (!trip.data)
     return (
       <AppShell tripId={tripId} onSignOut={signOut}>
         {trip.isError ? (
-          <div
-            role="alert"
-            className="flex flex-col items-start gap-3 rounded-ticket bg-card p-5 shadow-card"
-          >
-            <p>{messageOf(trip.error)}</p>
-            <Button variant="secondary" onClick={() => void trip.refetch()}>
-              Try again
-            </Button>
-          </div>
+          <TravelError error={trip.error} onRetry={() => void trip.refetch()} />
         ) : (
           <Loader label="Loading trip" />
         )}
@@ -59,10 +51,35 @@ function TripPage() {
         subtitle={formatTripDates(trip.data.startsAt, trip.data.endsAt)}
         tripLocation={trip.data.location}
         members={trip.data.members}
-        aside={onMoneyTab ? undefined : <MoneyPanel />}
+        balance={(() => {
+          const own = memberOf(trip.data, auth.session?.address);
+          return own ? (
+            <p className="travel-shell__balance">
+              Your balance <strong>{formatUsd(BigInt(own.available))}</strong>
+              <span>
+                {BigInt(own.policy.totalCap) > 0n
+                  ? `Auto-approves up to ${formatUsd(BigInt(own.policy.autoApproveMax))}`
+                  : "Every share asks you first"}
+              </span>
+            </p>
+          ) : null;
+        })()}
+        aside={
+          !onItineraryTab ? undefined : (
+            <div className="travel-companion">
+              <TravelArt vehicle="bus" photo />
+              <TravelStamp vehicle="plane">Make room for good days</TravelStamp>
+              <p>
+                Your plans can be shared.
+                <br />
+                Your approval is always yours.
+              </p>
+            </div>
+          )
+        }
         onSignOut={signOut}
       >
-        <TripNames trip={trip.data} />
+        <TripNames trip={trip.data} ownAddress={auth.session?.address} />
         <Outlet />
       </AppShell>
     </TripActionsProvider>
