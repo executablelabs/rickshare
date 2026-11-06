@@ -1,6 +1,7 @@
 import { createMemoryHistory } from "@tanstack/react-router";
 import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
+import { RouteLoader } from "./components/brand/Loader";
 import { AppProviders } from "./providers";
 import { createAppRouter } from "./router";
 
@@ -15,4 +16,8 @@ test.each([
   await router.load();
   render(<AppProviders router={router} />);
   expect(await screen.findByRole("heading", { name: heading, level: 1 })).toBeInTheDocument();
+});
+
+test("shows the rickshaw loader while a route is pending", () => {
+  expect(createAppRouter().options.defaultPendingComponent).toBe(RouteLoader);
 });
