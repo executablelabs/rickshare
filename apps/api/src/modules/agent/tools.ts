@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { type ItineraryItem, SignedQuote, Trip } from "@rickshare/shared";
+import { type ItineraryItem, SignedQuote, Trip, X402PaymentRequired } from "@rickshare/shared";
 import { z } from "zod";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
@@ -26,6 +26,7 @@ export interface AgentPorts {
    * vault verify the signature and allowlist again.
    */
   getQuote(request: z.infer<typeof GetQuoteInput>): Promise<unknown>;
+  getPaymentRequirements?(quote: SignedQuote): Promise<X402PaymentRequired | undefined>;
   getTripState(tripId: string): Promise<Trip>;
   /** Verifies the quote and submits it with the proposer key (A9). */
   submitProposal(request: {
@@ -177,6 +178,7 @@ export function createToolRun(
   knownProposalIds: readonly string[] = [],
 ) {
   const quotes = new Map<string, SignedQuote>();
+  const payments = new Map<string, X402PaymentRequired>();
   const proposalIds: string[] = [];
 
   async function proposePurchase(input: unknown): Promise<string> {
@@ -212,6 +214,21 @@ export function createToolRun(
       throw new ToolRejection(
         `Shares add up to ${sum} but the quote total is ${quote.total} (USDC base units).`,
       );
+    }
+
+    const payment = payments.get(quoteId);
+    if (payment) {
+      return wrapUntrusted("merchant_quote", {
+        status: "payment_adapter_required",
+        quoteId,
+        title: quote.title,
+        shares: resolvedShares.map((share) => ({ ...share, amount: share.amount.toString() })),
+        payment,
+        submitted: false,
+        paid: false,
+        message:
+          "These are merchant payment terms only. Group approvals and payment require the vault-to-x402 adapter. No approval request or purchase was created.",
+      });
     }
 
     // A quote is used once, before submitting: if the submission fails after reaching the
@@ -281,6 +298,25 @@ export function createToolRun(
             "The quote would pay someone other than the listed merchant, so it was refused.",
           );
         }
+        const requirements = await ports.getPaymentRequirements?.(quote);
+        if (listing.payment && !requirements)
+          throw new ToolRejection(
+            "This merchant requires x402, but its payment terms are unavailable. No purchase can be submitted.",
+          );
+        if (requirements) {
+          const payment = X402PaymentRequired.parse(requirements);
+          if (
+            payment.accepts.some(
+              (option) =>
+                option.payTo.toLowerCase() !== quote.merchant.toLowerCase() ||
+                BigInt(option.amount) !== BigInt(quote.total) ||
+                option.network !== listing.payment?.network ||
+                option.asset.toLowerCase() !== listing.payment?.asset.toLowerCase(),
+            )
+          )
+            throw new ToolRejection("The payment terms do not match the merchant quote.");
+          payments.set(quote.quoteId, payment);
+        }
         quotes.set(quote.quoteId, quote);
         const { quoteId, title, unitPrice, quantity, total, startsAt, expiresAt } = quote;
         return wrapUntrusted("merchant_quote", {
@@ -291,6 +327,9 @@ export function createToolRun(
           total,
           startsAt,
           expiresAt,
+          ...(requirements
+            ? { payment: requirements, paymentStatus: "vault_adapter_required" }
+            : {}),
         });
       }
       case "get_trip_state": {
