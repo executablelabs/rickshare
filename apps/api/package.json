@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "ens": "bun src/modules/ens/cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.6.0",
