@@ -139,7 +139,15 @@ test("the authenticated chat runtime turns a scoped model quote into a real paid
       createMessage: async (request) => {
         const tool = (name: string, input: unknown) => ({
           stop_reason: "tool_use" as const,
-          content: [{ type: "tool_use" as const, id: `tool-${round}`, name, input }],
+          content: [
+            {
+              type: "tool_use" as const,
+              id: `tool-${round}`,
+              name,
+              input,
+              caller: { type: "direct" as const },
+            },
+          ],
         });
         round += 1;
         if (round === 1) return tool("get_trip_state", {});

@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { asHex } from "@rickshare/shared";
 import { eq } from "drizzle-orm";
 import { getAddress } from "viem";
@@ -7,12 +6,8 @@ import { type AppDatabase, createDatabase } from "./db/client";
 import { indexedVaults, worldIdentities } from "./db/schema";
 import { AppError } from "./lib/errors";
 import { logger } from "./lib/logger";
-import {
-  type AgentModel,
-  type AgentService,
-  createAgentService,
-  createClaudeModel,
-} from "./modules/agent/service";
+import { createOpenRouterModel } from "./modules/agent/openrouter";
+import { type AgentModel, type AgentService, createAgentService } from "./modules/agent/service";
 import { createTavilySearch } from "./modules/agent/sources";
 import type { AgentPorts } from "./modules/agent/tools";
 import { createApprovalReader } from "./modules/approvals/chain";
@@ -197,9 +192,7 @@ export function createRuntime(options: RuntimeOptions = {}) {
       if (agent) return agent;
       const model =
         options.model ??
-        (config.ANTHROPIC_API_KEY
-          ? createClaudeModel(new Anthropic({ apiKey: config.ANTHROPIC_API_KEY }))
-          : undefined);
+        (config.OPENROUTER_API_KEY ? createOpenRouterModel(config.OPENROUTER_API_KEY) : undefined);
       if (!model)
         throw new AppError("AGENT_NOT_CONFIGURED", "The trip agent is not configured.", 503);
       const search = config.TAVILY_API_KEY
@@ -254,7 +247,12 @@ export function createRuntime(options: RuntimeOptions = {}) {
             return runtime.itinerary().replace(tripId, drafts);
           },
         }));
-      agent = createAgentService({ model, ports, chat: runtime.chat() });
+      agent = createAgentService({
+        model,
+        ports,
+        chat: runtime.chat(),
+        ...(config.OPENROUTER_MODEL ? { modelId: config.OPENROUTER_MODEL } : {}),
+      });
       return agent;
     },
     coordinator: (): ChatCoordinator => {

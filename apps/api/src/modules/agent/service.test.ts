@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import Anthropic from "@anthropic-ai/sdk";
 import { createDatabase } from "../../db/client";
 import { AppError } from "../../lib/errors";
 import { createChatStore } from "../chat/service";
 import {
-  AGENT_MODEL,
   AGENT_REPLIES,
   type AgentModel,
   createAgentService,
+  DEFAULT_AGENT_MODEL,
   MAX_TOOL_ROUNDS,
+  ModelUnavailableError,
 } from "./service";
 import {
   ALLOWLISTED_MERCHANT,
@@ -30,6 +30,7 @@ const toolUse = (id: string, name: string, input: unknown): Block => ({
   id,
   name,
   input,
+  caller: { type: "direct" },
 });
 const respond = (stop_reason: Response["stop_reason"], ...content: Block[]): Response => ({
   stop_reason,
@@ -108,17 +109,14 @@ describe("a planning turn", () => {
     ]);
   });
 
-  test("calls the configured model with strict tools, caching and fallbacks", async () => {
+  test("calls the configured model with strict tools and medium effort", async () => {
     const run = setup([respond("end_turn", text("Happy to help."))]);
     await run.agent.reply(ask);
 
     const [request] = run.requests;
     expect(request).toMatchObject({
-      model: AGENT_MODEL,
+      model: DEFAULT_AGENT_MODEL,
       output_config: { effort: "medium" },
-      cache_control: { type: "ephemeral" },
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
     });
     expect(request?.tools?.every((tool) => "strict" in tool && tool.strict)).toBe(true);
     expect(request?.messages).toEqual([
@@ -274,7 +272,7 @@ describe("concurrent messages", () => {
     const model: AgentModel = {
       async createMessage() {
         calls += 1;
-        if (calls === 1) throw new Anthropic.APIConnectionError({ message: "offline" });
+        if (calls === 1) throw new ModelUnavailableError("CONNECTION");
         return respond("end_turn", text("Back again."));
       },
     };
@@ -319,7 +317,7 @@ describe("stopping", () => {
     const agent = createAgentService({
       model: {
         createMessage: async () => {
-          throw new Anthropic.APIConnectionError({ message: "offline" });
+          throw new ModelUnavailableError("CONNECTION");
         },
       },
       ports: createFakePorts().ports,
