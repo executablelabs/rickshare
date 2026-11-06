@@ -2,6 +2,8 @@ import type { AppType } from "@rickshare/api";
 import { hc } from "hono/client";
 import { config } from "../config";
 
-export const api = hc<AppType>(config.VITE_API_URL, {
+const baseUrl = new URL(config.VITE_API_URL, window.location.origin).toString();
+
+export const api = hc<AppType>(baseUrl, {
   init: { credentials: "include" },
 });
