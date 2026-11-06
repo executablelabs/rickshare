@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { ARC_USDC, asHex, contractQuote, inviteTypedData } from "@rickshare/shared";
 import { erc20Abi, tripVaultAbi } from "@rickshare/shared/abi";
-import { getAddress } from "viem";
+import { getAddress, parseUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
 import { z } from "zod";
@@ -23,6 +23,8 @@ import { createProposalChain } from "../modules/proposals/chain";
 import { MerchantClient } from "../modules/proposals/merchants";
 import { ProposalService } from "../modules/proposals/service";
 import { createTripChain } from "../modules/trips/chain";
+import { createGasSponsorChain } from "../modules/trips/gas-chain";
+import { TripGasSponsor } from "../modules/trips/gas-sponsor";
 import { MoneyService } from "../modules/trips/money";
 import { MoneyAction } from "../modules/trips/money-schemas";
 import { TripService } from "../modules/trips/service";
@@ -254,31 +256,42 @@ test("the authenticated chat runtime turns a scoped model quote into a real paid
   }
 }, 120_000);
 
-test("wallet-signed creation and creator-authorized single-use invitations reach real vault membership", async () => {
+test("an unfunded organizer creates an app-funded trip and authorizes single-use invitations", async () => {
   const indexer = new IndexerService(database, createIndexSource(local.factory, local.client));
   const chain = createTripChain(local.factory, local.client);
+  const organizer = privateKeyToAccount(`0x${"88".repeat(32)}`);
+  expect(await local.client.getBalance({ address: organizer.address })).toBe(0n);
+  const sponsorBefore = await local.client.getBalance({ address: local.accounts.deployer.address });
   const trips = new TripService(database, chain, indexer, {
     origin: "http://localhost:5173",
     digest: (token) => token,
+    gasSponsor: new TripGasSponsor(
+      database,
+      createGasSponsorChain(`0x${"11".repeat(32)}`, local.client),
+      { maxFee: parseUnits("1", 18), dailyBudget: parseUnits("10", 18) },
+    ),
   });
-  const prepared = await trips.prepare(local.accounts.alice.address, {
+  const prepared = await trips.prepare(organizer.address, {
     name: "Mumbai weekend",
     endsAt: new Date(Date.now() + 86400_000).toISOString(),
   });
-  const createdHash = await local.wallet(local.accounts.alice).sendTransaction({
+  expect(await local.client.getBalance({ address: organizer.address })).toBeGreaterThan(0n);
+  expect(await local.client.getBalance({ address: local.accounts.deployer.address })).toBeLessThan(
+    sponsorBefore,
+  );
+  const createdHash = await local.wallet(organizer).sendTransaction({
     to: prepared.transaction.to as `0x${string}`,
     data: asHex(prepared.transaction.data),
     value: 0n,
+    maxFeePerGas: BigInt(prepared.transaction.maxFeePerGas),
+    maxPriorityFeePerGas: BigInt(prepared.transaction.maxPriorityFeePerGas),
   });
   await local.receipt(createdHash);
-  const confirmed = await trips.confirm(
-    local.accounts.alice.address,
-    prepared.creationId,
-    createdHash,
-  );
+  const confirmed = await trips.confirm(organizer.address, prepared.creationId, createdHash);
   const vault = confirmed.vaultAddress;
+  expect((await chain.info(vault, organizer.address)).creator).toBe(organizer.address);
   expect(indexer.getTrip(vault).members).toHaveLength(1);
-  const invite = await trips.createInvite(local.accounts.alice.address, vault);
+  const invite = await trips.createInvite(organizer.address, vault);
   const token = new URL(invite.url).pathname.split("/").at(-1);
   if (!token) throw new Error("No invite token");
   const claimed = await trips.claim(local.accounts.bob.address, token);
@@ -286,9 +299,9 @@ test("wallet-signed creation and creator-authorized single-use invitations reach
   await expect(trips.claim(local.accounts.carol.address, token)).rejects.toThrow(
     "already been claimed",
   );
-  const signing = await trips.authorize(local.accounts.alice.address, vault, invite.inviteId);
+  const signing = await trips.authorize(organizer.address, vault, invite.inviteId);
   if (!signing.typedData) throw new Error("No invite data");
-  const signature = await local.accounts.alice.signTypedData(
+  const signature = await organizer.signTypedData(
     inviteTypedData({
       chainId: 5042002,
       vaultAddress: vault,
@@ -296,7 +309,7 @@ test("wallet-signed creation and creator-authorized single-use invitations reach
       deadline: BigInt(signing.typedData.message.deadline),
     }),
   );
-  await trips.authorize(local.accounts.alice.address, vault, invite.inviteId, signature);
+  await trips.authorize(organizer.address, vault, invite.inviteId, signature);
   const accepted = await trips.invite(local.accounts.bob.address, invite.inviteId);
   if (!accepted.transaction) throw new Error("No join transaction");
   const joined = await local

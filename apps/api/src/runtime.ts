@@ -1,6 +1,6 @@
 import { asHex } from "@rickshare/shared";
 import { eq } from "drizzle-orm";
-import { getAddress } from "viem";
+import { getAddress, parseUnits } from "viem";
 import { config } from "./config";
 import { type AppDatabase, createDatabase } from "./db/client";
 import { indexedVaults, worldIdentities } from "./db/schema";
@@ -27,6 +27,8 @@ import { createProposalChain } from "./modules/proposals/chain";
 import { MerchantClient } from "./modules/proposals/merchants";
 import { ProposalService } from "./modules/proposals/service";
 import { createTripChain } from "./modules/trips/chain";
+import { createGasSponsorChain } from "./modules/trips/gas-chain";
+import { TripGasSponsor } from "./modules/trips/gas-sponsor";
 import { createItineraryStore, type ItineraryStore } from "./modules/trips/itinerary";
 import { MoneyService } from "./modules/trips/money";
 import { TripService } from "./modules/trips/service";
@@ -178,7 +180,22 @@ export function createRuntime(options: RuntimeOptions = {}) {
         db(),
         createTripChain(getAddress(config.TRIP_FACTORY_ADDRESS)),
         runtime.indexer(),
-        { origin: runtime.auth().origin, digest: (token) => runtime.auth().digest(token) },
+        {
+          origin: runtime.auth().origin,
+          digest: (token) => runtime.auth().digest(token),
+          ...(config.GAS_SPONSOR_PRIVATE_KEY
+            ? {
+                gasSponsor: new TripGasSponsor(
+                  db(),
+                  createGasSponsorChain(config.GAS_SPONSOR_PRIVATE_KEY),
+                  {
+                    maxFee: parseUnits(config.GAS_SPONSOR_MAX_FEE_USDC, 18),
+                    dailyBudget: parseUnits(config.GAS_SPONSOR_DAILY_BUDGET_USDC, 18),
+                  },
+                ),
+              }
+            : {}),
+        },
       );
       return trips;
     },

@@ -12,7 +12,7 @@ import { Steps, useStepRunner } from "../ui/Steps";
 import { useToast } from "../ui/Toast";
 import { FundingAddress } from "./FundingAddress";
 
-const STEPS = ["Prepare the trip", "Confirm in your wallet", "Set up the trip"];
+const STEPS = ["Prepare the trip and cover the fee", "Confirm in your wallet", "Set up the trip"];
 
 export function CreateTripSheet({
   open,
@@ -69,7 +69,7 @@ export function CreateTripSheet({
         onOpenChange(next);
       }}
       title="New trip"
-      description="You'll be the organizer. Invite friends once it's set up."
+      description="Rickshare covers the setup fee. You'll be the organizer and can invite friends once it's set up."
     >
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
         <Field
