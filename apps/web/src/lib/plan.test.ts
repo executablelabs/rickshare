@@ -73,19 +73,20 @@ test("applies stream events to the cached feed", () => {
 
 test("encodes the vault approve call from the World attestation", () => {
   const vault = `0x${"4".repeat(40)}`;
+  const deadline = String(Math.floor(Date.now() / 1000) + 120);
   const call = approveCall(vault, {
     vaultAddress: vault,
     proposalId: "7",
     member: `0x${"1".repeat(40)}`,
     amount: "42000000",
     nonce: "3",
-    deadline: "1999999999",
+    deadline,
     chainId: 5042002,
     signature: `0x${"ab".repeat(65)}`,
   });
   expect(call.to.toLowerCase()).toBe(vault);
   expect(decodeFunctionData({ abi: tripVaultAbi, data: call.data })).toEqual({
     functionName: "approve",
-    args: [7n, 3n, 1999999999n, `0x${"ab".repeat(65)}`],
+    args: [7n, 3n, BigInt(deadline), `0x${"ab".repeat(65)}`],
   });
 });

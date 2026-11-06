@@ -18,7 +18,7 @@ const base: Proposal = {
     { member: gitau, amount: "42000000", state: "waiting" },
   ],
   status: "pending",
-  deadline: "2026-12-11T00:00:00.000Z",
+  deadline: new Date(Date.now() + 86400000).toISOString(),
   ticketHash: null,
   txHash: "0x00",
 };

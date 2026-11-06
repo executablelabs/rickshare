@@ -31,7 +31,7 @@ const proposal: Proposal = {
     { member: bashy, amount: "42000000", state: "approved" },
   ],
   status: "pending",
-  deadline: "2026-12-11T00:00:00.000Z",
+  deadline: new Date(Date.now() + 86400000).toISOString(),
   ticketHash: null,
   txHash: "0x00",
 };
@@ -189,6 +189,7 @@ test("a ticket waiting for you can be declined with the prepared reject", async 
 });
 
 test("approving verifies with World, then sends the vault approve from the member's wallet", async () => {
+  const deadline = String(Math.floor(Date.now() / 1000) + 120);
   const popup = { closed: false, location: { href: "" }, close: vi.fn() };
   vi.spyOn(window, "open").mockReturnValue(popup as unknown as Window);
   const calls = stubApi({
@@ -208,7 +209,7 @@ test("approving verifies with World, then sends the vault approve from the membe
           member: me,
           amount: "42000000",
           nonce: "3",
-          deadline: "1999999999",
+          deadline,
           chainId: 5042002,
           signature: `0x${"cd".repeat(65)}`,
         },
@@ -228,7 +229,7 @@ test("approving verifies with World, then sends the vault approve from the membe
   expect(sent?.to.toLowerCase()).toBe(vault);
   expect(decodeFunctionData({ abi: tripVaultAbi, data: sent?.data ?? "0x" })).toMatchObject({
     functionName: "approve",
-    args: [7n, 3n, 1999999999n, `0x${"cd".repeat(65)}`],
+    args: [7n, 3n, BigInt(deadline), `0x${"cd".repeat(65)}`],
   });
   await waitFor(() => expect(popup.close).toHaveBeenCalled());
 });
