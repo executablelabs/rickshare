@@ -27,7 +27,7 @@ function PlannerAvatar() {
   );
 }
 
-function TicketLink({ proposal }: { proposal: Proposal }) {
+export function TicketLink({ proposal }: { proposal: Proposal }) {
   const { trip } = useTripActions();
   const showToast = useToast();
   const [opening, setOpening] = useState(false);
