@@ -1,7 +1,7 @@
 import { Address, UsdcAmount } from "@rickshare/shared";
 import { z } from "zod";
 import { api } from "./api";
-import { readApi } from "./http";
+import { ApiError, readApi } from "./http";
 
 const Started = z.object({ requestId: z.string(), authorizationUrl: z.string().url() });
 const Attestation = z.object({
@@ -58,13 +58,14 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 export async function verifyWithWorld(start: () => Promise<z.infer<typeof Started>>) {
   const popup = window.open("", "rickshare-world", "popup,width=480,height=720");
+  if (!popup)
+    throw new ApiError(
+      "WORLD_POPUP_BLOCKED",
+      "Your browser blocked World verification. Allow popups for Rickshare, then try again.",
+      409,
+    );
   try {
     const started = await start();
-    if (!popup) {
-      // Popups blocked: continue in this tab. The callback brings the member back to the app.
-      window.location.assign(started.authorizationUrl);
-      return new Promise<never>(() => undefined);
-    }
     popup.location.href = started.authorizationUrl;
     const deadline = Date.now() + GIVE_UP_MS;
     let closedAt: number | undefined;
