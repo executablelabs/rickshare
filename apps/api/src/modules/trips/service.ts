@@ -12,6 +12,7 @@ import {
 } from "../../db/schema";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
+import { reserveMemberAlias } from "../ens/store";
 import type { IndexerService } from "../indexer/service";
 import type { TripChain } from "./chain";
 
@@ -394,11 +395,14 @@ export class TripService {
     if (!info.isMember)
       throw new AppError("NOT_MEMBER", "Join this trip before setting your name.", 403);
     const id = `${vault.toLowerCase()}:${actor.toLowerCase()}`;
-    this.db
-      .insert(memberMetadata)
-      .values({ id, displayName })
-      .onConflictDoUpdate({ target: memberMetadata.id, set: { displayName } })
-      .run();
+    this.db.transaction((tx) => {
+      tx.insert(memberMetadata)
+        .values({ id, displayName })
+        .onConflictDoUpdate({ target: memberMetadata.id, set: { displayName } })
+        .run();
+      if (info.endsAt > BigInt(Math.floor(this.now() / 1000)))
+        reserveMemberAlias(tx, vault.toLowerCase(), actor.toLowerCase(), displayName);
+    });
     this.indexer.refreshMetadata(vault);
     return { address: actor, displayName };
   }
