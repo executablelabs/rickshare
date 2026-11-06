@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
+import { Loader } from "../components/brand/Loader";
+import { RickshawMark } from "../components/brand/RickshawMark";
 import { Amount } from "../components/ui/Amount";
 import { Avatar } from "../components/ui/Avatar";
 import { AvatarStack } from "../components/ui/AvatarStack";
@@ -123,6 +125,18 @@ function UiGallery() {
             Show error
           </Button>
         </div>
+      </Section>
+
+      <Section title="Brand">
+        <div className="flex flex-wrap items-end gap-6">
+          <RickshawMark className="w-24 text-ink" />
+          <RickshawMark className="w-12 text-ink" />
+          <RickshawMark className="w-6 text-ink" />
+        </div>
+      </Section>
+
+      <Section title="Loader">
+        <Loader label="Loading trip" />
       </Section>
     </main>
   );
