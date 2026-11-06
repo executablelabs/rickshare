@@ -179,6 +179,77 @@ test("a failed submission is never retried with the same quote", async () => {
 });
 
 describe("other tools", () => {
+  test("returns planning fields through get_trip_state without stripping them", async () => {
+    const fake = createFakePorts({
+      getTripState: async () => ({
+        ...TRIP,
+        location: "Lisbon",
+        startsAt: "2026-12-12T00:00:00.000Z",
+      }),
+    });
+    const result = await createToolRun(TRIP.id, fake.ports, () => NOW).execute(
+      "get_trip_state",
+      {},
+    );
+    expect(result.isError).toBe(false);
+    expect(result.content).toContain('"location":"Lisbon"');
+    expect(result.content).toContain('"startsAt":"2026-12-12T00:00:00.000Z"');
+  });
+
+  test.each([
+    { location: null, startsAt: null },
+    { location: undefined, startsAt: undefined },
+  ])("handles missing planning metadata: %j", async (metadata) => {
+    const fake = createFakePorts({ getTripState: async () => ({ ...TRIP, ...metadata }) });
+    const result = await createToolRun(TRIP.id, fake.ports, () => NOW).execute(
+      "get_trip_state",
+      {},
+    );
+    expect(result.isError).toBe(false);
+    expect(result.content).toContain('"location":null');
+    expect(result.content).toContain('"startsAt":null');
+  });
+
+  test("validates planning metadata before supplying it to the model", async () => {
+    const fake = createFakePorts({
+      getTripState: async () => ({ ...TRIP, startsAt: "not a date" }),
+    });
+    const result = await createToolRun(TRIP.id, fake.ports, () => NOW).execute(
+      "get_trip_state",
+      {},
+    );
+    expect(result).toEqual({ content: "get_trip_state is unavailable right now.", isError: true });
+  });
+
+  test("reports unconfigured web search explicitly without leaking upstream details", async () => {
+    const fake = createFakePorts({
+      searchActivities: async () => {
+        throw new AppError("SEARCH_NOT_CONFIGURED", "private configuration details", 503);
+      },
+    });
+    const result = await createToolRun(TRIP.id, fake.ports, () => NOW).execute(
+      "search_activities",
+      {
+        query: "Lisbon group activities",
+      },
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("Web search is not configured");
+    expect(result.content).toContain("Do not substitute unrelated merchant listings");
+    expect(result.content).not.toContain("private configuration details");
+  });
+
+  test("keeps an empty web search distinguishable from a failed search", async () => {
+    const result = await createToolRun(TRIP.id, createFakePorts().ports, () => NOW).execute(
+      "search_activities",
+      { query: "Lisbon group activities" },
+    );
+    expect(result).toEqual({
+      content: '<untrusted_data source="web_search">\n[]\n</untrusted_data>',
+      isError: false,
+    });
+  });
+
   test("wraps outside content and hides the payee and signature from the model", async () => {
     const fake = createFakePorts();
     const run = createToolRun(TRIP.id, fake.ports, () => NOW);
