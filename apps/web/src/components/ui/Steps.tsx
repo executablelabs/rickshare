@@ -44,7 +44,10 @@ export function Steps({ labels, current, error }: StepsProps) {
   if (current < 0) return null;
   return (
     <div className="flex flex-col gap-3">
-      <ol aria-label="Progress" className="flex flex-col gap-2.5 rounded-control bg-paper p-4">
+      <ol
+        aria-label="Progress"
+        className="travel-steps flex flex-col gap-2.5 rounded-control bg-paper p-4"
+      >
         {labels.map((label, index) => {
           const state =
             index < current ? "done" : index === current ? (error ? "error" : "active") : "todo";
@@ -59,7 +62,7 @@ export function Steps({ labels, current, error }: StepsProps) {
               )}
             >
               {state === "done" && (
-                <CheckCircle aria-hidden="true" size={20} weight="fill" className="text-stamp" />
+                <CheckCircle aria-hidden="true" size={20} weight="fill" className="text-ink" />
               )}
               {state === "active" && (
                 <CircleNotch

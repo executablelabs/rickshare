@@ -90,6 +90,8 @@ export function CreateTripSheet({
         onOpenChange(next);
       }}
       title="New trip"
+      theme="orange"
+      vehicle="plane"
       description="Rickshare covers the setup fee. You'll be the organizer and can invite friends once it's set up."
     >
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { SignInButton } from "../components/auth/SignInButton";
+import { TravelArt, TravelStamp } from "../components/brand/Travel";
 import { Wordmark } from "../components/brand/Wordmark";
 import { Button } from "../components/ui/Button";
 import { useSession } from "./session";
@@ -19,9 +20,18 @@ export function AuthGuard({
   const auth = useSession();
   if (auth.session) return children;
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-paper px-5 py-10">
-      <div className="flex w-full max-w-[420px] flex-col gap-6 rounded-band bg-card p-6 shadow-card lg:p-8">
+    <main className="travel-entry">
+      <div className="travel-entry__story">
         <Wordmark />
+        <p>
+          Your people.
+          <br />
+          <span>Your next adventure.</span>
+        </p>
+        <TravelArt vehicle="plane" photo />
+      </div>
+      <div className="travel-entry__card">
+        <TravelStamp vehicle="rickshaw">Good trips start together</TravelStamp>
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl">{title}</h1>
           <p className="text-ink-muted">{description}</p>

@@ -4,6 +4,11 @@
 
 /* Shared brand surfaces; financial status colors retain their established meanings. */
 :root {
+  --travel-title: clamp(36px, 4.5vw, 60px);
+  --travel-hero-title: clamp(44px, 5vw, 72px);
+  --travel-amount: clamp(36px, 4vw, 52px);
+  --brand-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --brand-photo-text-shadow: 0 1px 8px rgb(23 35 65 / 45%);
   --paper: #fff9f2;
   --card: #ffffff;
   --ink: #172341;
@@ -194,7 +199,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--stamp);
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 }

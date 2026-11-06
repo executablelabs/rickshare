@@ -108,7 +108,7 @@ export function Landing() {
                     <span>01</span>
                     <div>
                       <h3>Your trip, your people.</h3>
-                      <p>Name the adventure, pick an end date, and send your friends an invite.</p>
+                      <p>Name the adventure, choose your dates, and send your friends an invite.</p>
                     </div>
                   </li>
                   <li>

@@ -1,18 +1,19 @@
-// Short, unambiguous dates in the member's own locale, e.g. "Sat 14 Dec, 10:00" and "18 Dec".
+// Short dates in the member's locale; show the year outside the current calendar year.
 
 export function formatWhen(iso: string, locale?: string): string {
   const date = new Date(iso);
-  const day = new Intl.DateTimeFormat(locale, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  }).format(date);
+  const day = formatDay(iso, locale);
   const time = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(date);
   return `${day}, ${time}`;
 }
 
 export function formatDay(iso: string, locale?: string): string {
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(new Date(iso));
+  const date = new Date(iso);
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    ...(date.getFullYear() !== new Date().getFullYear() ? ({ year: "numeric" } as const) : {}),
+  }).format(date);
 }
 
 export function formatTripDates(
@@ -20,14 +21,17 @@ export function formatTripDates(
   endsAt: string,
   locale?: string,
 ): string {
+  const start = startsAt ? new Date(startsAt) : undefined;
+  const end = new Date(endsAt);
+  const year = new Date().getFullYear();
   const formatter = new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
-    year: "numeric",
+    ...(end.getFullYear() !== year || (start && start.getFullYear() !== year)
+      ? ({ year: "numeric" } as const)
+      : {}),
   });
-  return startsAt
-    ? formatter.formatRange(new Date(startsAt), new Date(endsAt))
-    : `Ends ${formatter.format(new Date(endsAt))}`;
+  return start ? formatter.formatRange(start, end) : `Ends ${formatter.format(end)}`;
 }
 
 /** The beginning of the chosen day in the organizer's time zone. */

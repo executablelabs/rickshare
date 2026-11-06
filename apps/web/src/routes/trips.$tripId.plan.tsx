@@ -1,29 +1,35 @@
+import { Sparkle, Wallet } from "@phosphor-icons/react";
 import type { ChatMessage } from "@rickshare/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useWallet } from "../auth/wallet";
 import { Loader } from "../components/brand/Loader";
+import { TravelError, TravelIntro } from "../components/brand/Travel";
 import { Composer } from "../components/plan/Composer";
 import { Feed } from "../components/plan/Feed";
+import { FundingAddress } from "../components/trips/FundingAddress";
 import { ReadyChecklist } from "../components/trips/ReadyChecklist";
 import { useTripActions } from "../components/trips/TripActions";
+import { Amount } from "../components/ui/Amount";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/Toast";
 import { messageOf } from "../lib/http";
 import { mergeMessages, planKeys, sendChat, useChat, useProposals } from "../lib/plan";
+import { useMoney } from "../lib/trips";
 
 export const Route = createFileRoute("/trips/$tripId/plan")({
   component: Plan,
 });
 
 function Plan() {
-  const { trip } = useTripActions();
+  const { trip, open } = useTripActions();
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const showToast = useToast();
   const chat = useChat(trip.id);
   const proposals = useProposals(trip.id);
+  const money = useMoney(trip.id);
   const [draft, setDraft] = useState("");
   const [waitingFor, setWaitingFor] = useState<string | null>(null);
   const retry = useRef<{ requestId: string; text: string } | null>(null);
@@ -110,42 +116,87 @@ function Plan() {
   }
 
   return (
-    <div className="flex min-h-[60dvh] flex-col gap-6">
-      <div className="flex flex-col gap-2 border-b border-rule pb-6">
-        <h1 className="font-display text-3xl font-semibold">Plan</h1>
-        <p className="text-ink-muted">
-          Bring the group’s ideas together. Everyone keeps their own say.
-        </p>
-      </div>
-      <ReadyChecklist />
-      {chat.isPending || proposals.isPending ? (
-        <Loader label="Loading the plan" />
-      ) : chat.isError || proposals.isError ? (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-3 rounded-ticket bg-card p-5 shadow-card"
-        >
-          <p>{messageOf(chat.error ?? proposals.error)}</p>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void chat.refetch();
-              void proposals.refetch();
-            }}
-          >
-            Try again
-          </Button>
+    <div className="travel-plan">
+      <TravelIntro
+        title="Plan"
+        description="A few good ideas. A whole trip to make them happen."
+        vehicle="bus"
+      />
+      <section className="travel-planning-balance" aria-labelledby="planning-money-title">
+        <div className="travel-kicker">
+          <Wallet size={20} aria-hidden="true" />
+          <h2 id="planning-money-title">Your wallet, ready for the trip</h2>
         </div>
-      ) : (
-        <Feed
-          messages={messages}
-          proposals={proposals.data}
-          thinking={thinking}
-          onSuggest={setDraft}
-        />
-      )}
-      <div ref={end} className="mt-auto" />
-      <Composer value={draft} onChange={setDraft} onSend={send} disabled={thinking} />
+        {money.isError ? (
+          <div role="alert">
+            <p>{messageOf(money.error)}</p>
+            <Button variant="secondary" onClick={() => void money.refetch()}>
+              Try again
+            </Button>
+          </div>
+        ) : money.data ? (
+          <>
+            <div className="travel-planning-balance__amounts">
+              <div>
+                <span>In your wallet</span>
+                <Amount value={BigInt(money.data.walletBalance)} display />
+              </div>
+            </div>
+            <div className="travel-planning-balance__actions">
+              <Button
+                variant="secondary"
+                onClick={() => open("addMoney")}
+                disabled={money.data.settled || Date.parse(trip.endsAt) <= Date.now()}
+              >
+                Add money
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => open("limits")}
+                disabled={money.data.settled || Date.parse(trip.endsAt) <= Date.now()}
+              >
+                My limits
+              </Button>
+            </div>
+            <details>
+              <summary>Fund your wallet</summary>
+              <FundingAddress />
+            </details>
+          </>
+        ) : (
+          <Loader label="Loading your planning balance" />
+        )}
+      </section>
+      <div className="travel-plan__workspace">
+        <div className="travel-plan__chat">
+          <div className="travel-conversation">
+            <div className="travel-conversation__bar">
+              <Sparkle size={20} aria-hidden="true" /> The group plan
+            </div>
+            {chat.isPending || proposals.isPending ? (
+              <Loader label="Loading the plan" />
+            ) : chat.isError || proposals.isError ? (
+              <TravelError
+                error={chat.error ?? proposals.error}
+                onRetry={() => {
+                  void chat.refetch();
+                  void proposals.refetch();
+                }}
+              />
+            ) : (
+              <Feed
+                messages={messages}
+                proposals={proposals.data}
+                thinking={thinking}
+                onSuggest={setDraft}
+              />
+            )}
+            <div ref={end} />
+          </div>
+          <Composer value={draft} onChange={setDraft} onSend={send} disabled={thinking} />
+        </div>
+        <ReadyChecklist />
+      </div>
     </div>
   );
 }

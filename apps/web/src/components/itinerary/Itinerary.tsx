@@ -2,13 +2,15 @@ import { MapPin } from "@phosphor-icons/react";
 import type { ItineraryItem } from "@rickshare/shared";
 import { Link } from "@tanstack/react-router";
 import { useWallet } from "../../auth/wallet";
-import { messageOf } from "../../lib/http";
+import { formatDay } from "../../lib/format-date";
 import { useItinerary } from "../../lib/itinerary";
 import { useProposals } from "../../lib/plan";
 import { Loader } from "../brand/Loader";
+import { TravelError, TravelIntro } from "../brand/Travel";
+import { RouteDoodle, TapeLabel } from "../brand/TravelDetails";
 import { TicketLink } from "../plan/Feed";
 import { useTripActions } from "../trips/TripActions";
-import { Button } from "../ui/Button";
+import { AvatarStack } from "../ui/AvatarStack";
 import { Chip } from "../ui/Chip";
 
 export function Itinerary() {
@@ -38,32 +40,25 @@ export function Itinerary() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 border-b border-rule pb-6">
-        <h1 className="font-display text-3xl font-semibold">Itinerary</h1>
-        <p className="text-ink-muted">
-          Your days together, with plans and booked tickets in one place.
-        </p>
-      </div>
+      <TravelIntro
+        title="Itinerary"
+        description="The days you’ll talk about. All in one place."
+        vehicle="train"
+      />
       {itinerary.isPending || proposals.isPending ? (
         <Loader label="Loading itinerary" />
       ) : itinerary.isError || proposals.isError ? (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-3 rounded-ticket bg-card p-5 shadow-card"
-        >
-          <p>{messageOf(itinerary.error ?? proposals.error)}</p>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void itinerary.refetch();
-              void proposals.refetch();
-            }}
-          >
-            Try again
-          </Button>
-        </div>
+        <TravelError
+          error={itinerary.error ?? proposals.error}
+          onRetry={() => {
+            void itinerary.refetch();
+            void proposals.refetch();
+          }}
+        />
       ) : items.length === 0 ? (
-        <section className="flex flex-col items-start gap-4 rounded-ticket border border-rule bg-card p-6 shadow-card">
+        <section className="travel-empty flex flex-col items-start gap-4">
+          <TapeLabel>Good days ahead</TapeLabel>
+          <RouteDoodle />
           <h2 className="font-display text-xl font-semibold">No plans yet</h2>
           <p className="text-ink-muted">
             Ask the planner for ideas. Your days and booked tickets will appear here.
@@ -71,7 +66,7 @@ export function Itinerary() {
           <Link
             to="/trips/$tripId/plan"
             params={{ tripId: trip.id }}
-            className="inline-flex min-h-11 items-center font-semibold text-stamp-ink underline"
+            className="inline-flex min-h-12 items-center justify-center rounded-control bg-ink px-5 font-semibold text-card hover:bg-ink-hover"
           >
             Ask the planner
           </Link>
@@ -83,16 +78,10 @@ export function Itinerary() {
             aria-label={new Intl.DateTimeFormat(undefined, { dateStyle: "full" }).format(
               new Date(day.startsAt),
             )}
-            className="flex flex-col gap-3"
+            className="travel-day"
           >
-            <h2 className="self-start rounded-control bg-brand-sky px-3 py-2 font-display text-lg font-semibold">
-              {new Intl.DateTimeFormat(undefined, {
-                weekday: "long",
-                day: "numeric",
-                month: "short",
-              }).format(new Date(day.startsAt))}
-            </h2>
-            <ol className="flex flex-col gap-4 border-l-2 border-rule pl-4">
+            <h2>{formatDay(day.startsAt)}</h2>
+            <ol>
               {day.items.map((item) => {
                 const proposal = proposals.data.find((proposal) => proposal.id === item.proposalId);
                 const mine = proposal?.shares.some(
@@ -103,7 +92,7 @@ export function Itinerary() {
                   <li key={item.id}>
                     <article
                       aria-label={item.title}
-                      className="flex flex-col gap-3 rounded-ticket border border-rule bg-card p-5 shadow-card"
+                      className={`travel-activity ${status === "fulfilled" ? "travel-activity--booked" : ""}`}
                     >
                       <time
                         dateTime={item.startsAt}
@@ -114,43 +103,57 @@ export function Itinerary() {
                           minute: "2-digit",
                         }).format(new Date(item.startsAt))}
                       </time>
-                      <h3 className="font-display text-xl font-semibold wrap-anywhere">
-                        {item.title}
-                      </h3>
-                      {item.location && (
-                        <p className="flex items-start gap-1.5 text-sm text-ink-muted wrap-anywhere">
-                          <MapPin aria-hidden="true" size={20} className="shrink-0" />
-                          {item.location}
-                        </p>
-                      )}
-                      <div>
-                        <Chip
-                          tone={
-                            status === "fulfilled"
-                              ? "stamp"
+                      <div className="travel-activity__body">
+                        <h3 className="font-display text-xl font-semibold wrap-anywhere">
+                          {item.title}
+                        </h3>
+                        {item.location && (
+                          <p className="flex items-start gap-1.5 text-sm text-ink-muted wrap-anywhere">
+                            <MapPin aria-hidden="true" size={20} className="shrink-0" />
+                            {item.location}
+                          </p>
+                        )}
+                        <div>
+                          <Chip
+                            tone={
+                              status === "fulfilled"
+                                ? "stamp"
+                                : status === "rejected"
+                                  ? "declined"
+                                  : "neutral"
+                            }
+                          >
+                            {status === "fulfilled"
+                              ? "Booked"
                               : status === "rejected"
-                                ? "declined"
-                                : "neutral"
-                          }
-                        >
-                          {status === "fulfilled"
-                            ? "Booked"
-                            : status === "rejected"
-                              ? "Declined"
-                              : status === "refunded"
-                                ? "Refunded"
-                                : status === "locked"
-                                  ? "Waiting for ticket"
-                                  : "Planned"}
-                        </Chip>
+                                ? "Declined"
+                                : status === "refunded"
+                                  ? "Refunded"
+                                  : status === "locked"
+                                    ? "Waiting for ticket"
+                                    : "Planned"}
+                          </Chip>
+                        </div>
+                        {proposal && (
+                          <AvatarStack
+                            members={trip.members.filter((member) =>
+                              proposal.shares.some(
+                                (share) =>
+                                  share.member.toLowerCase() === member.address.toLowerCase(),
+                              ),
+                            )}
+                          />
+                        )}
+                        {proposal &&
+                          status === "fulfilled" &&
+                          (mine ? (
+                            <TicketLink proposal={proposal} />
+                          ) : (
+                            <p className="text-sm text-ink-muted">
+                              You’re not part of this booking.
+                            </p>
+                          ))}
                       </div>
-                      {proposal &&
-                        status === "fulfilled" &&
-                        (mine ? (
-                          <TicketLink proposal={proposal} />
-                        ) : (
-                          <p className="text-sm text-ink-muted">You’re not part of this booking.</p>
-                        ))}
                     </article>
                   </li>
                 );

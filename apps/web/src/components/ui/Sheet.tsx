@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { Drawer } from "vaul";
 import { cx } from "../../lib/cx";
 import { DESKTOP_QUERY, useMediaQuery } from "../../lib/use-media-query";
+import { TransportMark, type Vehicle } from "../brand/TransportMark";
+import "../../styles/travel.css";
 
 export interface SheetProps {
   open: boolean;
@@ -10,10 +12,20 @@ export interface SheetProps {
   title: string;
   description?: string;
   children: ReactNode;
+  theme?: "paper" | "orange" | "navy";
+  vehicle?: Vehicle;
 }
 
 /** Bottom sheet on mobile, side panel on desktop. */
-export function Sheet({ open, onOpenChange, title, description, children }: SheetProps) {
+export function Sheet({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+  theme = "paper",
+  vehicle = "plane",
+}: SheetProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
 
   return (
@@ -24,15 +36,24 @@ export function Sheet({ open, onOpenChange, title, description, children }: Shee
           // Radix warns unless a missing description is declared explicitly.
           {...(description ? {} : { "aria-describedby": undefined })}
           className={cx(
-            "fixed z-50 flex flex-col overflow-hidden bg-card text-ink shadow-sheet outline-none",
+            `travel-sheet travel-sheet--${theme} fixed z-50 flex flex-col overflow-hidden bg-card text-ink shadow-sheet outline-none`,
             isDesktop
-              ? "inset-y-0 right-0 w-full max-w-[420px] rounded-l-sheet"
+              ? "inset-y-4 right-4 w-[calc(100%-32px)] max-w-[480px] rounded-sheet"
               : "inset-x-0 bottom-0 max-h-[90dvh] rounded-t-sheet",
           )}
         >
           {!isDesktop && <Drawer.Handle className="mt-3 bg-rule" />}
-          <div className="flex items-start justify-between gap-4 border-b border-rule bg-paper px-5 pt-4 pb-5">
-            <div className="flex flex-col gap-1 pt-2">
+          <div className="travel-sheet__heading">
+            <div className="travel-sheet__topline">
+              <TransportMark vehicle={vehicle} />
+              <Drawer.Close
+                aria-label="Close"
+                className="inline-flex size-11 items-center justify-center rounded-pill hover:bg-card/10"
+              >
+                <X aria-hidden="true" size={20} />
+              </Drawer.Close>
+            </div>
+            <div>
               <Drawer.Title className="font-display text-xl font-semibold">{title}</Drawer.Title>
               {description && (
                 <Drawer.Description className="text-sm text-ink-muted">
@@ -40,14 +61,8 @@ export function Sheet({ open, onOpenChange, title, description, children }: Shee
                 </Drawer.Description>
               )}
             </div>
-            <Drawer.Close
-              aria-label="Close"
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-ink hover:bg-paper"
-            >
-              <X aria-hidden="true" size={20} />
-            </Drawer.Close>
           </div>
-          <div className="overflow-y-auto px-5 pt-4 pb-[max(20px,env(safe-area-inset-bottom))]">
+          <div className="travel-sheet__body pb-[max(24px,env(safe-area-inset-bottom))]">
             {children}
           </div>
         </Drawer.Content>

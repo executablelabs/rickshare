@@ -60,7 +60,7 @@ html:has(.landing) {
   cursor: pointer;
 }
 .landing :focus-visible {
-  outline: 3px solid var(--stamp);
+  outline: 3px solid var(--ink);
   outline-offset: 5px;
 }
 .landing-container {
@@ -110,13 +110,13 @@ html:has(.landing) {
   align-items: center;
   gap: 40px;
 }
-.landing-nav__brand {
+.landing .brand-nav__brand {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
   min-height: 44px;
 }
-.landing-nav__brand > span {
+.landing .brand-nav__brand > span {
   gap: 10px;
   font-size: var(--landing-text-2xl);
   letter-spacing: -1.1px;
@@ -561,54 +561,12 @@ html:has(.landing) {
   font-size: 10px;
   color: var(--landing-muted);
 }
-.travel-postcard {
-  width: 220px;
-  padding: 9px 9px 6px;
-  background: var(--landing-cream);
-  border-radius: 3px;
-  box-shadow: var(--landing-paper-shadow);
-  transition: transform 400ms var(--landing-ease);
-}
 .hero-product__postcard {
   position: absolute;
   z-index: 0;
   right: -48px;
   top: -62px;
   transform: rotate(12deg);
-}
-.travel-postcard__photo {
-  position: relative;
-  height: 138px;
-  overflow: hidden;
-  background: var(--landing-sky);
-}
-.travel-postcard__photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.travel-postcard__photo > span {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  font-family: var(--font-display);
-  font-size: var(--landing-text-2xl);
-  font-weight: 600;
-  line-height: 1;
-  color: var(--landing-white);
-  text-shadow: 0 1px 8px rgb(23 35 65 / 45%);
-}
-.travel-postcard__caption {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 7px;
-  font-size: 9px;
-}
-.travel-route {
-  width: 200px;
-  height: auto;
-  pointer-events: none;
 }
 .hero-product__route {
   position: absolute;
@@ -1449,11 +1407,11 @@ html:has(.landing) {
     gap: 14px;
     justify-content: space-between;
   }
-  .landing-nav__brand > span {
+  .landing .brand-nav__brand > span {
     font-size: 24px;
     gap: 7px;
   }
-  .landing-nav__brand .transport-mark {
+  .landing .brand-nav__brand .transport-mark {
     width: 38px;
     flex-basis: 38px;
     height: 30px;
@@ -1827,7 +1785,7 @@ html:has(.landing) {
   .landing-nav__inner {
     width: calc(100% - 32px);
   }
-  .landing-nav__brand > span {
+  .landing .brand-nav__brand > span {
     font-size: var(--landing-text-xl);
   }
   .landing-nav__signin {

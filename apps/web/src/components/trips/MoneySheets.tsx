@@ -16,7 +16,7 @@ import { useToast } from "../ui/Toast";
 import { FundingAddress } from "./FundingAddress";
 
 const STEPS = ["Prepare", "Confirm in your wallet", "Update the trip"];
-const QUICK_AMOUNTS = ["25", "50", "100"];
+const QUICK_AMOUNTS = ["1", "3", "5"];
 
 type SheetProps = { trip: Trip; open: boolean; onOpenChange: (open: boolean) => void };
 
@@ -163,13 +163,17 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
         setTouched(false);
       })}
       title="Add money"
+      theme="navy"
+      vehicle="rickshaw"
       description="It stays yours. It only pays for things you approve, and leftovers come back."
     >
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
         <Field
           label="Amount in USDC"
+          prefix="$"
+          className="travel-amount"
           inputMode="decimal"
-          placeholder="50.00"
+          placeholder="0.00"
           value={amount}
           onChange={(event) => setAmount(event.target.value)}
           error={error}
@@ -177,14 +181,14 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
           disabled={runner.running || pending}
           autoComplete="off"
         />
-        <div className="flex gap-2">
+        <div className="travel-quick-amounts">
           {QUICK_AMOUNTS.map((quick) => (
             <button
               key={quick}
               type="button"
               disabled={runner.running || pending}
               onClick={() => setAmount(quick)}
-              className="h-11 flex-1 rounded-control bg-paper font-semibold text-ink hover:bg-rule disabled:opacity-50"
+              className="disabled:opacity-50"
             >
               ${quick}
             </button>
@@ -268,6 +272,7 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
         <Field
           label="Approve automatically up to"
+          prefix="$"
           inputMode="decimal"
           placeholder="0.00"
           value={auto}
@@ -278,6 +283,7 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
         />
         <Field
           label="Total cap"
+          prefix="$"
           inputMode="decimal"
           placeholder="0.00"
           value={cap}
@@ -286,6 +292,13 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
           error={capError}
           disabled={runner.running || pending}
         />
+        {autoValue !== null && capValue !== null && autoValue <= capValue && (
+          <p className="travel-limits-preview">
+            {autoValue === 0n || capValue === 0n
+              ? "Every share asks you first. No automatic approvals."
+              : `We’ll approve anything up to ${formatUsd(autoValue)} for you, until you’ve spent ${formatUsd(capValue)} on this trip. Anything else asks you first.`}
+          </p>
+        )}
         <Steps labels={STEPS} current={runner.current} error={runner.error} />
         <Button type="submit" fullWidth disabled={runner.running}>
           {runner.running

@@ -1,5 +1,5 @@
 import type { Member } from "@rickshare/shared";
-import { Avatar } from "./Avatar";
+import { Avatar, displayNameOf } from "./Avatar";
 
 export interface AvatarStackProps {
   members: Array<Pick<Member, "address" | "displayName">>;
@@ -21,7 +21,7 @@ export function AvatarStack({ members, max = 3, onInk = false }: AvatarStackProp
   return (
     <span
       role="img"
-      aria-label={listNames(members.map((member) => member.displayName))}
+      aria-label={listNames(members.map((member) => displayNameOf(member.displayName)))}
       className="inline-flex items-center"
     >
       {visible.map((member, index) => (

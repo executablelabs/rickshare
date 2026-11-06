@@ -1,10 +1,14 @@
 import { List, X } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import { useWallet } from "../../auth/wallet";
 import { SignInButton } from "../auth/SignInButton";
+import { BrandNav } from "../brand/BrandNav";
+import { Loader } from "../brand/Loader";
 import type { Vehicle } from "../brand/TransportMark";
-import { Wordmark } from "../brand/Wordmark";
 
 export function LandingNav({ vehicle }: { vehicle: Vehicle }) {
+  const wallet = useWallet();
+  const preparing = wallet.authenticated && !wallet.address;
   const [open, setOpen] = useState(false);
   const header = useRef<HTMLElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -36,10 +40,7 @@ export function LandingNav({ vehicle }: { vehicle: Vehicle }) {
 
   return (
     <header ref={header} className="landing-nav" data-journey={vehicle}>
-      <div className="landing-nav__inner">
-        <a href="#top" aria-label="Rickshare home" className="landing-nav__brand">
-          <Wordmark vehicle={vehicle} />
-        </a>
+      <BrandNav vehicle={vehicle} homeHref="#top" className="landing-nav__inner">
         <nav aria-label="Main navigation" className="landing-nav__desktop">
           <a href="#how" aria-current={vehicle === "bus" ? "location" : undefined}>
             How it works
@@ -49,12 +50,20 @@ export function LandingNav({ vehicle }: { vehicle: Vehicle }) {
           </a>
         </nav>
         <div className="landing-nav__actions">
-          <SignInButton
-            label="Sign in"
-            variant="secondary"
-            className="landing-button landing-button--quiet landing-nav__signin"
-          />
-          <SignInButton className="landing-button landing-button--navy landing-nav__start" />
+          {preparing ? (
+            <div className="travel-nav-loader">
+              <Loader label="Preparing your account" />
+            </div>
+          ) : (
+            <>
+              <SignInButton
+                label="Sign in"
+                variant="secondary"
+                className="landing-button landing-button--quiet landing-nav__signin"
+              />
+              <SignInButton className="landing-button landing-button--navy landing-nav__start" />
+            </>
+          )}
           <button
             ref={toggle}
             type="button"
@@ -67,7 +76,7 @@ export function LandingNav({ vehicle }: { vehicle: Vehicle }) {
             {open ? <X size={23} /> : <List size={23} />}
           </button>
         </div>
-      </div>
+      </BrandNav>
       <nav
         id="marketing-menu"
         aria-label="Mobile navigation"
