@@ -1,8 +1,9 @@
 import { PrivyProvider, useActiveWallet, usePrivy, useWallets } from "@privy-io/react-auth";
 import { arcTestnet } from "@rickshare/shared";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { createWalletClient, custom, getAddress, publicActions } from "viem";
 import { config } from "../config";
+import { createTransactionSender } from "./transactions";
 import { WalletContext } from "./wallet";
 
 const chain = config.VITE_ARC_RPC_URL
@@ -27,6 +28,9 @@ export default function PrivyWallet({ appId, children }: { appId: string; childr
 }
 
 function WalletBridge({ children }: { children: ReactNode }) {
+  const sender = useRef<ReturnType<typeof createTransactionSender> | undefined>(undefined);
+  sender.current ??= createTransactionSender();
+  const send = sender.current;
   const { ready, authenticated, login, logout, user } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const { wallet: activeWallet } = useActiveWallet();
@@ -74,21 +78,22 @@ function WalletBridge({ children }: { children: ReactNode }) {
         signTypedData: async (typedData) => (await verifiedClient()).signTypedData(typedData),
         sendTransaction: async (transaction) => {
           const client = await verifiedClient();
-          const hash = await client.sendTransaction({
-            to: transaction.to,
-            data: transaction.data,
-            value: 0n,
-            ...(transaction.maxFeePerGas
-              ? {
-                  maxFeePerGas: BigInt(transaction.maxFeePerGas),
-                  maxPriorityFeePerGas: BigInt(transaction.maxPriorityFeePerGas ?? "0x0"),
-                }
-              : {}),
+          if (!address) throw new Error("Your account is not ready. Try again.");
+          return send(address, transaction, {
+            broadcast: () =>
+              client.sendTransaction({
+                to: transaction.to,
+                data: transaction.data,
+                value: 0n,
+                ...(transaction.maxFeePerGas
+                  ? {
+                      maxFeePerGas: BigInt(transaction.maxFeePerGas),
+                      maxPriorityFeePerGas: BigInt(transaction.maxPriorityFeePerGas ?? "0x0"),
+                    }
+                  : {}),
+              }),
+            receipt: (hash) => client.waitForTransactionReceipt({ hash }),
           });
-          const receipt = await client.waitForTransactionReceipt({ hash });
-          if (receipt.status !== "success")
-            throw new Error("The transaction failed, so nothing in the trip changed. Try again.");
-          return hash;
         },
       }}
     >

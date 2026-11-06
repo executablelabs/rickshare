@@ -111,6 +111,7 @@ test("creates a trip: prepare, send from the wallet, confirm, then open it", asy
     endsAt: new Date("2099-12-18T23:59:00").toISOString(),
   });
   expect(sendTransaction).toHaveBeenCalledWith({
+    from: getAddress(me),
     to: getAddress(transaction.to),
     data: "0x1234",
     maxFeePerGas: "0x4a817c800",

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { WalletContext } from "../../auth/wallet";
 import { authApi } from "../../lib/auth";
+import { tripApi } from "../../lib/trips";
 import { AppProviders } from "../../providers";
 import { createAppRouter } from "../../router";
 import { stubApi, tripRoutes } from "../../test/api";
@@ -95,4 +96,19 @@ test("shows the trip name, end date and members in the header band", async () =>
   await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("India 26"));
   expect(screen.getByRole("banner")).toHaveTextContent("Ends");
   expect(screen.getByRole("img", { name: "Angie and Bashy" })).toBeInTheDocument();
+});
+
+test("loads the trip title and confirmed ENS identity into the header", async () => {
+  vi.spyOn(tripApi, "get").mockResolvedValue({
+    id: "india26",
+    vaultAddress: address,
+    name: "India 26",
+    endsAt: "2030-01-01T00:00:00.000Z",
+    ensName: "india-26-1111.rickshare.eth",
+    members: [],
+  });
+  await renderAt("/trips/india26/plan");
+  await screen.findByText("india-26-1111.rickshare.eth");
+  expect(screen.getByRole("banner")).toHaveTextContent("India 26");
+  expect(screen.getByRole("banner")).toHaveTextContent("india-26-1111.rickshare.eth");
 });

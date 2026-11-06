@@ -3,6 +3,7 @@ import { AuthGuard } from "../auth/AuthGuard";
 import { useSession } from "../auth/session";
 import { Loader } from "../components/brand/Loader";
 import { AppShell } from "../components/shell/AppShell";
+import { TripNames } from "../components/shell/TripNames";
 import { MoneyPanel } from "../components/trips/MoneyPanel";
 import { TripActionsProvider } from "../components/trips/TripActions";
 import { Button } from "../components/ui/Button";
@@ -54,11 +55,13 @@ function TripPage() {
       <AppShell
         tripId={tripId}
         tripName={trip.data.name}
+        tripEnsName={trip.data.ensName}
         subtitle={`Ends ${formatDay(trip.data.endsAt)}`}
         members={trip.data.members}
         aside={onMoneyTab ? undefined : <MoneyPanel />}
         onSignOut={signOut}
       >
+        <TripNames trip={trip.data} />
         <Outlet />
       </AppShell>
     </TripActionsProvider>
