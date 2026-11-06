@@ -22,7 +22,8 @@ The internal get_trip_state result adds nullable location and startsAt fields. T
 - Targeted agent tests: 63 passed.
 - Repository lint and all typechecks: passed with `mise exec node@24.18.0 foundry@1.5.1 -- bun run check`.
 - API: 166 passed; shared: 18 passed; merchants: 6 passed; contracts: 98 passed.
-- The full check's web run hit five load-related timeout/cascading failures. The complete web suite then passed all 185 tests with `mise exec node@24.18.0 -- bun run test --maxWorkers=2` from apps/web; assertions and timeouts were unchanged.
+- The original x402 integration check hit five load-related web timeout/cascading failures. Its complete web suite then passed all 185 tests with `mise exec node@24.18.0 -- bun run test --maxWorkers=2` from apps/web; assertions and timeouts were unchanged.
+- The planner-only PR's full repository check passed with `VITEST_MAX_WORKERS=2` and `mise exec node@24.18.0 foundry@1.5.1 -- bun run check`: lint, all typechecks and all 473 tests passed.
 - LLM and search tests use stubs; live model behavior and the deployed Tavily configuration have not been exercised.
 
 ## Follow-ups
