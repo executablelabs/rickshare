@@ -47,7 +47,7 @@ export function Composer({
       <label htmlFor="ask" className="sr-only">
         Ask for ideas
       </label>
-      <div className="flex items-end gap-2 rounded-ticket bg-card py-1.5 pr-1.5 pl-4 shadow-card ring-1 ring-rule focus-within:ring-2 focus-within:ring-stamp">
+      <div className="flex items-end gap-2 rounded-ticket border border-rule bg-card py-2 pr-2 pl-4 shadow-card focus-within:ring-2 focus-within:ring-stamp">
         <textarea
           id="ask"
           ref={box}
@@ -57,7 +57,7 @@ export function Composer({
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Ask for ideas, like two days in Goa under $100 each"
-          className="min-h-11 flex-1 resize-none bg-transparent py-2.5 text-base text-ink outline-none placeholder:text-ink-muted"
+          className="min-h-11 min-w-0 flex-1 resize-none bg-transparent py-2.5 text-base text-ink outline-none placeholder:text-ink-muted"
         />
         <button
           type="submit"

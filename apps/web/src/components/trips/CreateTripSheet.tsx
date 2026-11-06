@@ -5,10 +5,12 @@ import { toWalletCall, useWallet } from "../../auth/wallet";
 import { endOfDay, tomorrowInput } from "../../lib/format-date";
 import { tripKeys, tripsApi } from "../../lib/trips";
 import { Button } from "../ui/Button";
+import { DatePicker } from "../ui/DatePicker";
 import { Field } from "../ui/Field";
 import { Sheet } from "../ui/Sheet";
 import { Steps, useStepRunner } from "../ui/Steps";
 import { useToast } from "../ui/Toast";
+import { FundingAddress } from "./FundingAddress";
 
 const STEPS = ["Prepare the trip", "Confirm in your wallet", "Set up the trip"];
 
@@ -80,16 +82,14 @@ export function CreateTripSheet({
           disabled={runner.running}
           autoComplete="off"
         />
-        <Field
-          label="Ends on"
-          type="date"
+        <DatePicker
           min={earliest}
           value={endsOn}
-          onChange={(event) => setEndsOn(event.target.value)}
-          hint="Leftover money goes back to everyone after this day."
+          onChange={setEndsOn}
           error={dateError}
           disabled={runner.running}
         />
+        <FundingAddress />
         <Steps labels={STEPS} current={runner.current} error={runner.error} />
         <Button type="submit" fullWidth disabled={runner.running}>
           {runner.running ? "Creating…" : runner.error ? "Try again" : "Create trip"}

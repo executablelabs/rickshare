@@ -1,6 +1,7 @@
+import { Trip } from "@rickshare/shared";
 import { vi } from "vitest";
 
-type Handler = (body: unknown) => { status?: number; body: unknown };
+type Handler = (body: unknown, request: Request) => { status?: number; body: unknown };
 
 /**
  * Stubs fetch for API calls by "METHOD /path" (query strings ignored), so tests exercise the real
@@ -16,7 +17,7 @@ export function stubApi(routes: Record<string, Handler>) {
     calls.push({ route, body });
     const handler = routes[route];
     if (!handler) throw new Error(`Unstubbed API call: ${route}`);
-    const result = handler(body);
+    const result = handler(body, request);
     return Response.json(result.body, { status: result.status ?? 200 });
   });
   return calls;
@@ -49,6 +50,11 @@ export function tripFixture(tripId: string, me: string, overrides: Record<string
 
 /** The reads every trip page makes, for a member who did not create the trip. */
 export function tripRoutes(tripId: string, me: string, trip: unknown = tripFixture(tripId, me)) {
+  const snapshot = Trip.parse(trip);
+  const member = snapshot.members.find(
+    (member) => member.address.toLowerCase() === me.toLowerCase(),
+  );
+  if (!member) throw new Error("The trip fixture must include the signed-in member.");
   return {
     [`GET /trips/${tripId}`]: () => ({ body: trip }),
     [`GET /trips/${tripId}/invites`]: () => ({
@@ -61,7 +67,15 @@ export function tripRoutes(tripId: string, me: string, trip: unknown = tripFixtu
     [`GET /trips/${tripId}/proposals`]: () => ({ body: { proposals: [] } }),
     [`GET /trips/${tripId}/money`]: () => ({
       body: {
-        own: { deposited: "0", spent: "0", locked: "0", available: "0", withdrawn: "0" },
+        members: snapshot.members,
+        indexedBlock: "100",
+        own: {
+          deposited: member.deposited,
+          spent: member.spent,
+          locked: member.locked,
+          available: member.available,
+          withdrawn: "0",
+        },
         walletBalance: "75000000",
         settled: false,
       },

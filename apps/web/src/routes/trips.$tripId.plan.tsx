@@ -11,14 +11,7 @@ import { useTripActions } from "../components/trips/TripActions";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/Toast";
 import { messageOf } from "../lib/http";
-import {
-  mergeMessages,
-  planKeys,
-  sendChat,
-  useChat,
-  useProposals,
-  useTripStream,
-} from "../lib/plan";
+import { mergeMessages, planKeys, sendChat, useChat, useProposals } from "../lib/plan";
 
 export const Route = createFileRoute("/trips/$tripId/plan")({
   component: Plan,
@@ -31,7 +24,6 @@ function Plan() {
   const showToast = useToast();
   const chat = useChat(trip.id);
   const proposals = useProposals(trip.id);
-  useTripStream(trip.id);
   const [draft, setDraft] = useState("");
   const [waitingFor, setWaitingFor] = useState<string | null>(null);
   const retry = useRef<{ requestId: string; text: string } | null>(null);
@@ -118,8 +110,13 @@ function Plan() {
   }
 
   return (
-    <div className="flex min-h-[60dvh] flex-col gap-5">
-      <h1 className="sr-only">Plan</h1>
+    <div className="flex min-h-[60dvh] flex-col gap-6">
+      <div className="flex flex-col gap-2 border-b border-rule pb-6">
+        <h1 className="font-display text-3xl font-semibold">Plan</h1>
+        <p className="text-ink-muted">
+          Bring the group’s ideas together. Everyone keeps their own say.
+        </p>
+      </div>
       <ReadyChecklist />
       {chat.isPending || proposals.isPending ? (
         <Loader label="Loading the plan" />

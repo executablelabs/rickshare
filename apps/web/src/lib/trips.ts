@@ -1,4 +1,4 @@
-import { Trip, UsdcAmount, WalletTransaction } from "@rickshare/shared";
+import { Member, Trip, UsdcAmount, WalletTransaction } from "@rickshare/shared";
 import { useQuery } from "@tanstack/react-query";
 import type { Address, Hex } from "viem";
 import { z } from "zod";
@@ -18,6 +18,8 @@ export const tripKeys = {
 const TripList = z.object({ trips: z.array(Trip) });
 
 export const Money = z.object({
+  members: z.array(Member),
+  indexedBlock: UsdcAmount,
   own: z.object({
     deposited: UsdcAmount,
     spent: UsdcAmount,
@@ -72,6 +74,8 @@ export function useTrip(tripId: string) {
 export function useMoney(tripId: string) {
   return useQuery({
     queryKey: tripKeys.money(tripId),
+    refetchInterval: (query) => (query.meta?.offlinePreview === true ? false : 5000),
+    retry: false,
     queryFn: async () =>
       readApi(await api.trips[":tripId"].money.$get({ param: { tripId } }), Money),
   });
@@ -121,7 +125,8 @@ export function useInvites(tripId: string, enabled: boolean) {
     // Only the creator may list invites; a 403 is the answer "not the organizer", not a failure.
     retry: (count, error) => !(error instanceof ApiError && error.status === 403) && count < 2,
     // A friend may claim the link at any moment, and the organizer has to let them in.
-    refetchInterval: (query) => (query.state.status === "error" ? false : 5000),
+    refetchInterval: (query) =>
+      query.meta?.offlinePreview === true || query.state.status === "error" ? false : 5000,
     queryFn: async () =>
       (
         await readApi(

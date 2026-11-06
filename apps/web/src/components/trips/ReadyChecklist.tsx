@@ -79,7 +79,7 @@ export function ReadyChecklist() {
   return (
     <section
       aria-labelledby="ready-title"
-      className="flex flex-col gap-4 rounded-ticket bg-card p-5 shadow-card"
+      className="flex flex-col gap-5 rounded-ticket border border-rule bg-card p-5 shadow-card"
     >
       <div className="flex items-center justify-between gap-3">
         <h2 id="ready-title" className="text-xl">
@@ -98,7 +98,7 @@ export function ReadyChecklist() {
         className="h-1.5 overflow-hidden rounded-pill bg-paper"
       >
         <div
-          className="h-full rounded-pill bg-coral motion-safe:transition-[width] motion-safe:duration-300"
+          className="h-full rounded-pill bg-ink motion-safe:transition-[width] motion-safe:duration-300"
           style={{ width: `${(doneCount / steps.length) * 100}%` }}
         />
       </div>

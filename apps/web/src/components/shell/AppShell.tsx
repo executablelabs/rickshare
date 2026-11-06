@@ -49,15 +49,22 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-x-10 xl:grid-cols-[256px_minmax(0,560px)_minmax(320px,1fr)]">
+    <div
+      className={cx(
+        "min-h-dvh lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-x-10",
+        aside
+          ? "xl:grid-cols-[256px_minmax(0,560px)_minmax(320px,1fr)]"
+          : "xl:grid-cols-[256px_minmax(0,1fr)]",
+      )}
+    >
       {/* On phones only the tab bar shows; from 1024px this column is the navy rail. */}
-      <div className="contents lg:sticky lg:top-0 lg:col-start-1 lg:row-start-1 lg:flex lg:h-dvh lg:flex-col lg:bg-ink lg:px-4 lg:py-8">
+      <div className="contents lg:sticky lg:top-4 lg:col-start-1 lg:row-start-1 lg:my-4 lg:ml-4 lg:flex lg:h-[calc(100dvh-2rem)] lg:flex-col lg:rounded-band lg:bg-ink lg:px-4 lg:py-6">
         <div className="hidden px-3 pb-8 lg:block">
           <Wordmark tone="card" />
         </div>
         <nav
           aria-label="Trip"
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-card pb-[env(safe-area-inset-bottom)] lg:static lg:border-t-0 lg:bg-transparent lg:pb-0 lg:text-card"
+          className="fixed inset-x-0 bottom-0 z-40 rounded-t-ticket border-t border-rule bg-card pb-[env(safe-area-inset-bottom)] lg:static lg:rounded-none lg:border-t-0 lg:bg-transparent lg:pb-0 lg:text-card"
         >
           <ul className="flex gap-1.5 px-3 py-2 lg:flex-col lg:gap-1 lg:p-0">
             {tabs.map(({ to, label, icon: TabIcon }) => (
@@ -98,7 +105,12 @@ export function AppShell({
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-col pb-28 lg:col-start-2 lg:row-start-1 lg:pr-10 lg:pb-10 xl:pr-0">
+      <div
+        className={cx(
+          "flex min-w-0 flex-col pb-28 lg:col-start-2 lg:row-start-1 lg:pr-10 lg:pb-10",
+          !!aside && "xl:pr-0",
+        )}
+      >
         <header
           className={cx(
             "flex min-h-20 items-center justify-between gap-3 rounded-b-band bg-ink px-5 pt-[max(20px,env(safe-area-inset-top))] pb-5 text-card",
@@ -127,7 +139,7 @@ export function AppShell({
           </div>
           {members && members.length > 0 && <AvatarStack members={members} onInk />}
         </header>
-        <main className="px-5 py-6 lg:px-0 lg:py-8">{children}</main>
+        <main className="px-5 py-8 lg:px-0 lg:py-8">{children}</main>
       </div>
 
       {aside && (

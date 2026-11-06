@@ -24,14 +24,14 @@ export function Sheet({ open, onOpenChange, title, description, children }: Shee
           // Radix warns unless a missing description is declared explicitly.
           {...(description ? {} : { "aria-describedby": undefined })}
           className={cx(
-            "fixed z-50 flex flex-col bg-card text-ink shadow-sheet outline-none",
+            "fixed z-50 flex flex-col overflow-hidden bg-card text-ink shadow-sheet outline-none",
             isDesktop
               ? "inset-y-0 right-0 w-full max-w-[420px] rounded-l-sheet"
               : "inset-x-0 bottom-0 max-h-[90dvh] rounded-t-sheet",
           )}
         >
           {!isDesktop && <Drawer.Handle className="mt-3 bg-rule" />}
-          <div className="flex items-start justify-between gap-4 px-5 pt-4">
+          <div className="flex items-start justify-between gap-4 border-b border-rule bg-paper px-5 pt-4 pb-5">
             <div className="flex flex-col gap-1 pt-2">
               <Drawer.Title className="font-display text-xl font-semibold">{title}</Drawer.Title>
               {description && (

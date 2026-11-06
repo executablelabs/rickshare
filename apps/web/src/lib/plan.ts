@@ -86,6 +86,8 @@ export async function sendChat(tripId: string, requestId: string, text: string) 
 
 /** Applies one stream event to the cached feed, trip and itinerary. */
 export function applyTripEvent(client: QueryClient, tripId: string, event: TripEvent) {
+  if (event.type !== "chat.message")
+    void client.invalidateQueries({ queryKey: ["trips", tripId, "history"] });
   switch (event.type) {
     case "chat.message":
       client.setQueryData<ChatMessage[]>(planKeys.chat(tripId), (current) =>
@@ -114,10 +116,10 @@ const EVENT_TYPES = TripEvent.options.map((option) => option.shape.type.value);
  * Keeps the feed live over the trip's server-sent events. EventSource resumes with Last-Event-ID
  * by itself after a drop, so no event is missed; the server checks the session on every frame.
  */
-export function useTripStream(tripId: string) {
+export function useTripStream(tripId: string, enabled = true) {
   const client = useQueryClient();
   useEffect(() => {
-    if (typeof EventSource === "undefined") return;
+    if (!enabled || typeof EventSource === "undefined") return;
     const source = new EventSource(api.trips[":tripId"].stream.$url({ param: { tripId } }), {
       withCredentials: true,
     });
@@ -133,7 +135,7 @@ export function useTripStream(tripId: string) {
     };
     for (const type of EVENT_TYPES) source.addEventListener(type, onEvent);
     return () => source.close();
-  }, [client, tripId]);
+  }, [client, tripId, enabled]);
 }
 
 /** The vault call that records a World-attested approval of the member's own share. */

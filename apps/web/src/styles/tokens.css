@@ -41,6 +41,8 @@
   --color-ink-hover: var(--ink-hover);
   --color-brand-orange: var(--brand-orange);
   --color-brand-contrast-ink: var(--brand-contrast-ink);
+  --color-brand-sky: var(--brand-sky);
+  --color-brand-mint: var(--brand-mint);
   --color-ink-muted: var(--ink-muted);
   --color-rule: var(--rule);
   --color-rule-strong: var(--rule-strong);
@@ -166,6 +168,14 @@
 }
 
 @layer base {
+  .trip-date-field input {
+    padding-right: 3.5rem;
+  }
+
+  .trip-date-field input::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+
   body {
     @apply bg-paper font-sans text-base font-normal text-ink;
     margin: 0;
