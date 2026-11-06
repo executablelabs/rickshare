@@ -18,7 +18,7 @@ const memberTints = [
 export interface AvatarProps {
   name: string;
   /** Picks the member's tint; pass the address so a member keeps one color everywhere. */
-  colorKey?: string;
+  colorKey?: string | undefined;
   size?: AvatarSize;
   className?: string;
 }

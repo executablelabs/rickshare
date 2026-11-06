@@ -59,6 +59,8 @@ export interface ProposalTicketProps {
   actions?: ReactNode;
   /** Extra footer content, such as a ticket link. */
   footer?: ReactNode;
+  /** A member whose stamp just landed, to play the stamp press once. */
+  pressed?: string | undefined;
   className?: string;
 }
 
@@ -69,6 +71,7 @@ export function ProposalTicket({
   actions,
   footer,
   className,
+  pressed,
 }: ProposalTicketProps) {
   const status = ticketStatus(proposal, viewer);
   const waitingForYou = status.tone === "action";
@@ -151,7 +154,13 @@ export function ProposalTicket({
                 <Avatar
                   name={member.displayName}
                   colorKey={member.address}
-                  className={cx(stampRing[kind], kind === "approved" && "-rotate-3")}
+                  className={cx(
+                    stampRing[kind],
+                    kind === "approved" && "-rotate-2",
+                    kind === "approved" &&
+                      member.address.toLowerCase() === pressed?.toLowerCase() &&
+                      "animate-stamp motion-reduce:animate-none",
+                  )}
                 />
                 <span
                   className={cx(
