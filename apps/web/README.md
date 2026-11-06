@@ -4,7 +4,9 @@ From the repository root, install dependencies with `bun install`. Copy
 `apps/web/.env.example` to `apps/web/.env` and configure:
 
 - `VITE_PRIVY_APP_ID`: the public app ID from an owner-created Privy application.
-  Enable email login and add `http://localhost:5173` to its allowed origins for local development.
+  Enable email, Google and Ethereum wallet login in Privy's Login methods settings, and add
+  `http://localhost:5173` to its allowed origins for local development. Google is under Socials;
+  Privy's default OAuth credentials can be used during development.
   Add any alternate development port or deployed web origin explicitly; an unlisted origin can
   block Privy's iframe and leave sign-in waiting for initialization.
   The app creates an Ethereum embedded wallet for users without a wallet; no extension is required.
@@ -12,8 +14,11 @@ From the repository root, install dependencies with `bun install`. Copy
   the browser origin exactly. Use `localhost` consistently for both services locally.
 - `VITE_ARC_RPC_URL`: optional public Arc testnet RPC override; blank uses the chain's default.
 
-Start the services with `bun run dev`. Continue with email, then use Continue again to
-approve the Rickshare sign-in message. This creates the API's HttpOnly SIWE session;
+Start the services with `bun run dev`. Choose Google, email, or an existing Ethereum wallet,
+then use Continue again to approve the Rickshare sign-in message. Existing wallets use the
+linked active account; Google/email users without a wallet receive an embedded wallet.
+WalletConnect and supported browser wallets are available through Privy's wallet picker.
+This creates the API's HttpOnly SIWE session;
 the Privy login itself is not an API session or an approval to spend funds.
 Production web and API endpoints need same-site HTTPS hosting for the API's SameSite cookies.
 Never put a Privy app secret or any private key in a `VITE_` variable.

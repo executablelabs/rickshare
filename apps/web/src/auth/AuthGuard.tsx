@@ -19,7 +19,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
         <p role="status">Checking your sign-in…</p>
       ) : (
         <>
-          <p className="text-ink-muted">Continue with your email. No extension needed.</p>
+          <p className="text-ink-muted">Continue with Google, email, or your existing wallet.</p>
           <Button
             disabled={auth.pending || (wallet.authenticated && !wallet.address)}
             onClick={() => (wallet.authenticated ? void auth.signIn() : wallet.login())}

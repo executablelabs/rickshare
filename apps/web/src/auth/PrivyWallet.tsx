@@ -1,4 +1,4 @@
-import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
+import { PrivyProvider, useActiveWallet, usePrivy, useWallets } from "@privy-io/react-auth";
 import { arcTestnet } from "@rickshare/shared";
 import type { ReactNode } from "react";
 import { createWalletClient, custom, getAddress } from "viem";
@@ -14,7 +14,8 @@ export default function PrivyWallet({ appId, children }: { appId: string; childr
     <PrivyProvider
       appId={appId}
       config={{
-        loginMethods: ["email"],
+        loginMethods: ["email", "google", "wallet"],
+        appearance: { walletChainType: "ethereum-only" },
         defaultChain: chain,
         supportedChains: [chain],
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
@@ -28,9 +29,16 @@ export default function PrivyWallet({ appId, children }: { appId: string; childr
 function WalletBridge({ children }: { children: ReactNode }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
+  const { wallet: activeWallet } = useActiveWallet();
+  // Keep the selected, linked external account when a user also has an embedded wallet.
+  const selectedAddress =
+    activeWallet?.type === "ethereum" && activeWallet.linked
+      ? activeWallet.address
+      : user?.wallet?.address;
   const wallet = authenticated
     ? wallets.find(
-        (candidate) => candidate.address.toLowerCase() === user?.wallet?.address.toLowerCase(),
+        (candidate) =>
+          candidate.linked && candidate.address.toLowerCase() === selectedAddress?.toLowerCase(),
       )
     : undefined;
   const address = wallet ? getAddress(wallet.address) : undefined;
