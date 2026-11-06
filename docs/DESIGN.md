@@ -45,7 +45,7 @@ The mark is an auto-rickshaw seen from the side with two riders under one hood: 
 - UI and body: **Geist** (variable), via Fontsource.
 - Headings, ticket titles and large amounts: **Bricolage Grotesque** (variable), via Fontsource.
 - All amounts: `font-variant-numeric: tabular-nums` so figures line up.
-- Scale (px): 13 / 15 / 16 / 18 / 22 / 28 / 36. Body 16 on mobile, so iOS never zooms into inputs. Line height 1.5 for body, 1.15 for headings.
+- Scale (px): 13 / 15 / 16 / 18 / 22 / 28 / 36, plus 48 for the landing headline from 1024px only. Body 16 on mobile, so iOS never zooms into inputs. Line height 1.5 for body, 1.15 for headings.
 - Sentence case everywhere. No all-caps labels. Weights 400 and 600 only.
 
 ## Layout
@@ -75,11 +75,18 @@ Mobile (default, 390px): single column, 20px side padding, bottom nav with three
 
 Desktop (1024px and up): a navy left rail with the brand at the top and the tabs below it. The active tab has a light pill and a coral marker. The Plan feed sits in a 560px column, beside a right panel showing the group's money (balances, limits, recent activity). Content is left-aligned; nothing is centered except empty states.
 
+Landing (signed out, `/`): a top bar with the wordmark and "Sign in"; a hero with the headline, one coral "Get started" action and three trust points with icons; on desktop, an example ticket beside the hero, labelled as an example; a numbered "How it works" timeline; and a closing navy band repeating the action.
+
+Home (signed in, `/`): the member's trips as cards, two columns from 1024px (name, end date, members, your available balance), with "New trip" at the top. With no trips, a centered empty state with the rickshaw mark.
+
+Onboarding happens inside the trip, not in a wizard. Until the trip is ready, Plan opens with a "Get the trip ready" checklist card: invite friends, verify with World, add money, set my limits. Each step opens its sheet, done steps show a check, and the card goes away once every step is done. Joining from an invite link is one centered card that walks through claiming the link, waiting for the organizer, joining and choosing a display name.
+
 ## Components
-- **ProposalTicket**: title (Bricolage 18), merchant and time on separate lines, total and "Your share", perforation, member stamps, actions. States: waiting for you (marigold edge on the left), waiting for others, approved, not for you (collapsed, muted), declined, ticket issued, refunded.
+- **ProposalTicket**: title (Bricolage 18), merchant and time on separate lines, total and "Your share", perforation, member stamps, actions. States: waiting for you (coral `action` chip and a coral edge on the left), waiting for others, approved, not for you (collapsed, muted), declined, ticket issued, refunded.
 - **Stamp**: the member's tinted avatar with a status ring (`--stamp` approved, `--marigold` waiting, `--declined` declined, `--rule` not in) and a short text label ("Approved", "Waiting", "Not in", "Declined"). Text is always present, so color is never the only signal.
 - **Amount**: `$42.00` with tabular numbers. The Money tab notes once that balances are in USDC.
-- **Sheet**: bottom sheet on mobile (vaul), side panel on desktop. Used for My limits, Add money and balances.
+- **Sheet**: bottom sheet on mobile (vaul), side panel on desktop. Used for New trip, Invite friends, Add money, My limits and balances. A sheet that sends transactions lists its steps (prepare, confirm in your wallet, done) and checks each one off.
+- **Cards**: trip cards, the onboarding checklist and the money summary are white cards with the ticket radius and `--shadow-card`.
 - **Buttons**: primary is a `--coral` fill with white text, darkening to `--coral-strong` on hover and press. Secondary is white with a `--rule-strong` ring and ink text. Destructive uses `--declined` text only. All are 48px tall with a 12px radius, and their colors change over 150ms, never under reduced motion.
 - **Chips**: a tint fill with its own ink text. A waiting chip also has a `--marigold` dot.
 - **Inputs**: white with a `--rule` ring, `--rule-strong` on hover and `--declined` on error.
