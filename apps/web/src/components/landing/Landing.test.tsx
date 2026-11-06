@@ -11,10 +11,12 @@ test("signed out, the home page is the landing page with its example labelled", 
   expect(
     await screen.findByRole("heading", {
       level: 1,
-      name: "Plan the trip together. Pay only for your part.",
+      name: "Plan together. Go further. Pay only your share.",
     }),
   ).toBeInTheDocument();
-  expect(screen.getByRole("heading", { level: 2, name: "How it works" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { level: 2, name: /The group chat has ideas/ }),
+  ).toBeInTheDocument();
   expect(screen.getByRole("figure", { name: "Example trip" })).toBeInTheDocument();
   expect(screen.getByText(/Sign-in is being set up/)).toHaveAttribute("role", "status");
 });

@@ -1,24 +1,26 @@
 # DESIGN.md
 
+For the shared visual identity, landing and transport brand family, follow [DESIGN-LANGUAGE.md](DESIGN-LANGUAGE.md). It supersedes this document's earlier palette, radii, primary-control colors and marketing composition. The authenticated application continues to use the layout, financial status colors and interaction rules below; its shared tokens use the current design language.
+
 ## Brief
 Subject: a shared trip fund where an agent proposes purchases and each person approves their own share.
 Audience: friends traveling together, most of whom have never used crypto.
 Primary job: make "what is this, who is it for, what is my share, have I agreed" readable in one glance on a phone.
 
 ## Concept: tickets and stamps
-Every proposal is a ticket. Every approval is a stamp on it. The ticket card and its stamps are the one memorable element. Around them, color is used with intent: navy frames the app (header band, navigation), coral marks the one action that needs you, and soft tints carry status and tell members apart. Everything else stays quiet: plenty of white space, one type family for UI, no decoration.
+Every proposal is a ticket. Every approval is a stamp on it. The ticket card and its stamps are the one memorable element. Around them, color is used with intent: navy frames the app and its primary controls, coral signals proposals that need you, and soft tints carry status and tell members apart. Everything else stays quiet: plenty of white space, one type family for UI, no decoration.
 
 ## Color: coral and navy
 | Token | Hex | Use |
 |---|---|---|
-| `--paper` | `#F6F7FA` | App background |
+| `--paper` | `#FFF9F2` | Cream app background |
 | `--card` | `#FFFFFF` | Tickets, sheets, inputs |
-| `--ink` | `#16213E` | Navy. Primary text, header band, desktop rail, active tab |
-| `--ink-muted` | `#5B6475` | Secondary text |
-| `--rule` | `#E1E5EE` | Hairlines, perforations, input borders |
-| `--rule-strong` | `#C9D2E6` | Secondary button ring, hovered input border |
-| `--coral` | `#CC4127` | Primary actions ("Approve my share"), the active-tab marker on desktop |
-| `--coral-strong` | `#A8341F` | Primary action hover and press |
+| `--ink` | `#172341` | Navy text, primary controls, header band, rail and active tab |
+| `--ink-muted` | `#606579` | Secondary text |
+| `--rule` | `#E6E3DE` | Hairlines, perforations, input borders |
+| `--rule-strong` | `#CCC8BF` | Secondary button ring, hovered input border |
+| `--coral` | `#CC4127` | Proposals waiting for you and the active desktop tab marker |
+| `--coral-strong` | `#A8341F` | Strong financial attention accent |
 | `--coral-tint` / `--coral-ink` | `#FFEDE8` / `#9A2A17` | "Waiting for you" |
 | `--stamp` | `#2563EB` | Approved rings, focus ring |
 | `--stamp-tint` / `--stamp-ink` | `#DBEAFE` / `#1D4ED8` | Approved labels and chips, links |
@@ -87,7 +89,7 @@ Onboarding happens inside the trip, not in a wizard. Until the trip is ready, Pl
 - **Amount**: `$42.00` with tabular numbers. The Money tab notes once that balances are in USDC.
 - **Sheet**: bottom sheet on mobile (vaul), side panel on desktop. Used for New trip, Invite friends, Add money, My limits and balances. A sheet that sends transactions lists its steps (prepare, confirm in your wallet, done) and checks each one off.
 - **Cards**: trip cards, the onboarding checklist and the money summary are white cards with the ticket radius and `--shadow-card`.
-- **Buttons**: primary is a `--coral` fill with white text, darkening to `--coral-strong` on hover and press. Secondary is white with a `--rule-strong` ring and ink text. Destructive uses `--declined` text only. All are 48px tall with a 12px radius, and their colors change over 150ms, never under reduced motion.
+- **Buttons**: primary is an `--ink` fill with white text, changing to `--ink-hover` on hover and press. Secondary is white with a `--rule-strong` ring and ink text. Destructive uses `--declined` text only. All are 48px tall with a 10px radius, and their colors change over 150ms, never under reduced motion. Cards use 18px radii and larger bands use 24px.
 - **Chips**: a tint fill with its own ink text. A waiting chip also has a `--marigold` dot.
 - **Inputs**: white with a `--rule` ring, `--rule-strong` on hover and `--declined` on error.
 - **Radii**: tickets 16, sheets 20 (top corners), header band 24 (bottom corners), buttons and inputs 12, avatars and chips full.

@@ -2,14 +2,20 @@
 @import "@fontsource-variable/bricolage-grotesque";
 @import "tailwindcss";
 
-/* Coral and navy, from DESIGN.md. A tint is only ever paired with its own ink. */
+/* Shared brand surfaces; financial status colors retain their established meanings. */
 :root {
-  --paper: #f6f7fa;
+  --paper: #fff9f2;
   --card: #ffffff;
-  --ink: #16213e;
-  --ink-muted: #5b6475;
-  --rule: #e1e5ee;
-  --rule-strong: #c9d2e6;
+  --ink: #172341;
+  --ink-hover: #2c3d61;
+  --ink-muted: #606579;
+  --rule: #e6e3de;
+  --rule-strong: #ccc8bf;
+  --brand-orange: #f45b35;
+  --brand-contrast-ink: #1b100c;
+  --brand-sky: #b9dff5;
+  --brand-mint: #bfe8d5;
+  --brand-yellow: #ffd477;
   --coral: #cc4127;
   --coral-strong: #a8341f;
   --coral-tint: #ffede8;
@@ -32,6 +38,9 @@
   --color-paper: var(--paper);
   --color-card: var(--card);
   --color-ink: var(--ink);
+  --color-ink-hover: var(--ink-hover);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-contrast-ink: var(--brand-contrast-ink);
   --color-ink-muted: var(--ink-muted);
   --color-rule: var(--rule);
   --color-rule-strong: var(--rule-strong);
@@ -62,14 +71,14 @@
   --text-3xl: 36px;
   /* Landing headline from 1024px only (DESIGN.md). */
   --text-4xl: 48px;
-  --radius-control: 12px;
-  --radius-ticket: 16px;
-  --radius-sheet: 20px;
+  --radius-control: 10px;
+  --radius-ticket: 18px;
+  --radius-sheet: 24px;
   --radius-pill: 9999px;
   --radius-band: 24px;
   /* The two shadows in the system: raised cards, and open sheets. */
-  --shadow-card: 0 1px 2px rgb(22 33 62 / 0.06), 0 10px 28px rgb(22 33 62 / 0.1);
-  --shadow-sheet: 0 -4px 24px rgb(22 33 62 / 0.12);
+  --shadow-card: 0 1px 2px rgb(23 35 65 / 0.04), 0 8px 24px rgb(23 35 65 / 0.06);
+  --shadow-sheet: 0 4px 6px rgb(23 35 65 / 0.08), 0 28px 65px -12px rgb(23 35 65 / 0.24);
 }
 
 /* Brand motion from DESIGN.md: the loader, and the splash timeline (drive in, park, pull the name

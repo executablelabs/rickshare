@@ -4,7 +4,7 @@ import { cx } from "../../lib/cx";
 type ButtonVariant = "primary" | "secondary" | "destructive";
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-coral text-card enabled:hover:bg-coral-strong enabled:active:bg-coral-strong",
+  primary: "bg-ink text-card enabled:hover:bg-ink-hover enabled:active:bg-ink-hover",
   secondary: "bg-card text-ink ring-1 ring-inset ring-rule-strong enabled:hover:bg-paper",
   destructive: "bg-transparent text-declined enabled:hover:bg-declined-tint",
 };

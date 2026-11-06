@@ -19,7 +19,7 @@ export function Home() {
 
   return (
     <div className="min-h-dvh bg-paper">
-      <header className="border-b border-rule bg-card">
+      <header className="border-b border-rule bg-brand-orange">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-3 lg:px-10">
           <Wordmark />
           <Button
@@ -34,10 +34,10 @@ export function Home() {
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-5xl flex-col gap-6 px-5 py-8 lg:px-10 lg:py-12">
+      <main className="mx-auto flex max-w-5xl flex-col gap-8 px-5 py-8 lg:px-10 lg:py-12">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1>Your trips</h1>
+            <h1 className="text-3xl">Your trips</h1>
             <p className="text-ink-muted">Plan together and approve your own share.</p>
           </div>
           {trips.data && trips.data.length > 0 && (
@@ -61,7 +61,7 @@ export function Home() {
           </div>
         )}
         {trips.data && trips.data.length === 0 && (
-          <section className="flex flex-col items-center gap-4 rounded-ticket bg-card px-6 py-12 text-center shadow-card lg:py-16">
+          <section className="flex flex-col items-center gap-4 rounded-ticket border border-rule bg-card px-6 py-12 text-center lg:py-16">
             <span className="flex size-20 items-center justify-center rounded-pill bg-coral-tint">
               <RickshawMark className="w-12 text-ink" />
             </span>
