@@ -54,6 +54,7 @@ test("failed provisioning retries after reconstruction; concurrent syncs seriali
     let publications = 0;
     let refreshes = 0;
     let items = [item];
+    let currentTrip = trip;
     const ens = {
       async provisionTrip(input: TripNamesInput) {
         attempts++;
@@ -64,7 +65,9 @@ test("failed provisioning retries after reconstruction; concurrent syncs seriali
           agent: `agent.${name}`,
           registry: address,
           resolver: address,
-          members: { [address]: `alice.${name}` },
+          members: Object.fromEntries(
+            input.members.map((member) => [member.address, `${member.label}.${name}`]),
+          ),
         };
       },
       async writeItinerary(_names: unknown, summary: string) {
@@ -74,7 +77,7 @@ test("failed provisioning retries after reconstruction; concurrent syncs seriali
       },
     };
     const source = {
-      trips: () => [trip],
+      trips: () => [currentTrip],
       itinerary: () => items,
       refresh: () => {
         refreshes++;
@@ -92,6 +95,18 @@ test("failed provisioning retries after reconstruction; concurrent syncs seriali
     expect(publications).toBe(1);
     items = [{ ...item, title: "Ferry" }];
     await restarted.sync();
+    expect(publications).toBe(2);
+    const member = trip.members[0];
+    if (!member) throw new Error("No fixture member");
+    currentTrip = {
+      ...trip,
+      members: [
+        ...trip.members,
+        { ...member, address: "0x0000000000000000000000000000000000000002" },
+      ],
+    };
+    await restarted.sync();
+    expect(attempts).toBe(3);
     expect(publications).toBe(2);
     restarted.stop();
     await restarted.sync();
