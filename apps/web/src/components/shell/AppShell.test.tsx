@@ -42,3 +42,8 @@ test("does not wrap pages outside a trip", async () => {
   await screen.findByRole("heading", { name: "Rickshare", level: 1 });
   expect(screen.queryByRole("navigation", { name: "Trip" })).not.toBeInTheDocument();
 });
+
+test("brands the header band when there is no trip name yet", async () => {
+  await renderAt("/trips/india26/plan");
+  expect(screen.getByRole("banner")).toHaveTextContent("Rickshare");
+});

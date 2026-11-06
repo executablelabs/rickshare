@@ -56,3 +56,9 @@ test("tints an avatar by its color key, not its name", () => {
   const avatar = screen.getByRole("img", { name: "Angie" });
   expect(avatar.className).toContain(memberTint(members[1]?.address ?? ""));
 });
+
+test("outlines overlapping avatars in navy on the header band", () => {
+  render(<AvatarStack members={members} onInk />);
+  const avatars = screen.getAllByRole("img", { name: /^(Angie|Bashy|Gitau)$/ });
+  for (const avatar of avatars) expect(avatar.className).toContain("outline-ink");
+});
