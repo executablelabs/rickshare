@@ -100,7 +100,7 @@ export default function TripPreview() {
     <div inert>
       <WalletContext.Provider value={{ ...wallet, authenticated: true, address: me }}>
         <QueryClientProvider client={client}>
-          <TripActionsProvider trip={sampleTrip}>
+          <TripActionsProvider trip={sampleTrip} stream={false}>
             <AppShell
               tripId={sampleTrip.id}
               tripName={sampleTrip.name}

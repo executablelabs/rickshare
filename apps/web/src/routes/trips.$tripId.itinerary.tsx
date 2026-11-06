@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Itinerary } from "../components/itinerary/Itinerary";
 
 export const Route = createFileRoute("/trips/$tripId/itinerary")({
-  component: () => <h1>Itinerary</h1>,
+  component: Itinerary,
 });
