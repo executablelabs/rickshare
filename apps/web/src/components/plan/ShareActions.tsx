@@ -59,7 +59,18 @@ export function ShareActions({
       .then(async (result) => {
         if (!result.attestation) throw new Error("World did not return an approval. Try again.");
         setPhase("signing");
-        await wallet.sendTransaction(approveCall(trip.vaultAddress, result.attestation));
+        const share = proposal.shares.find(
+          (share) => share.member.toLowerCase() === me.address.toLowerCase(),
+        );
+        if (!share) throw new Error("This purchase no longer includes you. Refresh the plan.");
+        await wallet.sendTransaction(
+          approveCall(trip.vaultAddress, result.attestation, {
+            proposalId: proposal.id,
+            member: me.address,
+            amount: share.amount,
+            deadline: proposal.deadline,
+          }),
+        );
         onApproved(me.address);
         showToast("Share approved");
         await refresh();

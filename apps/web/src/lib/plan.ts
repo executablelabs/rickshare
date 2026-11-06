@@ -1,4 +1,4 @@
-import { ChatMessage, Proposal, Ticket, TripEvent } from "@rickshare/shared";
+import { arcTestnet, ChatMessage, Proposal, Ticket, TripEvent } from "@rickshare/shared";
 import { tripVaultAbi } from "@rickshare/shared/abi";
 import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
@@ -124,8 +124,14 @@ export function useTripStream(tripId: string) {
       { withCredentials: true },
     );
     const onEvent = (frame: MessageEvent<string>) => {
-      const parsed = TripEvent.safeParse(JSON.parse(frame.data));
-      if (parsed.success) applyTripEvent(client, tripId, parsed.data);
+      try {
+        const parsed = TripEvent.safeParse(JSON.parse(frame.data));
+        if (!parsed.success) throw new Error("Invalid trip event");
+        applyTripEvent(client, tripId, parsed.data);
+      } catch {
+        void client.invalidateQueries({ queryKey: planKeys.chat(tripId) });
+        void client.invalidateQueries({ queryKey: planKeys.proposals(tripId) });
+      }
     };
     for (const type of EVENT_TYPES) source.addEventListener(type, onEvent);
     return () => source.close();
@@ -136,10 +142,29 @@ export function useTripStream(tripId: string) {
 export function approveCall(
   vaultAddress: string,
   attestation: Attestation,
-): { to: `0x${string}`; data: Hex } {
-  if (!isHex(attestation.signature))
-    throw new Error("The approval came back malformed. Try again.");
+  expected: { proposalId: string; member: string; amount: string; deadline: string },
+): { from: `0x${string}`; to: `0x${string}`; data: Hex } {
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  if (
+    !isHex(attestation.signature) ||
+    attestation.signature.length !== 132 ||
+    attestation.chainId !== arcTestnet.id ||
+    attestation.vaultAddress.toLowerCase() !== vaultAddress.toLowerCase() ||
+    attestation.proposalId !== expected.proposalId ||
+    attestation.member.toLowerCase() !== expected.member.toLowerCase() ||
+    attestation.amount !== expected.amount
+  )
+    throw new Error("The approval does not match this share. Refresh the plan and try again.");
+  if (
+    BigInt(attestation.deadline) <= now ||
+    BigInt(attestation.deadline) > now + 900n ||
+    BigInt(attestation.deadline) > BigInt(Math.floor(Date.parse(expected.deadline) / 1000))
+  )
+    throw new Error(
+      "Your verification expired or its deadline is invalid. Approve again to retry.",
+    );
   return {
+    from: getAddress(expected.member),
     to: getAddress(vaultAddress),
     data: encodeFunctionData({
       abi: tripVaultAbi,
