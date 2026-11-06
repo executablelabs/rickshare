@@ -4,7 +4,6 @@ import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useEffect } from "react";
 import { encodeFunctionData, getAddress, type Hex, isHex } from "viem";
 import { z } from "zod";
-import { config } from "../config";
 import { api } from "./api";
 import { readApi } from "./http";
 import { tripKeys } from "./trips";
@@ -119,10 +118,9 @@ export function useTripStream(tripId: string) {
   const client = useQueryClient();
   useEffect(() => {
     if (typeof EventSource === "undefined") return;
-    const source = new EventSource(
-      new URL(`/trips/${encodeURIComponent(tripId)}/stream`, config.VITE_API_URL),
-      { withCredentials: true },
-    );
+    const source = new EventSource(api.trips[":tripId"].stream.$url({ param: { tripId } }), {
+      withCredentials: true,
+    });
     const onEvent = (frame: MessageEvent<string>) => {
       try {
         const parsed = TripEvent.safeParse(JSON.parse(frame.data));
