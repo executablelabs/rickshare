@@ -1,4 +1,4 @@
-import { arcTestnet } from "@rickshare/shared";
+import { arcTestnet, type Proposal } from "@rickshare/shared";
 import { tripVaultAbi } from "@rickshare/shared/abi";
 import { createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -105,6 +105,7 @@ test("uses the fixed-block snapshot for own and group balances", async () => {
   expect(
     within(await screen.findByRole("region", { name: "The group" })).getAllByText("$72.50"),
   ).toHaveLength(2);
+  expect(screen.getByRole("button", { name: "Settle trip" })).toBeDisabled();
 });
 
 test("pages history using the server cursor and keeps overlapping immutable events once", async () => {
@@ -260,6 +261,73 @@ test.each(["vault", "caller", "chain", "amount", "extra call", "native value"])(
     expect(sendTransaction).not.toHaveBeenCalled();
   },
 );
+
+test("settlement stops purchases without withdrawing anyone's balance", async () => {
+  trip.endsAt = new Date(Date.now() - 60000).toISOString();
+  sendTransaction.mockImplementationOnce(async () => {
+    money.settled = true;
+    return hash;
+  });
+  const data = encodeFunctionData({ abi: tripVaultAbi, functionName: "settle" });
+  const calls = reads({
+    [`POST /trips/${tripId}/actions`]: () => ({
+      body: { action: "settle", transactions: [transaction(data)] },
+    }),
+  });
+  await openMoney();
+  const settle = await screen.findByRole("button", { name: "Settle trip" });
+  await waitFor(() => expect(settle).toBeEnabled());
+  fireEvent.click(settle);
+  fireEvent.click(await screen.findByRole("button", { name: "Confirm settlement" }));
+  expect(
+    await screen.findByText(
+      "The trip is settled. Each person can withdraw their own available balance.",
+    ),
+  ).toBeInTheDocument();
+  expect(calls.filter((call) => call.route.endsWith("/actions")).map((call) => call.body)).toEqual([
+    { action: "settle" },
+  ]);
+  expect(sendTransaction).toHaveBeenCalledWith(
+    expect.objectContaining({ from: me, to: trip.vaultAddress, data }),
+  );
+  expect(screen.getByRole("button", { name: "Add money", hidden: true })).toBeDisabled();
+  expect(money.own.available).toBe("72500000");
+});
+
+test("releases an expired group hold through the vault refund without paying a merchant", async () => {
+  const proposal: Proposal = {
+    id: "7",
+    tripId,
+    merchant: `0x${"d".repeat(40)}`,
+    merchantName: "Operator",
+    title: "Unissued ferry ticket",
+    location: "Mumbai",
+    startsAt: new Date().toISOString(),
+    total: "10000000",
+    shares: [{ member: `0x${"2".repeat(40)}`, amount: "10000000", state: "approved" }],
+    status: "locked",
+    deadline: new Date(Date.now() - 60000).toISOString(),
+    ticketHash: null,
+    txHash: hash,
+  };
+  const data = encodeFunctionData({ abi: tripVaultAbi, functionName: "refund", args: [7n] });
+  const calls = reads({
+    [`GET /trips/${tripId}/proposals`]: () => ({ body: { proposals: [proposal] } }),
+    [`POST /trips/${tripId}/actions`]: () => ({
+      body: { action: "refund", transactions: [transaction(data)] },
+    }),
+  });
+  await openMoney();
+  fireEvent.click(await screen.findByRole("button", { name: "Release expired hold" }));
+  expect(await screen.findByText("Held shares released")).toBeInTheDocument();
+  expect(calls.find((call) => call.route.endsWith("/actions"))?.body).toEqual({
+    action: "refund",
+    proposalId: "7",
+  });
+  expect(sendTransaction).toHaveBeenCalledWith(
+    expect.objectContaining({ to: trip.vaultAddress, data }),
+  );
+});
 
 test("failed balance reads show an error without inventing a zero balance", async () => {
   reads({

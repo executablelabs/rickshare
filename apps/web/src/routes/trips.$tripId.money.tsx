@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MoneyHistory } from "../components/money/MoneyHistory";
+import { Settlement } from "../components/money/Settlement";
 import { MoneyPanel } from "../components/trips/MoneyPanel";
 
 export const Route = createFileRoute("/trips/$tripId/money")({
@@ -11,6 +12,7 @@ function Money() {
     <div className="flex flex-col gap-5">
       <h1 className="font-display text-2xl font-semibold">Money</h1>
       <MoneyPanel />
+      <Settlement />
       <MoneyHistory />
     </div>
   );
