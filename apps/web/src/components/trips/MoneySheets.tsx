@@ -13,6 +13,7 @@ import { Field } from "../ui/Field";
 import { Sheet } from "../ui/Sheet";
 import { Steps, useStepRunner } from "../ui/Steps";
 import { useToast } from "../ui/Toast";
+import { FundingAddress } from "./FundingAddress";
 
 const STEPS = ["Prepare", "Confirm in your wallet", "Update the trip"];
 const QUICK_AMOUNTS = ["25", "50", "100"];
@@ -173,6 +174,7 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
             </button>
           ))}
         </div>
+        <FundingAddress />
         <Steps labels={STEPS} current={runner.current} error={runner.error} />
         <Button type="submit" fullWidth disabled={runner.running}>
           {runner.running

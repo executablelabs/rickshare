@@ -157,6 +157,14 @@
 }
 
 @layer base {
+  .trip-date-field input {
+    padding-right: 3.5rem;
+  }
+
+  .trip-date-field input::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+
   body {
     @apply bg-paper font-sans text-base font-normal text-ink;
     margin: 0;

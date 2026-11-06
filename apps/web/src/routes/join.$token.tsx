@@ -6,6 +6,7 @@ import { AuthGuard } from "../auth/AuthGuard";
 import { toWalletCall, useWallet } from "../auth/wallet";
 import { Loader } from "../components/brand/Loader";
 import { Wordmark } from "../components/brand/Wordmark";
+import { FundingAddress } from "../components/trips/FundingAddress";
 import { Button } from "../components/ui/Button";
 import { Field } from "../components/ui/Field";
 import { Steps, useStepRunner } from "../components/ui/Steps";
@@ -128,6 +129,7 @@ function JoinCard() {
           Joining adds you to the trip's shared fund. You still approve every share yourself.
         </p>
         <Steps labels={JOIN_STEPS} current={runner.current} error={runner.error} />
+        <FundingAddress />
         <Button fullWidth disabled={runner.running} onClick={join}>
           {runner.running ? "Joining…" : runner.error ? "Try again" : "Join the trip"}
         </Button>
