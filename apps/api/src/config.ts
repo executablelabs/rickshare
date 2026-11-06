@@ -22,6 +22,21 @@ export const configSchema = z.object({
   SEPOLIA_RPC_URL: optionalUrl,
   TRIP_FACTORY_ADDRESS: optionalAddress,
   AGENT_PRIVATE_KEY: optionalPrivateKey,
+  GAS_SPONSOR_PRIVATE_KEY: optionalPrivateKey,
+  GAS_SPONSOR_MAX_FEE_USDC: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/)
+      .default("1"),
+  ),
+  GAS_SPONSOR_DAILY_BUDGET_USDC: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/)
+      .default("10"),
+  ),
   VERIFIER_PRIVATE_KEY: optionalPrivateKey,
   ENS_ADMIN_PRIVATE_KEY: optionalPrivateKey,
   ENS_PARENT_NAME: optionalText,
