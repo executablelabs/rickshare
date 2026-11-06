@@ -97,3 +97,102 @@ export const tripsApi = {
     );
   },
 };
+
+const Invite = z.object({
+  inviteId: z.string(),
+  status: z.enum(["open", "claimed", "authorized", "joined", "expired"]),
+  member: z.string().nullable(),
+  expiresAt: z.string(),
+});
+export type Invite = z.infer<typeof Invite>;
+
+const JoinState = z.object({
+  inviteId: z.string(),
+  tripId: z.string(),
+  status: z.enum(["open", "claimed", "authorized", "joined", "expired"]),
+  transaction: WalletTransaction.nullable(),
+});
+export type JoinState = z.infer<typeof JoinState>;
+
+export function useInvites(tripId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: tripKeys.invites(tripId),
+    enabled,
+    // Only the creator may list invites; a 403 is the answer "not the organizer", not a failure.
+    retry: (count, error) => !(error instanceof ApiError && error.status === 403) && count < 2,
+    // A friend may claim the link at any moment, and the organizer has to let them in.
+    refetchInterval: (query) => (query.state.status === "error" ? false : 5000),
+    queryFn: async () =>
+      (
+        await readApi(
+          await api.trips[":tripId"].invites.$get({ param: { tripId } }),
+          z.object({ invites: z.array(Invite) }),
+        )
+      ).invites,
+  });
+}
+
+export const inviteApi = {
+  async create(tripId: string) {
+    return readApi(
+      await api.trips[":tripId"].invites.$post({ param: { tripId }, json: {} }),
+      z.object({ inviteId: z.string(), url: z.string().url(), expiresAt: z.string() }),
+    );
+  },
+  async authorization(tripId: string, inviteId: string) {
+    return readApi(
+      await api.trips[":tripId"].invites[":inviteId"].authorization.$get({
+        param: { tripId, inviteId },
+      }),
+      z.object({ typedData: z.unknown(), authorized: z.boolean() }),
+    );
+  },
+  async authorize(tripId: string, inviteId: string, signature: Hex) {
+    return readApi(
+      await api.trips[":tripId"].invites[":inviteId"].authorization.$post({
+        param: { tripId, inviteId },
+        json: { signature },
+      }),
+      z.object({ authorized: z.boolean() }),
+    );
+  },
+  async claim(token: string) {
+    return readApi(await api.invites[":token"].claim.$post({ param: { token } }), JoinState);
+  },
+  async state(inviteId: string) {
+    return readApi(await api.invites[":inviteId"].$get({ param: { inviteId } }), JoinState);
+  },
+  async confirm(inviteId: string, transactionHash: Hex) {
+    return readApi(
+      await api.invites[":inviteId"].confirm.$post({
+        param: { inviteId },
+        json: { transactionHash },
+      }),
+      z.object({ tripId: z.string(), joined: z.boolean() }),
+    );
+  },
+  async profile(tripId: string, displayName: string) {
+    return readApi(
+      await api.trips[":tripId"].members.me.$post({ param: { tripId }, json: { displayName } }),
+      z.unknown(),
+    );
+  },
+};
+
+export type MoneyAction =
+  | { action: "deposit"; amount: string }
+  | { action: "withdraw"; amount: string }
+  | { action: "policy"; autoApproveMax: string; totalCap: string }
+  | { action: "reject"; proposalId: string }
+  | { action: "refund"; proposalId: string }
+  | { action: "settle" };
+
+/** Asks the API for the member's own unsigned transactions; the wallet sends them in order. */
+export async function prepareMoneyAction(tripId: string, action: MoneyAction) {
+  return (
+    await readApi(
+      await api.trips[":tripId"].actions.$post({ param: { tripId }, json: action }),
+      z.object({ action: z.string(), transactions: z.array(WalletTransaction) }),
+    )
+  ).transactions;
+}

@@ -5,27 +5,18 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { WalletContext } from "./auth/wallet";
 import { RouteLoader } from "./components/brand/Loader";
 import { authApi, type Session } from "./lib/auth";
-import { tripApi } from "./lib/trips";
 import { AppProviders } from "./providers";
 import { createAppRouter } from "./router";
-import { stubApi } from "./test/api";
+import { stubApi, tripRoutes } from "./test/api";
 
 const address = "0x1111111111111111111111111111111111111111";
 beforeEach(() => {
   vi.restoreAllMocks();
-  stubApi({ "GET /trips": () => ({ body: { trips: [] } }) });
-  vi.spyOn(tripApi, "get").mockResolvedValue({
-    id: "india26",
-    vaultAddress: address,
-    name: "India 26",
-    endsAt: "2030-01-01T00:00:00.000Z",
-    ensName: null,
-    members: [],
-  });
   vi.spyOn(authApi, "session").mockResolvedValue({
     address,
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
   });
+  stubApi({ ...tripRoutes("india26", address), "GET /trips": () => ({ body: { trips: [] } }) });
 });
 
 test.each([

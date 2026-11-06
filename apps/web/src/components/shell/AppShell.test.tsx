@@ -1,5 +1,5 @@
 import { createMemoryHistory } from "@tanstack/react-router";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { WalletContext } from "../../auth/wallet";
@@ -7,16 +7,16 @@ import { authApi } from "../../lib/auth";
 import { tripApi } from "../../lib/trips";
 import { AppProviders } from "../../providers";
 import { createAppRouter } from "../../router";
-import { stubApi } from "../../test/api";
+import { stubApi, tripRoutes } from "../../test/api";
 
 const address = "0x1111111111111111111111111111111111111111";
 beforeEach(() => {
   vi.restoreAllMocks();
-  vi.spyOn(tripApi, "get").mockImplementation(() => new Promise(() => {}));
   vi.spyOn(authApi, "session").mockResolvedValue({
     address,
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
   });
+  stubApi({ ...tripRoutes("india26", address), "GET /trips": () => ({ body: { trips: [] } }) });
 });
 function SignedIn({ children }: { children: ReactNode }) {
   return (
@@ -90,13 +90,16 @@ test("does not wrap pages outside a trip", async () => {
   expect(screen.queryByRole("navigation", { name: "Trip" })).not.toBeInTheDocument();
 });
 
-test("brands the header band when there is no trip name yet", async () => {
+test("shows the trip name, end date and members in the header band", async () => {
   await renderAt("/trips/india26/plan");
-  expect(screen.getByRole("banner")).toHaveTextContent("Rickshare");
+  // The loading header is replaced once the trip arrives, so query it afresh.
+  await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("India 26"));
+  expect(screen.getByRole("banner")).toHaveTextContent("Ends");
+  expect(screen.getByRole("img", { name: "Angie and Bashy" })).toBeInTheDocument();
 });
 
 test("loads the trip title and confirmed ENS identity into the header", async () => {
-  vi.mocked(tripApi.get).mockResolvedValue({
+  vi.spyOn(tripApi, "get").mockResolvedValue({
     id: "india26",
     vaultAddress: address,
     name: "India 26",

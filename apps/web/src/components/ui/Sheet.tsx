@@ -19,12 +19,12 @@ export function Sheet({ open, onOpenChange, title, description, children }: Shee
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange} direction={isDesktop ? "right" : "bottom"}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-ink/40" />
+        <Drawer.Overlay className="fixed inset-0 z-50 bg-ink/40" />
         <Drawer.Content
           // Radix warns unless a missing description is declared explicitly.
           {...(description ? {} : { "aria-describedby": undefined })}
           className={cx(
-            "fixed flex flex-col bg-card text-ink shadow-sheet outline-none",
+            "fixed z-50 flex flex-col bg-card text-ink shadow-sheet outline-none",
             isDesktop
               ? "inset-y-0 right-0 w-full max-w-[420px] rounded-l-sheet"
               : "inset-x-0 bottom-0 max-h-[90dvh] rounded-t-sheet",
