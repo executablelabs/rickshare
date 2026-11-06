@@ -31,6 +31,9 @@ export function createMerchantRuntime() {
           publicUrl: config.PUBLIC_URL,
           accounts,
           startBlock: BigInt(config.ARC_START_BLOCK),
+          ...(config.MERCHANT_TEST_UNIT_PRICE_CAP
+            ? { testUnitPriceCap: BigInt(config.MERCHANT_TEST_UNIT_PRICE_CAP) }
+            : {}),
           ...(config.X402_ENABLED
             ? {
                 payment: {

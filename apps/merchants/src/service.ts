@@ -22,10 +22,11 @@ type Options = {
   startBlock?: bigint;
   now?: () => number;
   payment?: z.infer<typeof MerchantPayment>;
+  testUnitPriceCap?: bigint;
 };
 
 export class MerchantService {
-  private readonly catalogData = Catalog.parse(catalogData);
+  private readonly catalogData: z.infer<typeof Catalog>;
   private readonly now: () => number;
   private running: Promise<void> | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -37,6 +38,17 @@ export class MerchantService {
     private readonly chain: MerchantChain | undefined,
     private readonly options: Options,
   ) {
+    this.catalogData = Catalog.parse(catalogData).map((merchant) => ({
+      ...merchant,
+      items: merchant.items.map((item) => ({
+        ...item,
+        unitPrice:
+          options.testUnitPriceCap !== undefined &&
+          BigInt(item.unitPrice) > options.testUnitPriceCap
+            ? options.testUnitPriceCap.toString()
+            : item.unitPrice,
+      })),
+    }));
     this.now = options.now ?? Date.now;
     if (!["http:", "https:"].includes(new URL(options.publicUrl).protocol))
       throw new MerchantError(
