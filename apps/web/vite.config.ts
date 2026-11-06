@@ -13,5 +13,8 @@ export default defineConfig({
     // `bun run check` runs every workspace's suites at once, and under that load the default 5s
     // timed out spuriously. The assertions are unchanged; only the time allowed grows.
     testTimeout: 20_000,
+    // Tests must not depend on a developer's apps/web/.env: a real Privy app ID there would make
+    // tests start the live Privy SDK. Tests that need a wallet provide WalletContext themselves.
+    env: { VITE_PRIVY_APP_ID: "", VITE_API_URL: "" },
   },
 });
