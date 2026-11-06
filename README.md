@@ -59,6 +59,8 @@ See each `.env.example`. Keys:
 - contracts: `ARC_RPC_URL`, `DEPLOYER_PRIVATE_KEY`, `AGENT_ADDRESS`, `VERIFIER_ADDRESS`
 
 ## Deployments (Arc testnet, chain 5042002)
+Web deployment: [rickshare.xyz](https://rickshare.xyz). See [Railway and local HTTPS setup](docs/DEPLOYMENT.md).
+
 | Contract | Address |
 |---|---|
 | TripFactory | [`0x127a05d19df8201654128546f66a3f8d3eec84f3`](https://explorer.testnet.arc.io/address/0x127a05d19df8201654128546f66a3f8d3eec84f3) |
