@@ -2,13 +2,15 @@ import type { Trip } from "@rickshare/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useState } from "react";
 import { messageOf } from "../../lib/http";
+import { useTripStream } from "../../lib/plan";
 import { tripKeys, useInvites } from "../../lib/trips";
 import { verifyWithWorld, worldApi } from "../../lib/world";
+import { WithdrawSheet } from "../money/WithdrawSheet";
 import { useToast } from "../ui/Toast";
 import { InviteSheet } from "./InviteSheet";
 import { AddMoneySheet, LimitsSheet } from "./MoneySheets";
 
-type SheetName = "addMoney" | "limits" | "invite";
+type SheetName = "addMoney" | "limits" | "invite" | "withdraw";
 
 interface TripActions {
   trip: Trip;
@@ -28,7 +30,16 @@ export function useTripActions() {
 }
 
 /** Owns the trip's sheets so the Plan checklist, the money panel and the header can open them. */
-export function TripActionsProvider({ trip, children }: { trip: Trip; children: ReactNode }) {
+export function TripActionsProvider({
+  trip,
+  children,
+  stream = true,
+}: {
+  trip: Trip;
+  children: ReactNode;
+  stream?: boolean;
+}) {
+  useTripStream(trip.id, stream);
   const queryClient = useQueryClient();
   const showToast = useToast();
   const invites = useInvites(trip.id, true);
@@ -56,6 +67,7 @@ export function TripActionsProvider({ trip, children }: { trip: Trip; children: 
     >
       {children}
       <AddMoneySheet trip={trip} open={sheet === "addMoney"} onOpenChange={close} />
+      <WithdrawSheet trip={trip} open={sheet === "withdraw"} onOpenChange={close} />
       <LimitsSheet
         key={sheet === "limits" ? "open" : "closed"}
         trip={trip}

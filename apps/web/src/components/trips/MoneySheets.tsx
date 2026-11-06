@@ -1,8 +1,11 @@
-import type { Trip, WalletTransaction } from "@rickshare/shared";
+import { arcTestnet, type Trip, type WalletTransaction } from "@rickshare/shared";
+import { tripVaultAbi } from "@rickshare/shared/abi";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useRef, useState } from "react";
+import { encodeFunctionData } from "viem";
 import { toWalletCall, useWallet } from "../../auth/wallet";
 import { formatUsd } from "../../lib/format-usd";
+import { ApiError } from "../../lib/http";
 import { memberOf, prepareMoneyAction, tripKeys, useMoney } from "../../lib/trips";
 import { parseUsd, toUsdInput } from "../../lib/usd-input";
 import { Button } from "../ui/Button";
@@ -17,7 +20,7 @@ const QUICK_AMOUNTS = ["25", "50", "100"];
 type SheetProps = { trip: Trip; open: boolean; onOpenChange: (open: boolean) => void };
 
 /** Sends the prepared transactions one by one, then refreshes everything money touches. */
-function useMoneyFlow(trip: Trip) {
+export function useMoneyFlow(trip: Trip) {
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const runner = useStepRunner();
@@ -29,11 +32,42 @@ function useMoneyFlow(trip: Trip) {
       const key = JSON.stringify(action);
       if (batch.current && batch.current.action !== key)
         throw new Error("Check the previous attempt before changing this request.");
-      batch.current ??= {
-        action: key,
-        transactions: await prepareMoneyAction(trip.id, action),
-        completed: 0,
-      };
+      if (!batch.current) {
+        const transactions = await prepareMoneyAction(trip.id, action);
+        const expectedData =
+          action.action === "withdraw"
+            ? encodeFunctionData({
+                abi: tripVaultAbi,
+                functionName: "withdraw",
+                args: [BigInt(action.amount)],
+              })
+            : action.action === "refund"
+              ? encodeFunctionData({
+                  abi: tripVaultAbi,
+                  functionName: "refund",
+                  args: [BigInt(action.proposalId)],
+                })
+              : action.action === "settle"
+                ? encodeFunctionData({ abi: tripVaultAbi, functionName: "settle" })
+                : undefined;
+        const transaction = transactions[0];
+        if (
+          expectedData &&
+          (transactions.length !== 1 ||
+            !transaction ||
+            transaction.chainId !== arcTestnet.id ||
+            transaction.from.toLowerCase() !== wallet.address?.toLowerCase() ||
+            transaction.to.toLowerCase() !== trip.vaultAddress.toLowerCase() ||
+            transaction.data.toLowerCase() !== expectedData.toLowerCase() ||
+            !/^0x0+$/i.test(transaction.value))
+        )
+          throw new ApiError(
+            "INVALID_TRANSACTION",
+            "The prepared transaction does not match this request. Try again.",
+            502,
+          );
+        batch.current = { action: key, transactions, completed: 0 };
+      }
       const current = batch.current;
       next();
       for (const transaction of current.transactions.slice(current.completed)) {

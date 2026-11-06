@@ -1,6 +1,9 @@
+import { tripVaultAbi } from "@rickshare/shared/abi";
 import { createMemoryHistory } from "@tanstack/react-router";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { encodeFunctionData } from "viem";
 import { beforeEach, expect, test, vi } from "vitest";
+import { TransactionPendingError } from "../../auth/transactions";
 import { type WalletCall, WalletContext } from "../../auth/wallet";
 import { authApi } from "../../lib/auth";
 import { AppProviders } from "../../providers";
@@ -32,6 +35,15 @@ const snapshot = () => ({
   },
 });
 let money = snapshot();
+const transaction = (data: `0x${string}`) => ({
+  chainId: 5042002,
+  from: me,
+  to: trip.vaultAddress,
+  data,
+  value: "0x0",
+  maxFeePerGas: "0x1",
+  maxPriorityFeePerGas: "0x1",
+});
 beforeEach(() => {
   vi.restoreAllMocks();
   sendTransaction.mockReset().mockResolvedValue(hash);
@@ -84,6 +96,135 @@ test("uses the fixed-block snapshot for own and group balances", async () => {
     within(await screen.findByRole("region", { name: "The group" })).getAllByText("$72.50"),
   ).toHaveLength(2);
 });
+
+test("withdraws only the chosen own amount with six-decimal precision", async () => {
+  const data = encodeFunctionData({
+    abi: tripVaultAbi,
+    functionName: "withdraw",
+    args: [10123456n],
+  });
+  const calls = reads({
+    [`POST /trips/${tripId}/actions`]: () => ({
+      body: { action: "withdraw", transactions: [transaction(data)] },
+    }),
+  });
+  await openMoney();
+  fireEvent.click(await screen.findByRole("button", { name: "Withdraw money" }));
+  const dialog = await screen.findByRole("dialog", { name: "Withdraw money" });
+  const amount = within(dialog).getByLabelText("Amount to withdraw in USDC");
+  fireEvent.change(amount, { target: { value: "73" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Withdraw money" }));
+  expect(
+    await screen.findByText("Only your available balance can be withdrawn."),
+  ).toBeInTheDocument();
+  expect(sendTransaction).not.toHaveBeenCalled();
+  fireEvent.change(amount, { target: { value: "10.123456" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Withdraw money" }));
+  await waitFor(() =>
+    expect(sendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ from: me, to: trip.vaultAddress, data }),
+    ),
+  );
+  expect(calls.filter((call) => call.route.endsWith("/actions")).map((call) => call.body)).toEqual([
+    { action: "withdraw", amount: "10123456" },
+  ]);
+  // Vaul retains the sheet until its exit animation completes.
+  await waitFor(() => expect(dialog).toHaveAttribute("data-state", "closed"));
+});
+
+test("withdraws the entire available balance without rounding away micro-units", async () => {
+  money.own.available = "72500001";
+  money.own.deposited = "100000001";
+  const data = encodeFunctionData({
+    abi: tripVaultAbi,
+    functionName: "withdraw",
+    args: [72500001n],
+  });
+  const calls = reads({
+    [`POST /trips/${tripId}/actions`]: () => ({
+      body: { action: "withdraw", transactions: [transaction(data)] },
+    }),
+  });
+  await openMoney();
+  fireEvent.click(await screen.findByRole("button", { name: "Withdraw money" }));
+  const dialog = await screen.findByRole("dialog", { name: "Withdraw money" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Use available balance" }));
+  expect(within(dialog).getByLabelText("Amount to withdraw in USDC")).toHaveValue("72.500001");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Withdraw money" }));
+  await waitFor(() =>
+    expect(sendTransaction).toHaveBeenCalledWith(expect.objectContaining({ data })),
+  );
+  expect(calls.find((call) => call.route.endsWith("/actions"))?.body).toEqual({
+    action: "withdraw",
+    amount: "72500001",
+  });
+});
+
+test("an uncertain withdrawal receipt reuses its prepared call and freezes the amount", async () => {
+  sendTransaction.mockRejectedValueOnce(new TransactionPendingError(hash));
+  const data = encodeFunctionData({
+    abi: tripVaultAbi,
+    functionName: "withdraw",
+    args: [10000000n],
+  });
+  const calls = reads({
+    [`POST /trips/${tripId}/actions`]: () => ({
+      body: { action: "withdraw", transactions: [transaction(data)] },
+    }),
+  });
+  await openMoney();
+  fireEvent.click(await screen.findByRole("button", { name: "Withdraw money" }));
+  const dialog = await screen.findByRole("dialog", { name: "Withdraw money" });
+  fireEvent.change(within(dialog).getByLabelText("Amount to withdraw in USDC"), {
+    target: { value: "10" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Withdraw money" }));
+  const retry = await within(dialog).findByRole("button", { name: "Check previous attempt" });
+  expect(within(dialog).getByLabelText("Amount to withdraw in USDC")).toBeDisabled();
+  fireEvent.click(retry);
+  await waitFor(() => expect(sendTransaction).toHaveBeenCalledTimes(2));
+  expect(sendTransaction.mock.calls[0]).toEqual(sendTransaction.mock.calls[1]);
+  expect(calls.filter((call) => call.route.endsWith("/actions"))).toHaveLength(1);
+});
+
+test.each(["vault", "caller", "chain", "amount", "extra call", "native value"])(
+  "refuses mismatched prepared withdrawals: %s",
+  async (changed) => {
+    const data = encodeFunctionData({
+      abi: tripVaultAbi,
+      functionName: "withdraw",
+      args: [10000000n],
+    });
+    const call = transaction(data);
+    if (changed === "vault") call.to = `0x${"5".repeat(40)}`;
+    if (changed === "caller") call.from = `0x${"2".repeat(40)}`;
+    if (changed === "chain") call.chainId = 1;
+    if (changed === "amount")
+      call.data = encodeFunctionData({
+        abi: tripVaultAbi,
+        functionName: "withdraw",
+        args: [20000000n],
+      });
+    if (changed === "native value") call.value = "0x1";
+    reads({
+      [`POST /trips/${tripId}/actions`]: () => ({
+        body: {
+          action: "withdraw",
+          transactions: changed === "extra call" ? [call, call] : [call],
+        },
+      }),
+    });
+    await openMoney();
+    fireEvent.click(await screen.findByRole("button", { name: "Withdraw money" }));
+    const dialog = await screen.findByRole("dialog", { name: "Withdraw money" });
+    fireEvent.change(within(dialog).getByLabelText("Amount to withdraw in USDC"), {
+      target: { value: "10" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Withdraw money" }));
+    expect(await within(dialog).findByRole("alert")).toBeInTheDocument();
+    expect(sendTransaction).not.toHaveBeenCalled();
+  },
+);
 
 test("failed balance reads show an error without inventing a zero balance", async () => {
   reads({

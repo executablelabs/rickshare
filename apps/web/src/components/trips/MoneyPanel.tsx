@@ -75,6 +75,14 @@ export function MoneyPanel() {
             <SlidersHorizontal aria-hidden="true" size={20} />
             My limits
           </Button>
+          <Button
+            variant="secondary"
+            fullWidth
+            disabled={BigInt(money.data.own.available) === 0n}
+            onClick={() => open("withdraw")}
+          >
+            Withdraw money
+          </Button>
         </div>
         <p className="text-xs text-ink-muted">
           {cap === 0n
