@@ -12,6 +12,7 @@ import type { z } from "zod";
 import catalogData from "./catalog.json";
 import type { MerchantChain } from "./chain";
 import { MerchantError } from "./errors";
+import { isRpcRateLimit } from "./rpc";
 import { Catalog, QuoteInput, TicketBundle } from "./schemas";
 import type { MerchantStore, TicketRecord } from "./store";
 
@@ -28,6 +29,8 @@ export class MerchantService {
   private readonly now: () => number;
   private running: Promise<void> | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
+  private retryAt = 0;
+  private rateLimitFailures = 0;
 
   constructor(
     readonly store: MerchantStore,
@@ -242,9 +245,32 @@ export class MerchantService {
 
   sync(): Promise<void> {
     if (this.running) return this.running;
-    this.running = this.cycle().finally(() => {
-      this.running = null;
-    });
+    if (this.now() < this.retryAt)
+      return Promise.reject(
+        new MerchantError(
+          "RPC_RATE_LIMITED",
+          "The merchant chain connection is temporarily rate limited. Please retry shortly.",
+          503,
+        ),
+      );
+    this.running = this.cycle()
+      .then(() => {
+        this.retryAt = 0;
+        this.rateLimitFailures = 0;
+      })
+      .catch((error: unknown) => {
+        if (!isRpcRateLimit(error)) throw error;
+        this.retryAt = this.now() + Math.min(60_000, 15_000 * 2 ** this.rateLimitFailures);
+        this.rateLimitFailures = Math.min(this.rateLimitFailures + 1, 3);
+        throw new MerchantError(
+          "RPC_RATE_LIMITED",
+          "The merchant chain connection is temporarily rate limited. Please retry shortly.",
+          503,
+        );
+      })
+      .finally(() => {
+        this.running = null;
+      });
     return this.running;
   }
 
@@ -281,9 +307,10 @@ export class MerchantService {
   start(interval: number) {
     if (this.timer) return;
     const run = () => {
-      void this.sync().catch(() =>
+      if (this.running || this.now() < this.retryAt) return;
+      void this.sync().catch((error: unknown) =>
         process.stderr.write(
-          `${JSON.stringify({ level: "error", code: "MERCHANT_SCAN_FAILED" })}\n`,
+          `${JSON.stringify({ level: "error", code: isRpcRateLimit(error) ? "MERCHANT_RPC_RATE_LIMITED" : "MERCHANT_SCAN_FAILED" })}\n`,
         ),
       );
     };

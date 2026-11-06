@@ -1,15 +1,9 @@
 import { arcTestnet } from "@rickshare/shared";
 import { tripFactoryAbi, tripVaultAbi } from "@rickshare/shared/abi";
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  getAddress,
-  type Hex,
-  http,
-} from "viem";
+import { type Address, createPublicClient, createWalletClient, getAddress, type Hex } from "viem";
 import type { PrivateKeyAccount } from "viem/accounts";
 import { MerchantError } from "./errors";
+import { createPacedArcTransport } from "./rpc";
 
 export type MerchantPurchase = {
   merchant: Address;
@@ -37,7 +31,7 @@ export type MerchantChain = {
 };
 
 export function createMerchantChain(factory: Address, rpcUrl: string | undefined): MerchantChain {
-  const transport = http(rpcUrl, { timeout: 15_000, retryCount: 2 });
+  const transport = createPacedArcTransport(rpcUrl);
   const client = createPublicClient({ chain: arcTestnet, transport });
   const assertChain = async () => {
     if ((await client.getChainId()) !== arcTestnet.id)

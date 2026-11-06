@@ -1,13 +1,14 @@
 import { arcTestnet, asHex } from "@rickshare/shared";
-import { createPublicClient, createWalletClient, http } from "viem";
+import { createPublicClient, createWalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { config } from "../../config";
 import { AppError } from "../../lib/errors";
+import { createPacedArcTransport } from "./rpc";
 
 export function createArcClient(rpcUrl = config.ARC_RPC_URL) {
   return createPublicClient({
     chain: arcTestnet,
-    transport: http(rpcUrl, { timeout: 15_000, retryCount: 2 }),
+    transport: createPacedArcTransport(rpcUrl),
   });
 }
 
@@ -15,7 +16,7 @@ export function createArcWallet(privateKey: string, rpcUrl = config.ARC_RPC_URL)
   return createWalletClient({
     account: privateKeyToAccount(asHex(privateKey)),
     chain: arcTestnet,
-    transport: http(rpcUrl, { timeout: 15_000, retryCount: 0 }),
+    transport: createPacedArcTransport(rpcUrl),
   });
 }
 

@@ -1,6 +1,7 @@
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { isRpcRateLimit } from "./rpc";
 
 export class MerchantError extends Error {
   constructor(
@@ -13,6 +14,19 @@ export class MerchantError extends Error {
 }
 
 export const handleError: ErrorHandler = (error, context) => {
+  if (isRpcRateLimit(error)) {
+    context.header("Retry-After", "60");
+    return context.json(
+      {
+        error: {
+          code: "RPC_RATE_LIMITED",
+          message:
+            "The merchant chain connection is temporarily rate limited. Please retry shortly.",
+        },
+      },
+      503,
+    );
+  }
   if (error instanceof MerchantError)
     return context.json({ error: { code: error.code, message: error.message } }, error.status);
   if (error instanceof HTTPException && error.status < 500)
