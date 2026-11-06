@@ -1,0 +1,6 @@
+# Build the web app with VITE_API_URL=/api and run the web server on port 8080.
+# Set API WEB_ORIGIN=https://localhost and allow https://localhost in Privy.
+https://localhost {
+	tls internal
+	reverse_proxy localhost:8080
+}
