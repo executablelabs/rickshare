@@ -80,7 +80,13 @@ export default function TripPreview() {
   const wallet = useWallet();
   const [client] = useState(() => {
     const preview = new QueryClient({
-      defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY, retry: false } },
+      defaultOptions: {
+        queries: {
+          staleTime: Number.POSITIVE_INFINITY,
+          retry: false,
+          meta: { offlinePreview: true },
+        },
+      },
     });
     preview.setQueryData(tripKeys.money(sampleTrip.id), {
       own: {
@@ -90,6 +96,8 @@ export default function TripPreview() {
         available: "120000000",
         withdrawn: "0",
       },
+      members: sampleTrip.members,
+      indexedBlock: "100",
       walletBalance: "75000000",
       settled: false,
     });
