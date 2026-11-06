@@ -1,6 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { authApi, type Session, signInMessage } from "../lib/auth";
+import { ApiError } from "../lib/http";
 import { useWallet } from "./wallet";
 
 type Auth = {
@@ -12,6 +13,15 @@ type Auth = {
   signOut: () => Promise<void>;
 };
 const AuthContext = createContext<Auth | null>(null);
+
+function clearPrivateQueries(client: QueryClient) {
+  const filters = {
+    predicate: (query: { queryKey: readonly unknown[] }) => query.queryKey[0] !== "auth",
+  };
+  void client.cancelQueries(filters);
+  client.removeQueries(filters);
+  client.getMutationCache().clear();
+}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const wallet = useWallet();
@@ -32,7 +42,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     queryFn: ({ signal }) => authApi.session(signal),
     enabled: wallet.ready && wallet.authenticated && !!address && !signedOut && !pending,
     retry: false,
-    refetchInterval: 30_000,
+    // Verification already returns the session; re-enabling must not immediately replace it.
+    staleTime: 30_000,
+    refetchInterval: (query) => (query.state.data ? 30_000 : false),
   });
   const session =
     !signedOut &&
@@ -45,9 +57,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       : null;
 
   useEffect(() => {
+    if (query.data === null) clearPrivateQueries(client);
+  }, [client, query.data]);
+
+  useEffect(() => {
+    return client.getQueryCache().subscribe((event) => {
+      if (
+        pending ||
+        event.type !== "updated" ||
+        event.query.queryKey[0] === "auth" ||
+        (event.action.type !== "failed" && event.action.type !== "error") ||
+        !(event.action.error instanceof ApiError) ||
+        event.action.error.status !== 401
+      )
+        return;
+      revision.current++;
+      void client.cancelQueries({ queryKey: ["auth", address] });
+      client.setQueryData(["auth", address], null);
+      clearPrivateQueries(client);
+    });
+  }, [client, address, pending]);
+
+  useEffect(() => {
     if (!session) return;
     const timer = window.setTimeout(
-      () => client.setQueryData(["auth", address], null),
+      () => {
+        void client.cancelQueries({ queryKey: ["auth", address] });
+        client.setQueryData(["auth", address], null);
+        clearPrivateQueries(client);
+      },
       Math.min(Date.parse(session.expiresAt) - Date.now(), 2_147_483_647),
     );
     return () => window.clearTimeout(timer);
@@ -72,6 +110,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (!currentAddress) throw new Error("Your account is not ready.");
         assertCurrent();
         await client.cancelQueries({ queryKey: key });
+        clearPrivateQueries(client);
         const nonce = await authApi.nonce();
         assertCurrent();
         const message = signInMessage(currentAddress, nonce, window.location.origin);
