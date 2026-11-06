@@ -6,6 +6,7 @@ import { WalletContext } from "../../auth/wallet";
 import { authApi } from "../../lib/auth";
 import { AppProviders } from "../../providers";
 import { createAppRouter } from "../../router";
+import { stubApi } from "../../test/api";
 
 const address = "0x1111111111111111111111111111111111111111";
 beforeEach(() => {
@@ -75,6 +76,7 @@ test("sends the bare trip URL to the Plan tab", async () => {
 });
 
 test("does not wrap pages outside a trip", async () => {
+  stubApi({ "GET /trips": () => ({ body: { trips: [] } }) });
   const router = createAppRouter(createMemoryHistory({ initialEntries: ["/"] }));
   await router.load();
   render(
@@ -82,7 +84,7 @@ test("does not wrap pages outside a trip", async () => {
       <AppProviders router={router} />
     </SignedIn>,
   );
-  await screen.findByRole("heading", { name: "Rickshare", level: 1 });
+  await screen.findByRole("heading", { name: "Your trips", level: 1 });
   expect(screen.queryByRole("navigation", { name: "Trip" })).not.toBeInTheDocument();
 });
 

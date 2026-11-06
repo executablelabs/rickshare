@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 
 test.each([
-  ["/", "Rickshare"],
+  ["/", "Your trips"],
   ["/trips/india26/plan", "Plan"],
   ["/trips/india26/itinerary", "Itinerary"],
   ["/trips/india26/money", "Money"],
