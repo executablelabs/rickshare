@@ -73,7 +73,12 @@ const shares = [
   { member: ANGIE, amount: "42000000" },
   { member: GITAU, amount: "42000000" },
 ];
-const quoteRequest = { merchantId: "goa-adventures", itemId: "arambol-paragliding", quantity: 2 };
+const quoteRequest = {
+  merchantId: "goa-adventures",
+  itemId: "arambol-paragliding",
+  quantity: 2,
+  startsAt: "2026-12-14T10:00:00.000Z",
+};
 
 describe("a planning turn", () => {
   test("proposes through the tools and saves the reply with its proposal ids", async () => {

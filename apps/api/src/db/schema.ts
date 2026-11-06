@@ -154,6 +154,7 @@ export const chatMessages = sqliteTable(
     author: text("author"),
     text: text("text").notNull(),
     proposalIds: text("proposal_ids", { mode: "json" }).$type<string[]>().notNull(),
+    clientRequestId: text("client_request_id"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [index("chat_messages_trip_created_idx").on(table.tripId, table.createdAt, table.id)],
@@ -172,3 +173,15 @@ export const itineraryItems = sqliteTable(
   },
   (table) => [index("itinerary_items_trip_starts_idx").on(table.tripId, table.startsAt)],
 );
+
+export const chatRequests = sqliteTable("chat_requests", {
+  id: text("id").primaryKey(),
+  tripId: text("trip_id").notNull(),
+  actor: text("actor").notNull(),
+  requestId: text("request_id").notNull(),
+  text: text("text").notNull(),
+  status: text("status").notNull(),
+  runId: text("run_id").notNull(),
+  result: text("result"),
+  errorCode: text("error_code"),
+});

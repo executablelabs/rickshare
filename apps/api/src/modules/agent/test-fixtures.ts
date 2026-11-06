@@ -77,7 +77,7 @@ export function createFakePorts(overrides: Partial<AgentPorts> = {}) {
     getTripState: async () => TRIP,
     submitProposal: async (request) => {
       submitted.push(request);
-      return { proposalId: String(submitted.length) };
+      return { proposalId: String(submitted.length), status: "pending" };
     },
     replaceItinerary: (_tripId, drafts) => {
       itineraries.push(drafts);

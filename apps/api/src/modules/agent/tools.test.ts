@@ -12,7 +12,12 @@ import {
 } from "./test-fixtures";
 import { createToolRun } from "./tools";
 
-const quoteRequest = { merchantId: "goa-adventures", itemId: "arambol-paragliding", quantity: 2 };
+const quoteRequest = {
+  merchantId: "goa-adventures",
+  itemId: "arambol-paragliding",
+  quantity: 2,
+  startsAt: "2026-12-14T10:00:00.000Z",
+};
 const evenShares = [
   { member: ANGIE, amount: "42000000" },
   { member: GITAU, amount: "42000000" },
@@ -236,6 +241,15 @@ describe("other tools", () => {
     const run = createToolRun(TRIP.id, fake.ports, () => NOW);
     const result = await run.execute("get_quote", quoteRequest);
     expect(result).toMatchObject({ isError: true });
+  });
+
+  test("rejects a merchant quote that silently changes the requested activity time", async () => {
+    const fake = createFakePorts({
+      getQuote: async () => paraglidingQuote({ startsAt: "2026-12-15T10:00:00.000Z" }),
+    });
+    const run = createToolRun(TRIP.id, fake.ports, () => NOW);
+    expect((await run.execute("get_quote", quoteRequest)).isError).toBe(true);
+    expect(fake.submitted).toEqual([]);
   });
 
   test("hides service failures behind a generic message", async () => {

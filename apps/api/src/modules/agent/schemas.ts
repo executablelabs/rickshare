@@ -12,6 +12,7 @@ export const GetQuoteInput = z.strictObject({
   merchantId: z.string().min(1),
   itemId: z.string().min(1),
   quantity: z.number().int().min(1).max(20),
+  startsAt: IsoDate,
 });
 
 export const ProposePurchaseInput = z.strictObject({

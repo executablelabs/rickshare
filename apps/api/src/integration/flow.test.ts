@@ -1,13 +1,17 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { ARC_USDC, asHex, contractQuote, inviteTypedData } from "@rickshare/shared";
 import { erc20Abi, tripVaultAbi } from "@rickshare/shared/abi";
 import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
+import { z } from "zod";
 import { createApp as createMerchantApp } from "../../../merchants/src/app";
 import { createMerchantChain } from "../../../merchants/src/chain";
 import { MerchantService } from "../../../merchants/src/service";
 import { MerchantStore } from "../../../merchants/src/store";
+import { createApp } from "../app";
 import { createDatabase } from "../db/client";
+import type { AgentModel } from "../modules/agent/service";
 import { createApprovalReader } from "../modules/approvals/chain";
 import type { WorldProvider } from "../modules/approvals/oidc";
 import { WorldApprovalService } from "../modules/approvals/service";
@@ -28,6 +32,149 @@ beforeAll(async () => {
   local = await createLocalChain();
   database = createDatabase(":memory:");
   merchantStore = new MerchantStore(":memory:");
+}, 120_000);
+
+test("the authenticated chat runtime turns a scoped model quote into a real paid ticket", async () => {
+  const fresh = await createLocalChain();
+  const db = createDatabase(":memory:");
+  const store = new MerchantStore(":memory:");
+  try {
+    const merchantSecret = "chat-integration-service-secret-32-characters";
+    const merchant = new MerchantService(store, createMerchantChain(fresh.factory, fresh.rpc), {
+      publicUrl: "http://merchant.local",
+      accounts: new Map([["elephanta-walks", fresh.accounts.merchant]]),
+    });
+    const merchantApp = createMerchantApp({ service: merchant, apiSecret: merchantSecret });
+    const client = new MerchantClient("http://merchant.local", merchantSecret, async (url, init) =>
+      merchantApp.request(url, init),
+    );
+    const indexer = new IndexerService(db, createIndexSource(fresh.factory, fresh.client));
+    await indexer.sync();
+    const proposals = new ProposalService(
+      db,
+      createProposalChain(fresh.factory, `0x${"22".repeat(32)}`, fresh.client),
+      client,
+      () => indexer.sync(),
+    );
+    const auth = new AuthService(db, {
+      origin: "http://localhost:5173",
+      secret: "chat-integration-session-secret-32-characters",
+      nonceTtlSeconds: 300,
+      sessionTtlSeconds: 3600,
+      verifySignature: (input) => fresh.client.verifyMessage(input),
+    });
+    const start = new Date(Date.now() + 3600_000).toISOString();
+    let round = 0;
+    let proposalId = "";
+    const model: AgentModel = {
+      createMessage: async (request) => {
+        const tool = (name: string, input: unknown) => ({
+          stop_reason: "tool_use" as const,
+          content: [{ type: "tool_use" as const, id: `tool-${round}`, name, input }],
+        });
+        round += 1;
+        if (round === 1) return tool("get_trip_state", {});
+        if (round === 2)
+          return tool("get_quote", {
+            merchantId: "elephanta-walks",
+            itemId: "elephanta-ferry-walk",
+            quantity: 2,
+            startsAt: start,
+          });
+        const last = request.messages.at(-1)?.content;
+        const resultBlock = Array.isArray(last)
+          ? last.find((block) => block.type === "tool_result")
+          : undefined;
+        const content = resultBlock && "content" in resultBlock ? resultBlock.content : undefined;
+        if (round === 3) {
+          if (typeof content !== "string") throw new Error("Missing scoped quote tool result");
+          const parsed = z
+            .object({ quoteId: z.string() })
+            .parse(JSON.parse(content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1)));
+          return tool("propose_purchase", {
+            quoteId: parsed.quoteId,
+            shares: [
+              { member: fresh.accounts.alice.address, amount: "25000000" },
+              { member: fresh.accounts.bob.address, amount: "25000000" },
+            ],
+          });
+        }
+        if (round === 4) {
+          if (typeof content !== "string") throw new Error("Missing purchase tool result");
+          proposalId = z.object({ proposalId: z.string() }).parse(JSON.parse(content)).proposalId;
+          return tool("update_itinerary", {
+            items: [
+              {
+                id: null,
+                startsAt: start,
+                title: "Elephanta Caves ferry and guided walk",
+                location: "Mumbai",
+                proposalId,
+              },
+            ],
+          });
+        }
+        return {
+          stop_reason: "end_turn",
+          content: [
+            {
+              type: "text",
+              text: "I proposed the guided walk for the two of you.",
+              citations: null,
+            },
+          ],
+        };
+      },
+    };
+    const app = createApp({ db, auth, indexer, proposals, merchants: client, model });
+    const challenge = auth.issueNonce();
+    const message = createSiweMessage({
+      address: fresh.accounts.alice.address,
+      chainId: 5042002,
+      domain: "localhost:5173",
+      uri: "http://localhost:5173",
+      version: "1",
+      nonce: challenge.nonce,
+      issuedAt: new Date(),
+    });
+    const session = await auth.verify(
+      message,
+      await fresh.accounts.alice.signMessage({ message }),
+      challenge.browserToken,
+    );
+    const headers = {
+      Cookie: `rickshare_session=${session.token}`,
+      Origin: "http://localhost:5173",
+      "content-type": "application/json",
+    };
+    const response = await app.request(`/trips/${fresh.vault}/chat`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        requestId: randomUUID(),
+        text: `Please get the guided walk for us at ${start}.`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(indexer.proposals(fresh.vault)[0]?.status).toBe("locked");
+    expect(
+      indexer.events(fresh.vault).some((event) => event.data.type === "itinerary.updated"),
+    ).toBe(true);
+    expect(
+      indexer.events(fresh.vault).filter((event) => event.data.type === "chat.message"),
+    ).toHaveLength(2);
+    await merchant.sync();
+    await indexer.sync();
+    const ticket = await app.request(`/trips/${fresh.vault}/proposals/${proposalId}/ticket`, {
+      headers,
+    });
+    expect(ticket.status).toBe(200);
+    expect(indexer.proposals(fresh.vault)[0]?.status).toBe("fulfilled");
+  } finally {
+    store.close();
+    db.$client.close();
+    await fresh.close();
+  }
 }, 120_000);
 
 test("wallet-signed creation and creator-authorized single-use invitations reach real vault membership", async () => {

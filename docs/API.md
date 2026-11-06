@@ -168,3 +168,47 @@ The creator must be online to authorize a newly claimed wallet. Signed grants
 cannot be revoked by merely changing backend metadata; the contract expiry is
 the authority. Joining never changes an existing purchase's participants.
 World linking should follow joining and precede the first deposit in onboarding.
+
+## Chat and resumable streams (B6)
+
+- GET `/trips/:tripId/chat?limit=40`: authenticated recent messages, oldest first.
+- POST `/trips/:tripId/chat`: `{ requestId, text }`; requestId is a client UUID
+  generated once for a send attempt. The sender always comes from the session,
+  never the request body. The response contains requestId, status, errorCode and
+  reply (memberMessage/agentMessage when complete).
+- GET `/trips/:tripId/itinerary`: group itinerary with ticket bearer links
+  redacted. Fetch each participant's paid ticket through the A9 ticket endpoint.
+- GET `/trips/:tripId/stream`: credentialed SSE with durable decimal event IDs.
+
+A duplicate chat request with the same trip/requestId/text returns the stored
+reply, or HTTP 202 while processing, without invoking the model or proposer
+again. Another member cannot reuse that request ID. On restart, unfinished
+turns become interrupted rather than automatically re-running a purchase-capable
+model turn. A failed first attempt may return a typed error; retrying its same
+requestId reports its recorded status instead of duplicating the turn.
+
+Chat messages include optional clientRequestId for matching optimistic UI rows.
+Scope private query caches/cursors by the signed-in wallet and trip, and clear
+them on logout or wallet change. Member intake and planning are serialized per
+trip; unrelated trips may plan concurrently. Runtime agent ports are bound to
+the particular trip, preserving merchant/vault/chain quote binding.
+
+The get_quote tool requires an explicit startsAt. Merchant responses cannot
+silently change it; the agent asks the group if the intended time is unclear.
+The static system prompt has a cache boundary before trusted current UTC context.
+
+For streams, pass Last-Event-ID on reconnect or `?after=<id>` when opening a new
+EventSource instance. Register listeners for the shared TripEvent type names
+(chat.message, proposal.created, proposal.updated, balances.updated and
+itinerary.updated). Each frame's JSON data is the shared TripEvent.
+The server subscribes before its initial replay, queries persisted rows in ID
+order after each notification, and uses heartbeat comments. Session validity is
+rechecked during delivery/heartbeats and listeners are removed on disconnect.
+Message/itinerary writes and their outbox records commit atomically; notifications
+are wakeups, so out-of-order notifications cannot skip a persisted event.
+
+Ticket bearer URLs are never put in group itinerary event payloads. They remain
+in durable booking storage and are disclosed through participant-authorized,
+hash-verified ticket retrieval only. The backend returns Cache-Control: no-store
+for private data. Real agent replies require ANTHROPIC_API_KEY; search additionally
+requires TAVILY_API_KEY. No model or verification mock is enabled by env flags.
