@@ -18,6 +18,13 @@ export const config = z
     MERCHANT_1_PRIVATE_KEY: privateKey,
     MERCHANT_2_PRIVATE_KEY: privateKey,
     MERCHANT_3_PRIVATE_KEY: privateKey,
+    MERCHANT_TEST_UNIT_PRICE_CAP: z.preprocess(
+      blankToUndefined,
+      z
+        .string()
+        .regex(/^[1-9]\d*$/)
+        .optional(),
+    ),
     PUBLIC_URL: z.preprocess(blankToUndefined, z.string().url().default("http://localhost:8790")),
     MERCHANT_DATABASE_PATH: z.preprocess(
       blankToUndefined,
