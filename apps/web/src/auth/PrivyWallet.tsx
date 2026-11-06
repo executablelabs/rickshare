@@ -1,8 +1,9 @@
 import { PrivyProvider, useActiveWallet, usePrivy, useWallets } from "@privy-io/react-auth";
 import { arcTestnet } from "@rickshare/shared";
-import type { ReactNode } from "react";
-import { createWalletClient, custom, getAddress } from "viem";
+import { type ReactNode, useRef } from "react";
+import { createWalletClient, custom, getAddress, publicActions } from "viem";
 import { config } from "../config";
+import { createTransactionSender } from "./transactions";
 import { WalletContext } from "./wallet";
 
 const chain = config.VITE_ARC_RPC_URL
@@ -27,6 +28,9 @@ export default function PrivyWallet({ appId, children }: { appId: string; childr
 }
 
 function WalletBridge({ children }: { children: ReactNode }) {
+  const sender = useRef<ReturnType<typeof createTransactionSender> | undefined>(undefined);
+  sender.current ??= createTransactionSender();
+  const send = sender.current;
   const { ready, authenticated, login, logout, user } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const { wallet: activeWallet } = useActiveWallet();
@@ -42,6 +46,25 @@ function WalletBridge({ children }: { children: ReactNode }) {
       )
     : undefined;
   const address = wallet ? getAddress(wallet.address) : undefined;
+
+  /** A client for the selected account on Arc, refusing to sign if the wallet moved underneath. */
+  async function verifiedClient() {
+    if (!wallet || !address) throw new Error("Your account is not ready. Try again.");
+    await wallet.switchChain(chain.id);
+    const provider = await wallet.getEthereumProvider();
+    const client = createWalletClient({
+      account: address,
+      chain,
+      transport: custom(provider),
+    }).extend(publicActions);
+    const [account] = await client.getAddresses();
+    if (
+      account?.toLowerCase() !== address.toLowerCase() ||
+      (await client.getChainId()) !== chain.id
+    )
+      throw new Error("Your account changed. Continue to sign in again.");
+    return client;
+  }
   return (
     <WalletContext.Provider
       value={{
@@ -51,22 +74,26 @@ function WalletBridge({ children }: { children: ReactNode }) {
         address,
         login,
         logout,
-        signMessage: async (message) => {
-          if (!wallet || !address) throw new Error("Your account is not ready. Try again.");
-          await wallet.switchChain(chain.id);
-          const provider = await wallet.getEthereumProvider();
-          const client = createWalletClient({
-            account: address,
-            chain,
-            transport: custom(provider),
+        signMessage: async (message) => (await verifiedClient()).signMessage({ message }),
+        signTypedData: async (typedData) => (await verifiedClient()).signTypedData(typedData),
+        sendTransaction: async (transaction) => {
+          const client = await verifiedClient();
+          if (!address) throw new Error("Your account is not ready. Try again.");
+          return send(address, transaction, {
+            broadcast: () =>
+              client.sendTransaction({
+                to: transaction.to,
+                data: transaction.data,
+                value: 0n,
+                ...(transaction.maxFeePerGas
+                  ? {
+                      maxFeePerGas: BigInt(transaction.maxFeePerGas),
+                      maxPriorityFeePerGas: BigInt(transaction.maxPriorityFeePerGas ?? "0x0"),
+                    }
+                  : {}),
+              }),
+            receipt: (hash) => client.waitForTransactionReceipt({ hash }),
           });
-          const [account] = await client.getAddresses();
-          if (
-            account?.toLowerCase() !== address.toLowerCase() ||
-            (await client.getChainId()) !== chain.id
-          )
-            throw new Error("Your account changed. Continue to sign in again.");
-          return client.signMessage({ message });
         },
       }}
     >

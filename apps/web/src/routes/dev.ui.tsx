@@ -1,7 +1,10 @@
+import type { Proposal, Trip } from "@rickshare/shared";
 import { createFileRoute } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { Loader } from "../components/brand/Loader";
 import { RickshawMark } from "../components/brand/RickshawMark";
+import { ProposalTicket } from "../components/plan/ProposalTicket";
+import { TripCard } from "../components/trips/TripCard";
 import { Amount } from "../components/ui/Amount";
 import { Avatar } from "../components/ui/Avatar";
 import { AvatarStack } from "../components/ui/AvatarStack";
@@ -9,6 +12,7 @@ import { Button } from "../components/ui/Button";
 import { Chip } from "../components/ui/Chip";
 import { Field } from "../components/ui/Field";
 import { Sheet } from "../components/ui/Sheet";
+import { Steps } from "../components/ui/Steps";
 import { useToast } from "../components/ui/Toast";
 
 export const Route = createFileRoute("/dev/ui")({
@@ -22,6 +26,44 @@ const sampleMembers = ["Angie", "Bashy", "Gitau", "Wanjiru", "Otieno"].map(
     displayName,
   }),
 );
+
+const [angie, bashy, gitau] = sampleMembers;
+const sampleTrip: Trip = {
+  id: "gallery",
+  name: "India 26",
+  ensName: null,
+  vaultAddress: `0x${"a".repeat(40)}`,
+  endsAt: "2026-12-18T23:59:00.000Z",
+  members: sampleMembers.slice(0, 3).map((member, index) => ({
+    ...member,
+    ensName: null,
+    worldLinked: true,
+    policy: { autoApproveMax: "0", totalCap: "0" },
+    deposited: "150000000",
+    spent: "0",
+    locked: "0",
+    available: index === 0 ? "108000000" : "150000000",
+  })),
+};
+const sampleTicket: Proposal = {
+  id: "gallery",
+  tripId: "gallery",
+  merchant: `0x${"d".repeat(40)}`,
+  merchantName: "Goa Adventures",
+  title: "Tandem paragliding, Arambol",
+  location: "Arambol beach, Goa",
+  startsAt: "2026-12-12T04:30:00.000Z",
+  total: "84000000",
+  shares: [
+    { member: angie?.address ?? "", amount: "42000000", state: "approved" },
+    { member: gitau?.address ?? "", amount: "42000000", state: "waiting" },
+  ],
+  status: "pending",
+  deadline: "2026-12-11T00:00:00.000Z",
+  ticketHash: null,
+  txHash: "0x00",
+};
+const ticketMembers = [angie, bashy, gitau].flatMap((member) => (member ? [member] : []));
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -134,6 +176,35 @@ function UiGallery() {
           <RickshawMark className="w-12 text-ink" />
           <RickshawMark className="w-6 text-ink" />
         </div>
+      </Section>
+
+      <Section title="Tickets">
+        <ProposalTicket
+          proposal={sampleTicket}
+          members={ticketMembers}
+          viewer={gitau?.address}
+          actions={
+            <div className="flex gap-2.5">
+              <Button fullWidth>Approve my share</Button>
+              <Button variant="secondary">Not for me</Button>
+            </div>
+          }
+        />
+        <ProposalTicket proposal={sampleTicket} members={ticketMembers} viewer={angie?.address} />
+        <ProposalTicket proposal={sampleTicket} members={ticketMembers} viewer={bashy?.address} />
+      </Section>
+
+      <Section title="Trip cards">
+        <TripCard trip={sampleTrip} viewer={angie?.address as `0x${string}` | undefined} />
+      </Section>
+
+      <Section title="Progress">
+        <Steps labels={["Prepare", "Confirm in your wallet", "Done"]} current={1} error={null} />
+        <Steps
+          labels={["Prepare", "Confirm in your wallet", "Done"]}
+          current={1}
+          error="You cancelled in your wallet. Nothing changed."
+        />
       </Section>
 
       <Section title="Loader">

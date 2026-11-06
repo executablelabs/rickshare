@@ -8,10 +8,12 @@ import { authApi, type Session } from "./lib/auth";
 import { tripApi } from "./lib/trips";
 import { AppProviders } from "./providers";
 import { createAppRouter } from "./router";
+import { stubApi } from "./test/api";
 
 const address = "0x1111111111111111111111111111111111111111";
 beforeEach(() => {
   vi.restoreAllMocks();
+  stubApi({ "GET /trips": () => ({ body: { trips: [] } }) });
   vi.spyOn(tripApi, "get").mockResolvedValue({
     id: "india26",
     vaultAddress: address,
@@ -27,7 +29,7 @@ beforeEach(() => {
 });
 
 test.each([
-  ["/", "Rickshare"],
+  ["/", "Your trips"],
   ["/trips/india26/plan", "Plan"],
   ["/trips/india26/itinerary", "Itinerary"],
   ["/trips/india26/money", "Money"],
@@ -46,6 +48,8 @@ test.each([
           login: vi.fn(),
           logout: vi.fn(),
           signMessage: vi.fn(),
+          signTypedData: vi.fn(),
+          sendTransaction: vi.fn(),
         }}
       >
         <AppProviders router={router} />
@@ -79,6 +83,8 @@ test("an account change hides private UI until the new account has its own sessi
         login: vi.fn(),
         logout: vi.fn(),
         signMessage: vi.fn(),
+        signTypedData: vi.fn(),
+        sendTransaction: vi.fn(),
       }}
     >
       <AppProviders router={router} />

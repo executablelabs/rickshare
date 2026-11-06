@@ -188,3 +188,99 @@ test.each(["eth_chainId", "eth_accounts"])(
     );
   },
 );
+
+function Send() {
+  const wallet = useWallet();
+  const [result, setResult] = useState("");
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          void wallet
+            .sendTransaction({
+              to: "0x2222222222222222222222222222222222222222",
+              data: "0x1234",
+              maxFeePerGas: "0x4a817c800",
+              maxPriorityFeePerGas: "0x3b9aca00",
+            })
+            .then(setResult, (error: Error) => setResult(error.message));
+        }}
+      >
+        Send
+      </button>
+      <p role="status">{result}</p>
+    </>
+  );
+}
+
+function mockChain(receiptStatus: "0x1" | "0x0") {
+  const hash = `0x${"cd".repeat(32)}`;
+  const base = mocks.request.getMockImplementation();
+  mocks.request.mockImplementation(async (input: { method: string }) => {
+    if (input.method === "eth_sendTransaction") return hash;
+    if (input.method === "eth_blockNumber") return "0x10";
+    if (input.method === "eth_getTransactionReceipt")
+      return {
+        transactionHash: hash,
+        blockHash: `0x${"ef".repeat(32)}`,
+        blockNumber: "0x10",
+        status: receiptStatus,
+        logs: [],
+        cumulativeGasUsed: "0x1",
+        gasUsed: "0x1",
+        effectiveGasPrice: "0x1",
+        transactionIndex: "0x0",
+        from: "0x1111111111111111111111111111111111111111",
+        to: "0x2222222222222222222222222222222222222222",
+        contractAddress: null,
+        logsBloom: `0x${"00".repeat(256)}`,
+        type: "0x2",
+      };
+    return base?.(input);
+  });
+  return hash;
+}
+
+test("sends a contract call from the signed-in account on Arc and waits for success", async () => {
+  const hash = mockChain("0x1");
+  render(
+    <PrivyWallet appId="test-app">
+      <Send />
+    </PrivyWallet>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(hash), {
+    timeout: 10_000,
+  });
+  expect(mocks.switchChain).toHaveBeenCalledWith(5042002);
+  expect(mocks.request).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: "eth_sendTransaction",
+      params: [
+        expect.objectContaining({
+          from: "0x1111111111111111111111111111111111111111",
+          to: "0x2222222222222222222222222222222222222222",
+          data: "0x1234",
+          value: "0x0",
+          maxFeePerGas: "0x4a817c800",
+        }),
+      ],
+    }),
+    undefined,
+  );
+});
+
+test("reports a reverted transaction instead of treating it as done", async () => {
+  mockChain("0x0");
+  render(
+    <PrivyWallet appId="test-app">
+      <Send />
+    </PrivyWallet>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  await waitFor(
+    () => expect(screen.getByRole("status")).toHaveTextContent(/nothing in the trip changed/),
+    { timeout: 10_000 },
+  );
+});

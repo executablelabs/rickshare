@@ -60,6 +60,8 @@
   --text-xl: 22px;
   --text-2xl: 28px;
   --text-3xl: 36px;
+  /* Landing headline from 1024px only (DESIGN.md). */
+  --text-4xl: 48px;
   --radius-control: 12px;
   --radius-ticket: 16px;
   --radius-sheet: 20px;

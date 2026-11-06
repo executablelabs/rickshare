@@ -25,7 +25,7 @@ export function Button({
     <button
       type={type}
       className={cx(
-        "inline-flex h-12 items-center justify-center gap-2 rounded-control px-5 text-base font-semibold",
+        "inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-control px-5 text-base font-semibold",
         "motion-safe:transition-colors motion-safe:duration-150 disabled:cursor-not-allowed disabled:opacity-50",
         variantClasses[variant],
         fullWidth && "w-full",

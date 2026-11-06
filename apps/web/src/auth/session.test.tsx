@@ -52,6 +52,8 @@ beforeEach(() => {
     login: vi.fn(),
     logout: vi.fn(async () => {}),
     signMessage: vi.fn(async () => signature),
+    signTypedData: vi.fn(),
+    sendTransaction: vi.fn(),
   };
   vi.spyOn(authApi, "session").mockResolvedValue(null);
   vi.spyOn(authApi, "nonce").mockResolvedValue("abcdefgh12345678");

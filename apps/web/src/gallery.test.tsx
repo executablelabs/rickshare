@@ -23,6 +23,9 @@ test("shows a section for every primitive", async () => {
     "Sheet",
     "Toasts",
     "Brand",
+    "Tickets",
+    "Trip cards",
+    "Progress",
     "Loader",
   ]);
 });

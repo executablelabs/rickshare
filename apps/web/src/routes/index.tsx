@@ -1,24 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthGuard } from "../auth/AuthGuard";
 import { useSession } from "../auth/session";
-import { Button } from "../components/ui/Button";
+import { Landing } from "../components/landing/Landing";
+import { Home } from "../components/trips/Home";
 
 export const Route = createFileRoute("/")({
-  component: Home,
+  component: Index,
 });
 
-function Home() {
+/** Signed out, `/` is the landing page; signed in, it lists the member's trips. */
+function Index() {
   const auth = useSession();
-  return (
-    <AuthGuard>
-      <main className="px-5 py-5">
-        <h1>Rickshare</h1>
-        <p className="py-5">You’re signed in. Open your trip link to join the group.</p>
-        <Button variant="secondary" disabled={auth.pending} onClick={() => void auth.signOut()}>
-          Sign out
-        </Button>
-        {auth.error && <p role="alert">{auth.error}</p>}
-      </main>
-    </AuthGuard>
-  );
+  return auth.session ? <Home /> : <Landing />;
 }
