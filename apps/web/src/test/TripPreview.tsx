@@ -96,6 +96,8 @@ export default function TripPreview() {
         available: "120000000",
         withdrawn: "0",
       },
+      members: sampleTrip.members,
+      indexedBlock: "100",
       walletBalance: "75000000",
       settled: false,
     });

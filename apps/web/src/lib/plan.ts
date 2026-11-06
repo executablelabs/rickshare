@@ -86,6 +86,8 @@ export async function sendChat(tripId: string, requestId: string, text: string) 
 
 /** Applies one stream event to the cached feed, trip and itinerary. */
 export function applyTripEvent(client: QueryClient, tripId: string, event: TripEvent) {
+  if (event.type !== "chat.message")
+    void client.invalidateQueries({ queryKey: ["trips", tripId, "history"] });
   switch (event.type) {
     case "chat.message":
       client.setQueryData<ChatMessage[]>(planKeys.chat(tripId), (current) =>

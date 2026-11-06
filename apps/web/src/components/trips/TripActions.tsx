@@ -5,11 +5,12 @@ import { messageOf } from "../../lib/http";
 import { useTripStream } from "../../lib/plan";
 import { tripKeys, useInvites } from "../../lib/trips";
 import { verifyWithWorld, worldApi } from "../../lib/world";
+import { WithdrawSheet } from "../money/WithdrawSheet";
 import { useToast } from "../ui/Toast";
 import { InviteSheet } from "./InviteSheet";
 import { AddMoneySheet, LimitsSheet } from "./MoneySheets";
 
-type SheetName = "addMoney" | "limits" | "invite";
+type SheetName = "addMoney" | "limits" | "invite" | "withdraw";
 
 interface TripActions {
   trip: Trip;
@@ -66,6 +67,7 @@ export function TripActionsProvider({
     >
       {children}
       <AddMoneySheet trip={trip} open={sheet === "addMoney"} onOpenChange={close} />
+      <WithdrawSheet trip={trip} open={sheet === "withdraw"} onOpenChange={close} />
       <LimitsSheet
         key={sheet === "limits" ? "open" : "closed"}
         trip={trip}
