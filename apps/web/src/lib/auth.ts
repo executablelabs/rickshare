@@ -36,12 +36,18 @@ async function readResponse(response: Pick<Response, "ok" | "status" | "json">):
 
 export const authApi = {
   async session(signal: AbortSignal) {
-    const response = await api.auth.session.$get({}, { init: { signal } });
+    const response = await api.auth.session.$get(
+      {},
+      { init: { signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) } },
+    );
     if (response.status === 401) return null;
     return Session.parse(await readResponse(response));
   },
   async nonce() {
-    const response = await api.auth.nonce.$get();
+    const response = await api.auth.nonce.$get(
+      {},
+      { init: { signal: AbortSignal.timeout(15_000) } },
+    );
     return z
       .object({ nonce: z.string().regex(/^[a-zA-Z0-9]{8,}$/) })
       .parse(await readResponse(response)).nonce;
@@ -49,14 +55,19 @@ export const authApi = {
   async verify(message: string, signature: `0x${string}`) {
     return Session.parse(
       await readResponse(
-        await api.auth.verify.$post({
-          json: { message, signature },
-        }),
+        await api.auth.verify.$post(
+          { json: { message, signature } },
+          { init: { signal: AbortSignal.timeout(15_000) } },
+        ),
       ),
     );
   },
   async logout() {
-    z.object({ success: z.literal(true) }).parse(await readResponse(await api.auth.logout.$post()));
+    z.object({ success: z.literal(true) }).parse(
+      await readResponse(
+        await api.auth.logout.$post({}, { init: { signal: AbortSignal.timeout(15_000) } }),
+      ),
+    );
   },
 };
 
