@@ -9,12 +9,14 @@ import { handleError, MerchantError } from "./errors";
 import { createMerchantRuntime } from "./runtime";
 import { QuoteInput } from "./schemas";
 import type { MerchantService } from "./service";
+import { createX402Routes } from "./x402";
 
 export function createApp(options: { service?: MerchantService; apiSecret?: string } = {}) {
   const runtime = createMerchantRuntime();
   const service = () => options.service ?? runtime.service();
   return new Hono()
     .onError(handleError)
+    .route("/", createX402Routes(service))
     .get("/health", (context) => context.json({ status: "ok" } as const))
     .get("/catalog", (context) => context.json(service().catalog()))
     .post("/quotes", async (context) => {
