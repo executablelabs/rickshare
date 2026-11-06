@@ -17,6 +17,10 @@ import { AuthService } from "./modules/auth/service";
 import { assertArcChain, createArcClient } from "./modules/chain/clients";
 import { ChatCoordinator } from "./modules/chat/coordinator";
 import { type ChatStore, createChatStore } from "./modules/chat/service";
+import { createSepoliaEnsChain } from "./modules/ens/chain";
+import { EnsCoordinator } from "./modules/ens/coordinator";
+import { createEnsService } from "./modules/ens/service";
+import { createEnsStore } from "./modules/ens/store";
 import { IndexerService } from "./modules/indexer/service";
 import { createIndexSource } from "./modules/indexer/source";
 import { createProposalChain } from "./modules/proposals/chain";
@@ -42,6 +46,7 @@ export type RuntimeOptions = {
   itinerary?: ItineraryStore;
   coordinator?: ChatCoordinator;
   money?: MoneyService;
+  ens?: EnsCoordinator;
 };
 
 export function createRuntime(options: RuntimeOptions = {}) {
@@ -57,6 +62,7 @@ export function createRuntime(options: RuntimeOptions = {}) {
   let agent = options.agent;
   let coordinator = options.coordinator;
   let money = options.money;
+  let ens = options.ens;
   const db = () => {
     database ??= createDatabase();
     return database;
@@ -272,7 +278,43 @@ export function createRuntime(options: RuntimeOptions = {}) {
       );
       return money;
     },
+    ens: (): EnsCoordinator | undefined => {
+      if (ens) return ens;
+      const { SEPOLIA_RPC_URL, ENS_ADMIN_PRIVATE_KEY, AGENT_PRIVATE_KEY, ENS_PARENT_NAME } = config;
+      if (
+        !SEPOLIA_RPC_URL ||
+        !ENS_ADMIN_PRIVATE_KEY ||
+        !AGENT_PRIVATE_KEY ||
+        !ENS_PARENT_NAME ||
+        !config.TRIP_FACTORY_ADDRESS
+      )
+        return undefined;
+      ens = new EnsCoordinator(
+        createEnsStore(db(), ENS_PARENT_NAME),
+        createEnsService({
+          chain: createSepoliaEnsChain({
+            rpcUrl: SEPOLIA_RPC_URL,
+            adminKey: ENS_ADMIN_PRIVATE_KEY,
+            agentKey: AGENT_PRIVATE_KEY,
+          }),
+          parentName: ENS_PARENT_NAME,
+        }),
+        {
+          trips: () =>
+            db()
+              .select()
+              .from(indexedVaults)
+              .where(eq(indexedVaults.scope, runtime.indexer().cursorId))
+              .all()
+              .map((row) => runtime.indexer().getTrip(row.address)),
+          itinerary: (tripId) => runtime.itinerary().list(tripId),
+          refresh: (tripId) => runtime.indexer().refreshMetadata(tripId),
+        },
+      );
+      return ens;
+    },
     close: () => {
+      ens?.stop();
       indexer?.stop();
       database?.$client.close();
       database = undefined;

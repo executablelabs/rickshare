@@ -40,7 +40,8 @@ export interface TripNamesInput {
   vault: Address;
   name: string;
   endsAt: Date;
-  members: Array<{ address: Address; displayName: string }>;
+  label?: string;
+  members: Array<{ address: Address; displayName: string; label?: string }>;
 }
 
 export interface TripNames {
@@ -146,7 +147,11 @@ export function createEnsService({ chain, parentName }: { chain: EnsChain; paren
           args: [[{ account: chain.admin, roleBitmap: ADMIN_REGISTRY_ROLES }]],
         }),
       );
-      if (registry.created)
+      const [parent, label] = (await read(registry.address, registryAbi, "getParent", [])) as [
+        Address,
+        string,
+      ];
+      if (getAddress(parent) !== getAddress(ENS_SEPOLIA.ethRegistry) || label !== parentLabel)
         await chain.send(
           "admin",
           registry.address,
@@ -190,7 +195,9 @@ export function createEnsService({ chain, parentName }: { chain: EnsChain; paren
         throw new AppError("TRIP_ENDED", "Trip names cannot be created after the trip ends.", 409);
 
       const parent = await parentRegistry();
-      const label = tripLabel(input.name, input.vault);
+      const label = input.label ?? tripLabel(input.name, input.vault);
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(label) || label.length > 63)
+        throw new AppError("INVALID_ENS_LABEL", "The trip name label is invalid.", 400);
       const trip = `${label}.${parentName}`;
 
       const resolver = await ensureProxy(
@@ -211,7 +218,13 @@ export function createEnsService({ chain, parentName }: { chain: EnsChain; paren
           args: [[{ account: chain.admin, roleBitmap: ADMIN_REGISTRY_ROLES }]],
         }),
       );
-      if (registry.created)
+      const [currentParent, currentLabel] = (await read(
+        registry.address,
+        registryAbi,
+        "getParent",
+        [],
+      )) as [Address, string];
+      if (getAddress(currentParent) !== parent || currentLabel !== label)
         await chain.send(
           "admin",
           registry.address,
@@ -223,7 +236,8 @@ export function createEnsService({ chain, parentName }: { chain: EnsChain; paren
         );
 
       // The trip name itself stays with the admin; it points at the trip's registry and resolver.
-      if ((await ownerOf(parent, label)) === zeroAddress)
+      const currentOwner = await ownerOf(parent, label);
+      if (currentOwner === zeroAddress)
         await chain.send(
           "admin",
           parent,
@@ -233,8 +247,29 @@ export function createEnsService({ chain, parentName }: { chain: EnsChain; paren
             args: [label, chain.admin, registry.address, resolver.address, 0n, expiry],
           }),
         );
+      else if (
+        currentOwner !== chain.admin ||
+        getAddress((await read(parent, registryAbi, "getSubregistry", [label])) as Address) !==
+          registry.address
+      )
+        throw new AppError("ENS_LABEL_TAKEN", `The name ${label} belongs to another trip.`, 409);
 
       const labels = memberLabels(input.members);
+      for (const member of input.members) {
+        if (member.label !== undefined) labels.set(member.address.toLowerCase(), member.label);
+      }
+      if (
+        [...labels.values()].some(
+          (value) =>
+            value === AGENT_LABEL || value.length > 63 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value),
+        ) ||
+        new Set(labels.values()).size !== labels.size
+      )
+        throw new AppError(
+          "INVALID_ENS_LABEL",
+          "Member name labels must be valid and unique.",
+          400,
+        );
       const holders: Array<{ label: string; address: Address }> = [
         ...input.members.map((member) => ({
           label: labels.get(member.address.toLowerCase()) ?? AGENT_LABEL,
@@ -242,26 +277,23 @@ export function createEnsService({ chain, parentName }: { chain: EnsChain; paren
         })),
         { label: AGENT_LABEL, address: chain.agent },
       ];
-      const addressRecords: Hex[] = [];
-      if (resolver.created)
+      // Repair records even when registration succeeded before an earlier RPC failure.
+      const addressRecords: Hex[] = [
+        encodeFunctionData({
+          abi: resolverAbi,
+          functionName: "setAddress",
+          args: [dnsEncode(trip), ETH_COIN_TYPE, input.vault],
+        }),
+      ];
+      for (const holder of holders) {
+        await register(registry.address, holder.label, holder.address, resolver.address, expiry);
         addressRecords.push(
           encodeFunctionData({
             abi: resolverAbi,
             functionName: "setAddress",
-            args: [dnsEncode(trip), ETH_COIN_TYPE, input.vault],
+            args: [dnsEncode(`${holder.label}.${trip}`), ETH_COIN_TYPE, holder.address],
           }),
         );
-      for (const holder of holders) {
-        if (
-          await register(registry.address, holder.label, holder.address, resolver.address, expiry)
-        )
-          addressRecords.push(
-            encodeFunctionData({
-              abi: resolverAbi,
-              functionName: "setAddress",
-              args: [dnsEncode(`${holder.label}.${trip}`), ETH_COIN_TYPE, holder.address],
-            }),
-          );
       }
       if (addressRecords.length > 0)
         await chain.send(
