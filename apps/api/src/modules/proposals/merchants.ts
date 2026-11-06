@@ -1,4 +1,12 @@
-import { MerchantCatalog, MerchantQuoteRequest, SignedQuote } from "@rickshare/shared";
+import {
+  asHex,
+  MerchantCatalog,
+  MerchantQuoteRequest,
+  quoteTypedData,
+  SignedQuote,
+  X402PaymentRequired,
+} from "@rickshare/shared";
+import { getAddress, hashTypedData, verifyTypedData } from "viem";
 import { z } from "zod";
 import { AppError } from "../../lib/errors";
 
@@ -19,7 +27,7 @@ export class MerchantClient {
     return url.toString();
   }
 
-  private async request(path: string, init?: RequestInit): Promise<unknown> {
+  private async response(path: string, init?: RequestInit): Promise<Response> {
     let response: Response;
     try {
       response = await this.fetcher(this.url(path), {
@@ -30,6 +38,11 @@ export class MerchantClient {
     } catch {
       throw new AppError("MERCHANT_UNAVAILABLE", "The merchant could not be reached.", 503);
     }
+    return response;
+  }
+
+  private async request(path: string, init?: RequestInit): Promise<unknown> {
+    const response = await this.response(path, init);
     if (!response.ok)
       throw new AppError(
         "MERCHANT_REQUEST_FAILED",
@@ -102,5 +115,89 @@ export class MerchantClient {
     if (!result.success)
       throw new AppError("MERCHANT_RESPONSE_INVALID", "The merchant ticket is invalid.", 503);
     return result.data;
+  }
+
+  async paymentRequirements(input: SignedQuote): Promise<X402PaymentRequired | undefined> {
+    const quote = SignedQuote.parse(input);
+    const merchant = (await this.catalog()).find(
+      (entry) => entry.address?.toLowerCase() === quote.merchant.toLowerCase(),
+    );
+    if (!merchant)
+      throw new AppError("MERCHANT_NOT_CONFIGURED", "This merchant is not configured.", 409);
+    if (!merchant.payment) return undefined;
+    if (Date.parse(quote.expiresAt) <= Date.now())
+      throw new AppError("QUOTE_EXPIRED", "Request a new merchant quote.", 409);
+    let verified = false;
+    try {
+      verified =
+        hashTypedData(quoteTypedData(quote)).toLowerCase() === quote.quoteHash.toLowerCase() &&
+        (await verifyTypedData({
+          ...quoteTypedData(quote),
+          address: getAddress(quote.merchant),
+          signature: asHex(quote.signature),
+        }));
+    } catch {
+      verified = false;
+    }
+    if (!verified)
+      throw new AppError(
+        "INVALID_QUOTE_SIGNATURE",
+        "The merchant quote could not be verified.",
+        400,
+      );
+
+    const path = `x402/bookings/${quote.quoteHash.toLowerCase()}`;
+    // Deliberately no payment-aware fetch wrapper: negotiation must never sign or pay.
+    const response = await this.response(path, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+    if (response.status !== 402)
+      throw new AppError(
+        "X402_NEGOTIATION_FAILED",
+        "The merchant did not return payment requirements.",
+        503,
+      );
+    const header = response.headers.get("PAYMENT-REQUIRED");
+    let raw: unknown;
+    try {
+      if (header && header.length > 32768) throw new Error("Oversized payment requirements");
+      raw = header
+        ? JSON.parse(Buffer.from(header, "base64").toString("utf8"))
+        : await response.json();
+    } catch {
+      throw new AppError(
+        "X402_REQUIREMENTS_INVALID",
+        "The merchant payment requirements are invalid.",
+        503,
+      );
+    }
+    const parsed = X402PaymentRequired.safeParse(raw);
+    if (!parsed.success)
+      throw new AppError(
+        "X402_REQUIREMENTS_INVALID",
+        "The merchant payment requirements are invalid.",
+        503,
+      );
+    const payment = parsed.data;
+    if (
+      payment.resource.url !== this.url(path) ||
+      payment.accepts.some(
+        (option) =>
+          option.payTo.toLowerCase() !== quote.merchant.toLowerCase() ||
+          BigInt(option.amount) !== BigInt(quote.total) ||
+          option.network !== merchant.payment?.network ||
+          option.asset.toLowerCase() !== merchant.payment?.asset.toLowerCase() ||
+          (option.extra?.assetTransferMethod !== undefined &&
+            option.extra.assetTransferMethod !== "eip3009") ||
+          (option.extra?.paymentFlow !== undefined && option.extra.paymentFlow !== "authorization"),
+      )
+    )
+      throw new AppError(
+        "X402_REQUIREMENTS_MISMATCH",
+        "The payment terms do not match the merchant quote.",
+        503,
+      );
+    return payment;
   }
 }

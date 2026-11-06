@@ -17,7 +17,7 @@ Friends add money to one trip. The agent finds activities and proposes purchases
 |---|---|---|
 | `packages/contracts` | Solidity, Foundry | TripVault and TripFactory on Arc testnet |
 | `apps/api` | Hono, Bun, SQLite | Agent, approvals (World ID step-up + EIP-712 attestations), indexer, trips |
-| `apps/merchants` | Hono, Bun | Mock activity operators: signed quotes, tickets, delivery |
+| `apps/merchants` | Hono, Bun | Mock activity operators: signed quotes, tickets, delivery, optional x402 checkout |
 | `apps/web` | React, Vite, TypeScript | Mobile-first app |
 | `packages/shared` | TypeScript, zod | Schemas, chain config, ABIs, deployments |
 
@@ -54,7 +54,7 @@ bun run dev
 ## Environment
 See each `.env.example`. Keys:
 - api: `PORT`, `DATABASE_PATH`, `WEB_ORIGIN`, `ARC_RPC_URL`, `ARC_WS_URL`, `SEPOLIA_RPC_URL`, `TRIP_FACTORY_ADDRESS`, `AGENT_PRIVATE_KEY`, `VERIFIER_PRIVATE_KEY`, `ENS_ADMIN_PRIVATE_KEY`, `ENS_PARENT_NAME`, `WORLD_ISSUER`, `WORLD_CLIENT_ID`, `WORLD_CLIENT_SECRET`, `WORLD_REDIRECT_URI`, `WORLD_MAX_AUTH_AGE_SECONDS`, `ATTESTATION_TTL_SECONDS`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `TAVILY_API_KEY`, `MERCHANTS_URL`, `SESSION_SECRET`
-- merchants: `PORT`, `ARC_RPC_URL`, `TRIP_FACTORY_ADDRESS`, `MERCHANT_1_PRIVATE_KEY`, `MERCHANT_2_PRIVATE_KEY`, `MERCHANT_3_PRIVATE_KEY`, `PUBLIC_URL`
+- merchants: `PORT`, `ARC_RPC_URL`, `TRIP_FACTORY_ADDRESS`, `MERCHANT_1_PRIVATE_KEY`, `MERCHANT_2_PRIVATE_KEY`, `MERCHANT_3_PRIVATE_KEY`, `PUBLIC_URL`, `X402_ENABLED`, `X402_NETWORK`, `X402_FACILITATOR_URL`
 - web: `VITE_API_URL`, `VITE_ARC_RPC_URL`, `VITE_SEPOLIA_RPC_URL`, `VITE_PRIVY_APP_ID` (everything prefixed `VITE_` is public)
 - contracts: `ARC_RPC_URL`, `DEPLOYER_PRIVATE_KEY`, `AGENT_ADDRESS`, `VERIFIER_ADDRESS`
 
@@ -69,6 +69,12 @@ Before returning the creation transaction, the API estimates its gas with a simu
 Retries with the same creator, name and end date reuse unfinished creation requests for up to one hour. Signed funding transfers are saved before broadcast, so retries and API restarts reuse the same transfer. New requests recover outstanding funding first to serialize the sponsor's nonce. The saved creation transaction retains its funded fee settings on retry.
 
 For Railway, keep the key in the API service's environment variables and deploy this implementation, its runtime wiring and its migration together. A configured key alone does not activate gas funding in older API releases. Verify an authenticated empty wallet receives its allowance before opening transaction confirmation. Fee coverage applies to trip creation; other wallet actions retain their existing fee flows.
+
+### Optional x402 merchant checkout
+
+Set `X402_ENABLED=true` in the merchant service to advertise x402 v2 `exact` checkout for new quotes. The initial payment network is Base Sepolia (`eip155:84532`), using USDC and the configured facilitator. The activity price and recipient come from the signed merchant quote. Verified, successfully settled payments return a booking ticket and a `PAYMENT-RESPONSE` receipt.
+
+The context-aware agent discovers activities through search, checks the booking catalog, and negotiates x402 payment requirements without signing a payment. It reports the actual terms and `payment_adapter_required`: group-funded approval/payment still needs the Arc-vault-to-x402 adapter. These drafts do not create approval cards or confirmed bookings. Setup, endpoints and remaining integration work: [docs/X402.md](docs/X402.md).
 
 ## Deployments (Arc testnet, chain 5042002)
 Web deployment: [rickshare.xyz](https://rickshare.xyz). See [Railway and local HTTPS setup](docs/DEPLOYMENT.md).
