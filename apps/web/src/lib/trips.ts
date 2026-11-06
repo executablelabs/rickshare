@@ -121,7 +121,8 @@ export function useInvites(tripId: string, enabled: boolean) {
     // Only the creator may list invites; a 403 is the answer "not the organizer", not a failure.
     retry: (count, error) => !(error instanceof ApiError && error.status === 403) && count < 2,
     // A friend may claim the link at any moment, and the organizer has to let them in.
-    refetchInterval: (query) => (query.state.status === "error" ? false : 5000),
+    refetchInterval: (query) =>
+      query.meta?.offlinePreview === true || query.state.status === "error" ? false : 5000,
     queryFn: async () =>
       (
         await readApi(

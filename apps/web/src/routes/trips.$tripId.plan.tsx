@@ -11,14 +11,7 @@ import { useTripActions } from "../components/trips/TripActions";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/Toast";
 import { messageOf } from "../lib/http";
-import {
-  mergeMessages,
-  planKeys,
-  sendChat,
-  useChat,
-  useProposals,
-  useTripStream,
-} from "../lib/plan";
+import { mergeMessages, planKeys, sendChat, useChat, useProposals } from "../lib/plan";
 
 export const Route = createFileRoute("/trips/$tripId/plan")({
   component: Plan,
@@ -31,7 +24,6 @@ function Plan() {
   const showToast = useToast();
   const chat = useChat(trip.id);
   const proposals = useProposals(trip.id);
-  useTripStream(trip.id);
   const [draft, setDraft] = useState("");
   const [waitingFor, setWaitingFor] = useState<string | null>(null);
   const retry = useRef<{ requestId: string; text: string } | null>(null);
