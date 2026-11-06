@@ -9,6 +9,7 @@ import type { AuthEnv } from "./modules/auth/service";
 import { createChatRoutes } from "./modules/chat/routes";
 import { createIndexerRoutes } from "./modules/indexer/routes";
 import { createProposalRoutes } from "./modules/proposals/routes";
+import { createMoneyRoutes } from "./modules/trips/money-routes";
 import { createTripRoutes } from "./modules/trips/routes";
 import { createRuntime, type Runtime, type RuntimeOptions } from "./runtime";
 
@@ -45,7 +46,8 @@ export function createApp(
         itinerary: runtime.itinerary,
         ...(options.streamHeartbeatMs ? { heartbeatMs: options.streamHeartbeatMs } : {}),
       }),
-    );
+    )
+    .route("/", createMoneyRoutes(runtime.auth, runtime.money));
 }
 
 export const app = createApp();
