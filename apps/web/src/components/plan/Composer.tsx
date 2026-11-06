@@ -40,14 +40,11 @@ export function Composer({
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 -mx-5 bg-paper px-5 pt-3 pb-1 lg:bottom-0 lg:mx-0 lg:px-0 lg:pb-6"
-    >
+    <form onSubmit={submit} className="travel-composer">
       <label htmlFor="ask" className="sr-only">
         Ask for ideas
       </label>
-      <div className="flex items-end gap-2 rounded-ticket border border-rule bg-card py-2 pr-2 pl-4 shadow-card focus-within:ring-2 focus-within:ring-stamp">
+      <div className="travel-composer__box">
         <textarea
           id="ask"
           ref={box}

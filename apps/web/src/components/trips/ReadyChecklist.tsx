@@ -9,6 +9,7 @@ import {
 import { useWallet } from "../../auth/wallet";
 import { cx } from "../../lib/cx";
 import { memberOf } from "../../lib/trips";
+import { JourneyTrack, TapeLabel } from "../brand/TravelDetails";
 import { Button } from "../ui/Button";
 import { useTripActions } from "./TripActions";
 
@@ -74,64 +75,49 @@ export function ReadyChecklist() {
     },
   ];
   const doneCount = steps.filter((step) => step.done).length;
-  if (doneCount === steps.length) return null;
-
+  if (doneCount === steps.length)
+    return (
+      <div className="travel-ready">
+        <CheckCircle size={20} weight="fill" aria-hidden="true" /> Ready to go
+      </div>
+    );
+  const current = steps.findIndex((step) => !step.done);
   return (
-    <section
-      aria-labelledby="ready-title"
-      className="flex flex-col gap-5 rounded-ticket border border-rule bg-card p-5 shadow-card"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="ready-title" className="text-xl">
-          Get the trip ready
-        </h2>
-        <span className="text-sm text-ink-muted">
+    <section aria-labelledby="ready-title" className="travel-readiness">
+      <TapeLabel>Your departure checklist</TapeLabel>
+      <div className="travel-readiness__heading">
+        <h2 id="ready-title">Get the trip ready</h2>
+        <span>
           {doneCount} of {steps.length} done
         </span>
       </div>
-      <div
-        role="progressbar"
-        aria-label="Trip setup"
-        aria-valuemin={0}
-        aria-valuemax={steps.length}
-        aria-valuenow={doneCount}
-        className="h-1.5 overflow-hidden rounded-pill bg-paper"
+      <JourneyTrack
+        vehicle="rickshaw"
+        current={current}
+        count={steps.length}
+        className="travel-readiness__route"
       >
-        <div
-          className="h-full rounded-pill bg-ink motion-safe:transition-[width] motion-safe:duration-300"
-          style={{ width: `${(doneCount / steps.length) * 100}%` }}
-        />
-      </div>
-      <ol className="flex flex-col divide-y divide-rule">
-        {steps.map(({ key, icon: StepIcon, title, text, done, action, onAction, busy }) => (
-          <li key={key} className="flex items-center gap-3 py-3">
-            <span
-              className={cx(
-                "flex size-10 shrink-0 items-center justify-center rounded-pill",
-                done ? "bg-stamp-tint text-stamp-ink" : "bg-paper text-ink",
-              )}
-            >
-              {done ? (
-                <CheckCircle aria-hidden="true" size={20} weight="fill" />
-              ) : (
-                <StepIcon aria-hidden="true" size={20} />
-              )}
+        {steps.map(({ key, icon: StepIcon, title, text, done, action, onAction, busy }, index) => (
+          <div
+            key={key}
+            className={cx("travel-readiness__stop", done && "travel-readiness__stop--done")}
+            aria-current={index === current ? "step" : undefined}
+          >
+            <span className="travel-readiness__dot" aria-hidden="true">
+              {done ? <CheckCircle size={24} weight="fill" /> : <StepIcon size={22} />}
             </span>
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className={cx("font-semibold", done && "text-ink-muted line-through")}>
-                {title}
-              </span>
-              {!done && <span className="text-sm text-ink-muted">{text}</span>}
-              {done && <span className="sr-only">Done</span>}
+            <div>
+              <span className="font-semibold">{title}</span>
+              <p>{done ? "Done" : text}</p>
             </div>
             {!done && (
-              <Button variant="secondary" className="h-11 px-4" disabled={busy} onClick={onAction}>
+              <Button variant="secondary" className="h-11 px-3" disabled={busy} onClick={onAction}>
                 {action}
               </Button>
             )}
-          </li>
+          </div>
         ))}
-      </ol>
+      </JourneyTrack>
     </section>
   );
 }

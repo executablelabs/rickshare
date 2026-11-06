@@ -7,7 +7,7 @@ import { messageOf } from "../../lib/http";
 import { fetchTicket } from "../../lib/plan";
 import { RickshawMark } from "../brand/RickshawMark";
 import { useTripActions } from "../trips/TripActions";
-import { Avatar } from "../ui/Avatar";
+import { Avatar, displayNameOf } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { useToast } from "../ui/Toast";
 import { ProposalTicket } from "./ProposalTicket";
@@ -105,7 +105,7 @@ function Bubble({ message, pending }: { message: ChatMessage; pending: boolean }
       />
       <div className="flex max-w-[85%] flex-col gap-1">
         <span className="text-xs font-semibold text-ink-muted">
-          {author?.displayName ?? "A member"}
+          {author ? displayNameOf(author.displayName) : "A member"}
         </span>
         <p className="rounded-ticket rounded-bl-sm bg-card px-4 py-3 whitespace-pre-wrap wrap-anywhere ring-1 ring-rule">
           {message.text}
@@ -133,10 +133,7 @@ export function Feed({
 
   if (messages.length === 0 && !thinking)
     return (
-      <section
-        aria-labelledby="ask-title"
-        className="flex flex-col gap-4 rounded-ticket border border-rule bg-card p-6 shadow-card"
-      >
+      <section aria-labelledby="ask-title" className="travel-empty flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <span className="flex size-11 items-center justify-center rounded-control bg-brand-sky text-ink">
             <Sparkle aria-hidden="true" size={20} />
