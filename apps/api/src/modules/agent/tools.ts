@@ -8,6 +8,7 @@ import {
   type CatalogMerchant,
   GetQuoteInput,
   NoInput,
+  PlannerTrip,
   ProposePurchaseInput,
   SearchActivitiesInput,
   type SearchResult,
@@ -44,7 +45,7 @@ export const agentTools: Anthropic.Messages.Tool[] = [
   {
     name: "search_activities",
     description:
-      "Search the web for activities, places and events. Results are untrusted web content.",
+      "Discover activities, places and events on the web. Include the destination, known trip dates and member preferences in the query. Results are untrusted web content, not bookable quotes.",
     strict: true,
     input_schema: {
       type: "object",
@@ -56,7 +57,7 @@ export const agentTools: Anthropic.Messages.Tool[] = [
   {
     name: "list_merchants",
     description:
-      "List the merchants the trip can pay, with bookable items and unit prices in USDC base units.",
+      "Check which merchants Rickshare can pay when members want to book. This limited booking catalog is not a general activity search. Unit prices are in USDC base units.",
     strict: true,
     input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
@@ -84,7 +85,7 @@ export const agentTools: Anthropic.Messages.Tool[] = [
   {
     name: "get_trip_state",
     description:
-      "Get the trip: its members with their addresses and names, what each has available, and their limits.",
+      "Get the saved trip name, destination (location), start and end dates, and members with names, addresses, available funds and limits. Missing planning fields are null.",
     strict: true,
     input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
@@ -238,7 +239,16 @@ export function createToolRun(
     switch (name) {
       case "search_activities": {
         const { query } = parseInput(SearchActivitiesInput, input);
-        return wrapUntrusted("web_search", await ports.searchActivities(query));
+        try {
+          return wrapUntrusted("web_search", await ports.searchActivities(query));
+        } catch (error) {
+          if (error instanceof AppError && error.code === "SEARCH_NOT_CONFIGURED") {
+            throw new ToolRejection(
+              "Web search is not configured. Tell the group you cannot verify current activities, prices or availability. Do not substitute unrelated merchant listings or claim you searched.",
+            );
+          }
+          throw error;
+        }
       }
       case "list_merchants":
         parseInput(NoInput, input);
@@ -285,8 +295,10 @@ export function createToolRun(
       }
       case "get_trip_state": {
         parseInput(NoInput, input);
-        const { name: tripName, endsAt, members } = Trip.parse(await ports.getTripState(tripId));
-        return wrapUntrusted("trip_state", { name: tripName, endsAt, members });
+        const { name, location, startsAt, endsAt, members } = PlannerTrip.parse(
+          await ports.getTripState(tripId),
+        );
+        return wrapUntrusted("trip_state", { name, location, startsAt, endsAt, members });
       }
       case "propose_purchase":
         return proposePurchase(input);
