@@ -24,7 +24,10 @@ export const Trip = z.object({
   name: z.string().min(1).max(40),
   ensName: z.string().nullable(),
   vaultAddress: Address,
+  // Older on-chain trips may not have planning metadata.
+  startsAt: IsoDate.nullable().optional(),
   endsAt: IsoDate,
+  location: z.string().trim().max(160).nullable().optional(),
   members: z.array(Member),
 });
 

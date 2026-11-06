@@ -57,6 +57,13 @@
       "when": 1793947202373,
       "tag": "0007_ens_names",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793988384417,
+      "tag": "0008_trip_planning_details",
+      "breakpoints": true
     }
   ]
 }

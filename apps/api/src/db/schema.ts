@@ -75,6 +75,8 @@ export const tripEvents = sqliteTable(
 export const tripMetadata = sqliteTable("trip_metadata", {
   tripId: text("trip_id").primaryKey(),
   name: text("name").notNull(),
+  startsAt: text("starts_at"),
+  location: text("location"),
 });
 
 export const worldIdentities = sqliteTable("world_identities", {
@@ -115,6 +117,8 @@ export const tripCreations = sqliteTable("trip_creations", {
   id: text("id").primaryKey(),
   creator: text("creator").notNull(),
   name: text("name").notNull(),
+  startsAt: text("starts_at"),
+  location: text("location"),
   endsAt: text("ends_at").notNull(),
   expiresAt: integer("expires_at").notNull(),
   vault: text("vault"),
