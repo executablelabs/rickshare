@@ -1,5 +1,6 @@
+import type { WalletTransaction } from "@rickshare/shared";
 import { createContext, lazy, type ReactNode, Suspense, useContext } from "react";
-import type { Address, Hex, TypedDataDefinition } from "viem";
+import { type Address, getAddress, type Hex, isHex, type TypedDataDefinition } from "viem";
 import { config } from "../config";
 
 export type Wallet = {
@@ -24,6 +25,14 @@ export type WalletCall = {
   maxPriorityFeePerGas?: Hex;
 };
 
+/** Narrows an API-prepared transaction to what the wallet sends, checking its hex fields. */
+export function toWalletCall(transaction: WalletTransaction): WalletCall {
+  const { data, maxFeePerGas, maxPriorityFeePerGas } = transaction;
+  if (!isHex(data) || !isHex(maxFeePerGas) || !isHex(maxPriorityFeePerGas))
+    throw new Error("The prepared transaction is malformed. Try again.");
+  return { to: getAddress(transaction.to), data, maxFeePerGas, maxPriorityFeePerGas };
+}
+
 const unavailable = () => {
   throw new Error("Sign-in is not configured. Please contact the trip organizer.");
 };
@@ -39,6 +48,18 @@ export const WalletContext = createContext<Wallet>({
   sendTransaction: unavailable,
 });
 export const useWallet = () => useContext(WalletContext);
+
+const loading: Wallet = {
+  configured: true,
+  ready: false,
+  authenticated: false,
+  address: undefined,
+  login: () => undefined,
+  logout: async () => undefined,
+  signMessage: unavailable,
+  signTypedData: unavailable,
+  sendTransaction: unavailable,
+};
 const PrivyWallet = lazy(() => import("./PrivyWallet"));
 
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -46,9 +67,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <p role="status" className="px-5 py-5">
-          Preparing sign-in…
-        </p>
+        // While the sign-in code loads, pages render with a wallet that is not ready yet, so the
+        // landing page appears at once and only sign-in actions wait.
+        <WalletContext.Provider value={loading}>{children}</WalletContext.Provider>
       }
     >
       <PrivyWallet appId={config.VITE_PRIVY_APP_ID}>{children}</PrivyWallet>
