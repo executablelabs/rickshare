@@ -4,12 +4,14 @@ import type { ReactNode } from "react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { WalletContext } from "../../auth/wallet";
 import { authApi } from "../../lib/auth";
+import { tripApi } from "../../lib/trips";
 import { AppProviders } from "../../providers";
 import { createAppRouter } from "../../router";
 
 const address = "0x1111111111111111111111111111111111111111";
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.spyOn(tripApi, "get").mockImplementation(() => new Promise(() => {}));
   vi.spyOn(authApi, "session").mockResolvedValue({
     address,
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -87,4 +89,19 @@ test("does not wrap pages outside a trip", async () => {
 test("brands the header band when there is no trip name yet", async () => {
   await renderAt("/trips/india26/plan");
   expect(screen.getByRole("banner")).toHaveTextContent("Rickshare");
+});
+
+test("loads the trip title and confirmed ENS identity into the header", async () => {
+  vi.mocked(tripApi.get).mockResolvedValue({
+    id: "india26",
+    vaultAddress: address,
+    name: "India 26",
+    endsAt: "2030-01-01T00:00:00.000Z",
+    ensName: "india-26-1111.rickshare.eth",
+    members: [],
+  });
+  await renderAt("/trips/india26/plan");
+  await screen.findByText("india-26-1111.rickshare.eth");
+  expect(screen.getByRole("banner")).toHaveTextContent("India 26");
+  expect(screen.getByRole("banner")).toHaveTextContent("india-26-1111.rickshare.eth");
 });
