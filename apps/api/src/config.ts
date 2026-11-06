@@ -37,7 +37,14 @@ export const configSchema = z.object({
     blankToUndefined,
     z.coerce.number().int().min(1).max(900).default(300),
   ),
-  ANTHROPIC_API_KEY: optionalText,
+  OPENROUTER_API_KEY: optionalText,
+  OPENROUTER_MODEL: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^[a-z0-9-]+\/[a-z0-9.:_-]+$/)
+      .optional(),
+  ),
   TAVILY_API_KEY: optionalText,
   MERCHANTS_URL: z.preprocess(blankToUndefined, z.string().url().default("http://localhost:8790")),
   MERCHANTS_API_SECRET: z.preprocess(blankToUndefined, z.string().min(32).optional()),

@@ -111,6 +111,36 @@ export const proposalSubmissions = sqliteTable("proposal_submissions", {
   proposalId: text("proposal_id"),
 });
 
+export const tripCreations = sqliteTable("trip_creations", {
+  id: text("id").primaryKey(),
+  creator: text("creator").notNull(),
+  name: text("name").notNull(),
+  endsAt: text("ends_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  vault: text("vault"),
+  transactionHash: text("transaction_hash").unique(),
+});
+
+export const tripInvites = sqliteTable(
+  "trip_invites",
+  {
+    id: text("id").primaryKey(),
+    tokenHash: text("token_hash").notNull().unique(),
+    tripId: text("trip_id").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    status: text("status").notNull(),
+    claimedBy: text("claimed_by"),
+    signature: text("signature"),
+    transactionHash: text("transaction_hash"),
+  },
+  (table) => [index("trip_invites_trip").on(table.tripId)],
+);
+
+export const memberMetadata = sqliteTable("member_metadata", {
+  id: text("id").primaryKey(),
+  displayName: text("display_name").notNull(),
+});
+
 // Rows mirror the ChatMessage and ItineraryItem schemas in @rickshare/shared. Money never lives here;
 // the chain is the source of truth for balances and proposals.
 
@@ -124,6 +154,7 @@ export const chatMessages = sqliteTable(
     author: text("author"),
     text: text("text").notNull(),
     proposalIds: text("proposal_ids", { mode: "json" }).$type<string[]>().notNull(),
+    clientRequestId: text("client_request_id"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [index("chat_messages_trip_created_idx").on(table.tripId, table.createdAt, table.id)],
@@ -142,3 +173,15 @@ export const itineraryItems = sqliteTable(
   },
   (table) => [index("itinerary_items_trip_starts_idx").on(table.tripId, table.startsAt)],
 );
+
+export const chatRequests = sqliteTable("chat_requests", {
+  id: text("id").primaryKey(),
+  tripId: text("trip_id").notNull(),
+  actor: text("actor").notNull(),
+  requestId: text("request_id").notNull(),
+  text: text("text").notNull(),
+  status: text("status").notNull(),
+  runId: text("run_id").notNull(),
+  result: text("result"),
+  errorCode: text("error_code"),
+});

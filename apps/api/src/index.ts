@@ -9,4 +9,4 @@ process.once("SIGTERM", () => {
   process.exit(0);
 });
 
-export default { port: config.PORT, fetch: createApp({ runtime }).fetch };
+export default { port: config.PORT, idleTimeout: 60, fetch: createApp({ runtime }).fetch };

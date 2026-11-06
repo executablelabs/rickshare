@@ -2,6 +2,9 @@ import type { ItineraryItem } from "@rickshare/shared";
 import { asc, eq } from "drizzle-orm";
 import type { AppDatabase } from "../../db/client";
 import { itineraryItems } from "../../db/schema";
+import { logger } from "../../lib/logger";
+import { saveTripEvent } from "../indexer/events";
+import type { TripEventEnvelope } from "../indexer/types";
 
 export interface ItineraryDraft {
   /** An existing item of this trip to keep, or null for a new one. */
@@ -25,7 +28,10 @@ function toItineraryItem(row: ItineraryRow): ItineraryItem {
   };
 }
 
-export function createItineraryStore(db: AppDatabase) {
+export function createItineraryStore(
+  db: AppDatabase,
+  publish?: (event: TripEventEnvelope) => void,
+) {
   function list(tripId: string): ItineraryItem[] {
     return db
       .select()
@@ -45,7 +51,7 @@ export function createItineraryStore(db: AppDatabase) {
      * members paid for them. Ids that do not belong to this trip become new items.
      */
     replace(tripId: string, drafts: ItineraryDraft[]): ItineraryItem[] {
-      db.transaction((tx) => {
+      const event = db.transaction((tx) => {
         const existing = new Map(
           tx
             .select()
@@ -75,7 +81,20 @@ export function createItineraryStore(db: AppDatabase) {
           if (leftOut.ticketUrls.length > 0) rows.push(leftOut);
         }
         if (rows.length > 0) tx.insert(itineraryItems).values(rows).run();
+        const saved = tx
+          .select()
+          .from(itineraryItems)
+          .where(eq(itineraryItems.tripId, tripId))
+          .orderBy(asc(itineraryItems.startsAt), asc(itineraryItems.id))
+          .all()
+          .map(toItineraryItem);
+        return saveTripEvent(tx, tripId, { type: "itinerary.updated", items: saved });
       });
+      try {
+        publish?.(event);
+      } catch {
+        logger.error("ITINERARY_EVENT_PUBLISH_PENDING");
+      }
       return list(tripId);
     },
   };

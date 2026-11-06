@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 48" role="img" aria-label="Rickshare">
+  <path fill="#FFFFFF" d="M5 30C5 14 11 4 25 4H41C43 4 44.6 5.3 45.1 7.2L48.6 21H42.8L40.2 10.6C40 10 39.5 9.6 38.9 9.6H25C19 9.6 15.4 13 14.4 19L13.6 30Z"/>
+  <path fill="#FFFFFF" d="M22.5 13.4a2.8 2.8 0 1 1 0 5.6a2.8 2.8 0 0 1 0-5.6ZM18 27v-2.6a4.5 4.5 0 0 1 9 0V27ZM32 13.4a2.8 2.8 0 1 1 0 5.6a2.8 2.8 0 0 1 0-5.6ZM27.5 27v-2.6a4.5 4.5 0 0 1 9 0V27Z"/>
+  <path fill="#E9A21B" d="M4 30Q4 27 7 27H34Q37 27 38.4 24L40 20.5H49.5Q55.5 20.5 57.4 26.8L59.6 35Q60 37 57.81 37A8.2 8.2 0 0 0 42.19 37H25.77A9 9 0 0 0 8.23 37H4Z"/>
+  <circle cx="54.6" cy="28" r="1.7" fill="#FFFFFF"/>
+  <circle cx="17" cy="39" r="7" fill="#FFFFFF"/>
+  <circle cx="17" cy="39" r="2.4" fill="#E9A21B"/>
+  <circle cx="50" cy="39.5" r="6.2" fill="#FFFFFF"/>
+  <circle cx="50" cy="39.5" r="2.1" fill="#E9A21B"/>
+</svg>

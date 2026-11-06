@@ -6,6 +6,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import type { AppDatabase } from "../../db/client";
 import { worldFlows, worldIdentities } from "../../db/schema";
 import { AppError } from "../../lib/errors";
+import { logger } from "../../lib/logger";
 import type { AuthService } from "../auth/service";
 import type { ApprovalReader } from "./chain";
 import { seal, unseal } from "./crypto";
@@ -19,6 +20,7 @@ type WorldOptions = {
   issuer: string;
   clientId: string;
   now?: () => number;
+  onLinked?: (address: Address) => void;
 };
 
 export class WorldApprovalService {
@@ -167,6 +169,11 @@ export class WorldApprovalService {
           if (!completed)
             throw new AppError("WORLD_CANCELLED", "This World request was cancelled.", 409);
         });
+        try {
+          this.options.onLinked?.(getAddress(row.address));
+        } catch {
+          logger.error("WORLD_METADATA_REFRESH_PENDING");
+        }
       } else {
         const linked = this.db
           .select()

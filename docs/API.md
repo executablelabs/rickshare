@@ -132,3 +132,112 @@ Identical retries return the known receipt; ambiguous RPC failures never trigger
 another broadcast of that quote. Once the indexer sees its Proposed event, a
 retry can recover the actual proposal ID. A quote cannot be reused with different
 participants or amounts. All proposer transactions share a serialized queue.
+
+## Trip creation and invitations (B3)
+
+The API never impersonates a member wallet. Creation and joining return a
+WalletTransaction containing chainId, from, to, data, zero native value and Arc
+gas-fee quantities. The connected wallet must match `from` and sign/send it.
+
+- GET `/trips`: authenticated `{ trips }` containing only the member's trips.
+- POST `/trips` with `{ name, endsAt }`: returns `{ creationId, expiresAt,
+  transaction }` for a creator-only initial member list.
+- POST `/trips/confirm` with `{ creationId, transactionHash }`: verifies the
+  factory receipt/creator/end time and returns tripId, vaultAddress and indexed.
+- GET `/trips/:tripId`: current authenticated member trip state.
+- PATCH `/trips/:tripId` with `{ name }`: creator-only trip rename.
+- POST `/trips/:tripId/members/me` with `{ displayName }`: updates only the
+  signed-in member's untrusted display label, not their identity or money.
+
+Invitations preserve the contract's existing creator-signature authority:
+
+1. Creator POSTs `/trips/:tripId/invites` with `{}` or `{ expiresAt }` to get a
+   single-use link. Only a hash of its opaque token is stored.
+2. Recipient signs in and POSTs `/invites/:token/claim`. The link is atomically
+   bound to that wallet and returns an inviteId. Another wallet cannot reuse it.
+3. Creator GETs `/trips/:tripId/invites`, then GETs
+   `/trips/:tripId/invites/:inviteId/authorization` for the exact EIP-712 Invite
+   typed data. Sign its deadline as a uint256 (the JSON response uses a string).
+4. Creator POSTs `{ signature }` to that authorization endpoint.
+5. Recipient polls GET `/invites/:inviteId`. Once authorized, it returns the
+   wallet-signed join transaction. The API cannot sign membership on its own.
+6. Recipient POSTs `/invites/:inviteId/confirm` with `{ transactionHash }` after
+   mining. Lost confirmation responses can recover from actual onchain membership.
+
+The creator must be online to authorize a newly claimed wallet. Signed grants
+cannot be revoked by merely changing backend metadata; the contract expiry is
+the authority. Joining never changes an existing purchase's participants.
+World linking should follow joining and precede the first deposit in onboarding.
+
+## Chat and resumable streams (B6)
+
+- GET `/trips/:tripId/chat?limit=40`: authenticated recent messages, oldest first.
+- POST `/trips/:tripId/chat`: `{ requestId, text }`; requestId is a client UUID
+  generated once for a send attempt. The sender always comes from the session,
+  never the request body. The response contains requestId, status, errorCode and
+  reply (memberMessage/agentMessage when complete).
+- GET `/trips/:tripId/itinerary`: group itinerary with ticket bearer links
+  redacted. Fetch each participant's paid ticket through the A9 ticket endpoint.
+- GET `/trips/:tripId/stream`: credentialed SSE with durable decimal event IDs.
+
+A duplicate chat request with the same trip/requestId/text returns the stored
+reply, or HTTP 202 while processing, without invoking the model or proposer
+again. Another member cannot reuse that request ID. On restart, unfinished
+turns become interrupted rather than automatically re-running a purchase-capable
+model turn. A failed first attempt may return a typed error; retrying its same
+requestId reports its recorded status instead of duplicating the turn.
+
+Chat messages include optional clientRequestId for matching optimistic UI rows.
+Scope private query caches/cursors by the signed-in wallet and trip, and clear
+them on logout or wallet change. Member intake and planning are serialized per
+trip; unrelated trips may plan concurrently. Runtime agent ports are bound to
+the particular trip, preserving merchant/vault/chain quote binding.
+
+The get_quote tool requires an explicit startsAt. Merchant responses cannot
+silently change it; the agent asks the group if the intended time is unclear.
+The static system prompt has a cache boundary before trusted current UTC context.
+
+For streams, pass Last-Event-ID on reconnect or `?after=<id>` when opening a new
+EventSource instance. Register listeners for the shared TripEvent type names
+(chat.message, proposal.created, proposal.updated, balances.updated and
+itinerary.updated). Each frame's JSON data is the shared TripEvent.
+The server subscribes before its initial replay, queries persisted rows in ID
+order after each notification, and uses heartbeat comments. Session validity is
+rechecked during delivery/heartbeats and listeners are removed on disconnect.
+Message/itinerary writes and their outbox records commit atomically; notifications
+are wakeups, so out-of-order notifications cannot skip a persisted event.
+
+Ticket bearer URLs are never put in group itinerary event payloads. They remain
+in durable booking storage and are disclosed through participant-authorized,
+hash-verified ticket retrieval only. The backend returns Cache-Control: no-store
+for private data. Real agent replies require OPENROUTER_API_KEY; search additionally
+requires TAVILY_API_KEY. No model or verification mock is enabled by env flags.
+
+## Money snapshots, history and wallet actions (B8 backend)
+
+- GET `/trips/:tripId/money`: member balances plus the caller's cumulative
+  deposited/spent/locked/available/withdrawn amounts, wallet ERC20 balance,
+  settlement flag and indexed block. Onchain reads use that same indexed block.
+- GET `/trips/:tripId/history?limit=20&before=<block>:<logIndex>`: newest-first
+  immutable vault events with actual transaction hashes and a nextCursor.
+  Ordering uses numeric block height and log index rather than decimal text order.
+- POST `/trips/:tripId/actions`: prepares unsigned member wallet transactions
+  for deposit, withdraw, policy, reject, refund or settle. No member action is
+  sent by the backend. Deposits include an exact-amount USDC approval when needed.
+
+Amounts are decimal strings of six-decimal base units. Action bodies are strict
+and contain no selectable sender, recipient or spender. Examples:
+
+```json
+{ "action": "deposit", "amount": "10000000" }
+```
+
+```json
+{ "action": "policy", "autoApproveMax": "10000000", "totalCap": "50000000" }
+```
+
+The response is `{ action, transactions }`. Sign/send each transaction in order
+with the wallet matching `from`, wait for its receipt, and refresh trip state.
+The current wallet still needs USDC for Arc gas; native gas fees use 18-decimal
+quantities and never enter vault principal accounting. Above-limit approvals
+continue to use the fresh World attestation flow, not this preparation endpoint.

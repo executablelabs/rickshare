@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { WalletContext } from "./auth/wallet";
+import { RouteLoader } from "./components/brand/Loader";
 import { authApi, type Session } from "./lib/auth";
 import { AppProviders } from "./providers";
 import { createAppRouter } from "./router";
@@ -91,4 +92,8 @@ test("an account change hides private UI until the new account has its own sessi
     finish?.({ address: next, expiresAt: new Date(Date.now() + 60_000).toISOString() }),
   );
   expect(await screen.findByRole("heading", { name: "Plan" })).toBeInTheDocument();
+});
+
+test("shows the rickshaw loader while a route is pending", () => {
+  expect(createAppRouter().options.defaultPendingComponent).toBe(RouteLoader);
 });
