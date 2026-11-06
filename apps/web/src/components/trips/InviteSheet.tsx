@@ -5,33 +5,49 @@ import {
   LinkSimple,
   ShareNetwork,
 } from "@phosphor-icons/react";
-import type { Trip } from "@rickshare/shared";
+import { Address, arcTestnet, inviteTypedData, type Trip } from "@rickshare/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import type { TypedDataDefinition } from "viem";
 import { z } from "zod";
 import { useWallet } from "../../auth/wallet";
-import { messageOf } from "../../lib/http";
+import { ApiError, messageOf } from "../../lib/http";
 import { type Invite, inviteApi, tripKeys, useInvites } from "../../lib/trips";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/Toast";
 
 const InviteTypedData = z.object({
-  domain: z.record(z.string(), z.unknown()),
-  types: z.record(z.string(), z.array(z.object({ name: z.string(), type: z.string() }))),
-  primaryType: z.string(),
-  message: z.object({ member: z.string(), deadline: z.string().regex(/^\d+$/) }),
+  domain: z.object({
+    name: z.literal("Rickshare TripVault"),
+    version: z.literal("1"),
+    chainId: z.literal(5042002),
+    verifyingContract: Address,
+  }),
+  primaryType: z.literal("Invite"),
+  message: z.object({ member: Address, deadline: z.string().regex(/^\d+$/) }),
 });
 
 /** The API sends the deadline as a string; the contract signs it as a uint256. */
-function toTypedData(raw: unknown): TypedDataDefinition {
-  const data = InviteTypedData.parse(raw);
-  return {
-    ...data,
-    message: { ...data.message, deadline: BigInt(data.message.deadline) },
-    // The schema checked the shape; viem cannot infer EIP-712 field types from runtime data.
-  } as unknown as TypedDataDefinition;
+function toTypedData(raw: unknown, trip: Trip, invite: Invite) {
+  const parsed = InviteTypedData.safeParse(raw);
+  if (
+    !parsed.success ||
+    parsed.data.domain.verifyingContract.toLowerCase() !== trip.vaultAddress.toLowerCase() ||
+    parsed.data.message.member.toLowerCase() !== invite.member?.toLowerCase() ||
+    BigInt(parsed.data.message.deadline) <= BigInt(Math.floor(Date.now() / 1000)) ||
+    BigInt(parsed.data.message.deadline) > BigInt(Math.floor(Date.parse(invite.expiresAt) / 1000))
+  )
+    throw new ApiError(
+      "INVITE_CONTEXT_MISMATCH",
+      "This invitation changed. Refresh the trip before signing.",
+      409,
+    );
+  return inviteTypedData({
+    chainId: arcTestnet.id,
+    vaultAddress: trip.vaultAddress,
+    member: parsed.data.message.member,
+    deadline: BigInt(parsed.data.message.deadline),
+  });
 }
 
 const shortAccount = (address: string | null) =>
@@ -47,7 +63,7 @@ function RequestRow({ trip, invite }: { trip: Trip; invite: Invite }) {
     setPending(true);
     try {
       const { typedData } = await inviteApi.authorization(trip.id, invite.inviteId);
-      const signature = await wallet.signTypedData(toTypedData(typedData));
+      const signature = await wallet.signTypedData(toTypedData(typedData, trip, invite));
       await inviteApi.authorize(trip.id, invite.inviteId, signature);
       await queryClient.invalidateQueries({ queryKey: tripKeys.invites(trip.id) });
       showToast("They can join now");
