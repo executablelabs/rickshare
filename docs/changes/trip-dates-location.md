@@ -1,9 +1,11 @@
 # Trip dates and location
 
 ## Summary
+
 Remove the one-year trip-end restriction from both API validation and the calendar. New trips collect explicit start/end dates and an optional location. The location can be suggested from common city/country names and abbreviations in the title, including `NY 27` → `New York, United States`, and stays editable.
 
 ## Implementation
+
 - `Trip` gains additive optional/nullable `startsAt` and `location` fields for legacy compatibility.
 - Migration `0008_trip_planning_details` adds nullable planning columns to pending creations and trip metadata; confirmation and projection/metadata refresh preserve them.
 - Creation accepts any valid future end timestamp, with a supplied start preceding it. The browser requires both calendar dates, allows same-day trips, and imposes no one-year calendar ceiling.
@@ -13,9 +15,11 @@ Remove the one-year trip-end restriction from both API validation and the calend
 - `/dev/ui` includes the real creation sheet for local layout review.
 
 ## Interfaces touched
+
 Shared Trip schema; create-trip request; API SQLite schema/migration; trip projection; typed web client; shared date picker/header props. This is an interface change and requires the dedicated interface review before merge. Existing end-only callers and old trips remain valid.
 
 ## Verification
+
 - Shared, API and web TypeScript checks passed. Production Vite build passed after restarting the stopped local preview; the initial workspace build command stalled.
 - Local browser review at 390 and 1280px: `NY 27` suggested `New York, United States`; changing the name preserved a manual `Brooklyn, New York` override; the explicit suggestion action restored the inferred location.
 - Start/end dates in December 2028 and January 2029 were accepted by the fields, and the January 2029 calendar allowed navigation further forward. No horizontal overflow or JavaScript runtime errors were observed.
@@ -24,7 +28,9 @@ Shared Trip schema; create-trip request; API SQLite schema/migration; trip proje
 - Review captures: [390px](trip-dates-location-390.png) and [1280px](trip-dates-location-1280.png).
 
 ## Risk
+
 Financial authorization and member limits are unchanged. Longer end dates extend the user-selected settlement window; available funds retain their existing withdrawal rules. Start dates do not block pre-trip funding. Dates are interpreted in the organizer's local time, consistent with existing end-date handling; destination time-zone lookup is outside this text-location feature.
 
 ## Follow-ups
+
 Persisted date/location editing for existing trips and full global location autocomplete are separate features.

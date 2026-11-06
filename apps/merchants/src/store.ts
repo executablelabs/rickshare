@@ -19,6 +19,14 @@ export type TicketRecord = {
   status: string;
 };
 
+export type X402BookingRecord = {
+  quote_hash: string;
+  id: string;
+  payment_key: string;
+  payload: string;
+  settlement: string | null;
+};
+
 export class MerchantStore {
   readonly sqlite: Database;
 
@@ -32,13 +40,52 @@ export class MerchantStore {
         attempts INTEGER NOT NULL DEFAULT 0, next_attempt INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'queued',
         error_code TEXT, PRIMARY KEY(scope,vault,proposal_id));
       CREATE TABLE IF NOT EXISTS tickets (id TEXT PRIMARY KEY, vault TEXT NOT NULL, proposal_id TEXT NOT NULL,
-        payload TEXT NOT NULL, hash TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'prepared', UNIQUE(vault,proposal_id));`);
+        payload TEXT NOT NULL, hash TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'prepared', UNIQUE(vault,proposal_id));
+      CREATE TABLE IF NOT EXISTS quote_payment_protocols (hash TEXT PRIMARY KEY, protocol TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS x402_bookings (quote_hash TEXT PRIMARY KEY, id TEXT NOT NULL UNIQUE,
+        payment_key TEXT NOT NULL UNIQUE, payload TEXT NOT NULL, settlement TEXT);`);
   }
 
-  saveQuote(quote: SignedQuote) {
+  saveQuote(quote: SignedQuote, protocol = "vault") {
+    this.sqlite.transaction(() => {
+      this.sqlite
+        .query("INSERT INTO quotes(hash,payload) VALUES(?,?)")
+        .run(quote.quoteHash.toLowerCase(), JSON.stringify(quote));
+      this.sqlite
+        .query("INSERT INTO quote_payment_protocols(hash,protocol) VALUES(?,?)")
+        .run(quote.quoteHash.toLowerCase(), protocol);
+    })();
+  }
+  quoteProtocol(hash: string) {
+    return (
+      this.sqlite
+        .query<{ protocol: string }, [string]>(
+          "SELECT protocol FROM quote_payment_protocols WHERE hash=?",
+        )
+        .get(hash.toLowerCase())?.protocol ?? "vault"
+    );
+  }
+  x402Booking(hash: string) {
+    return this.sqlite
+      .query<X402BookingRecord, [string]>("SELECT * FROM x402_bookings WHERE quote_hash=?")
+      .get(hash.toLowerCase());
+  }
+  prepareX402(record: Omit<X402BookingRecord, "settlement">) {
     this.sqlite
-      .query("INSERT INTO quotes(hash,payload) VALUES(?,?)")
-      .run(quote.quoteHash.toLowerCase(), JSON.stringify(quote));
+      .query("INSERT INTO x402_bookings(quote_hash,id,payment_key,payload) VALUES(?,?,?,?)")
+      .run(record.quote_hash.toLowerCase(), record.id, record.payment_key, record.payload);
+  }
+  settleX402(hash: string, settlement: string) {
+    this.sqlite
+      .query("UPDATE x402_bookings SET settlement=? WHERE quote_hash=?")
+      .run(settlement, hash.toLowerCase());
+  }
+  x402Ticket(id: string) {
+    return this.sqlite
+      .query<X402BookingRecord, [string]>(
+        "SELECT * FROM x402_bookings WHERE id=? AND settlement IS NOT NULL",
+      )
+      .get(id);
   }
   quote(hash: string) {
     const row = this.sqlite

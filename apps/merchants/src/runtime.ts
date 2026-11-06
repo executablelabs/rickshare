@@ -1,4 +1,5 @@
 import { asHex } from "@rickshare/shared";
+import { getDefaultAsset } from "@x402/evm";
 import { getAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createMerchantChain } from "./chain";
@@ -26,7 +27,20 @@ export function createMerchantRuntime() {
         config.TRIP_FACTORY_ADDRESS
           ? createMerchantChain(getAddress(config.TRIP_FACTORY_ADDRESS), config.ARC_RPC_URL)
           : undefined,
-        { publicUrl: config.PUBLIC_URL, accounts, startBlock: BigInt(config.ARC_START_BLOCK) },
+        {
+          publicUrl: config.PUBLIC_URL,
+          accounts,
+          startBlock: BigInt(config.ARC_START_BLOCK),
+          ...(config.X402_ENABLED
+            ? {
+                payment: {
+                  protocol: "x402" as const,
+                  network: config.X402_NETWORK,
+                  asset: getDefaultAsset(config.X402_NETWORK, "USDC").asset,
+                },
+              }
+            : {}),
+        },
       );
       return service;
     },

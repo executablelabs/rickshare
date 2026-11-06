@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { Address, Ticket, UsdcAmount } from "./schemas";
+import { MerchantPayment } from "./x402";
 
 export const MerchantCatalog = z.array(
   z.object({
     id: z.string().min(1),
     name: z.string().min(1),
     address: Address.optional(),
+    payment: MerchantPayment.optional(),
     items: z
       .array(
         z.object({

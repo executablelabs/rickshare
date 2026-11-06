@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "@rickshare/shared": "workspace:*",
+    "@x402/core": "2.30.0",
+    "@x402/evm": "2.30.0",
+    "@x402/hono": "2.30.0",
     "hono": "4.13.16",
     "qrcode": "1.5.4",
     "viem": "2.57.16",
