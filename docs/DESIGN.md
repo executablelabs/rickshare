@@ -1,5 +1,7 @@
 # DESIGN.md
 
+For the current signed-out landing and transport brand family, follow [DESIGN-LANGUAGE.md](DESIGN-LANGUAGE.md). It supersedes this document's earlier landing composition, marketing color/decorative restrictions and landing-motion rules. The authenticated application continues to use the product UI rules below.
+
 ## Brief
 Subject: a shared trip fund where an agent proposes purchases and each person approves their own share.
 Audience: friends traveling together, most of whom have never used crypto.
