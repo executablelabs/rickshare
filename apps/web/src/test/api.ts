@@ -21,3 +21,48 @@ export function stubApi(routes: Record<string, Handler>) {
   });
   return calls;
 }
+
+const memberFixture = (address: string, displayName: string) => ({
+  address,
+  displayName,
+  ensName: null,
+  worldLinked: false,
+  policy: { autoApproveMax: "0", totalCap: "0" },
+  deposited: "0",
+  spent: "0",
+  locked: "0",
+  available: "0",
+});
+
+/** A trip with the signed-in member in it, as GET /trips/:tripId returns it. */
+export function tripFixture(tripId: string, me: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id: tripId,
+    name: "India 26",
+    ensName: null,
+    vaultAddress: `0x${"3".repeat(40)}`,
+    endsAt: "2099-12-18T23:59:00.000Z",
+    members: [memberFixture(me, "Angie"), memberFixture(`0x${"2".repeat(40)}`, "Bashy")],
+    ...overrides,
+  };
+}
+
+/** The reads every trip page makes, for a member who did not create the trip. */
+export function tripRoutes(tripId: string, me: string, trip: unknown = tripFixture(tripId, me)) {
+  return {
+    [`GET /trips/${tripId}`]: () => ({ body: trip }),
+    [`GET /trips/${tripId}/invites`]: () => ({
+      status: 403,
+      body: {
+        error: { code: "NOT_CREATOR", message: "Only the trip creator can manage invitations." },
+      },
+    }),
+    [`GET /trips/${tripId}/money`]: () => ({
+      body: {
+        own: { deposited: "0", spent: "0", locked: "0", available: "0", withdrawn: "0" },
+        walletBalance: "75000000",
+        settled: false,
+      },
+    }),
+  };
+}

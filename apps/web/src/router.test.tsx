@@ -7,6 +7,7 @@ import { RouteLoader } from "./components/brand/Loader";
 import { authApi, type Session } from "./lib/auth";
 import { AppProviders } from "./providers";
 import { createAppRouter } from "./router";
+import { stubApi, tripRoutes } from "./test/api";
 
 const address = "0x1111111111111111111111111111111111111111";
 beforeEach(() => {
@@ -15,6 +16,7 @@ beforeEach(() => {
     address,
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
   });
+  stubApi({ ...tripRoutes("india26", address), "GET /trips": () => ({ body: { trips: [] } }) });
 });
 
 test.each([
