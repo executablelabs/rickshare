@@ -1,15 +1,9 @@
 import { ARC_USDC, arcTestnet, inviteTypedData, type WalletTransaction } from "@rickshare/shared";
 import { tripFactoryAbi, tripVaultAbi } from "@rickshare/shared/abi";
-import {
-  type Address,
-  encodeFunctionData,
-  getAddress,
-  type Hex,
-  numberToHex,
-  parseEventLogs,
-} from "viem";
+import { type Address, encodeFunctionData, getAddress, type Hex, parseEventLogs } from "viem";
 import { AppError } from "../../lib/errors";
-import { arcFees, assertArcChain, createArcClient } from "../chain/clients";
+import { assertArcChain, createArcClient } from "../chain/clients";
+import { prepareWalletTransaction } from "../chain/transactions";
 
 export type TripChain = {
   info(
@@ -30,16 +24,7 @@ export type TripChain = {
 
 export function createTripChain(factory: Address, client = createArcClient()): TripChain {
   const transaction = async (from: Address, to: Address, data: Hex): Promise<WalletTransaction> => {
-    const fees = await arcFees(client);
-    return {
-      chainId: arcTestnet.id,
-      from,
-      to,
-      data,
-      value: "0x0",
-      maxFeePerGas: numberToHex(fees.maxFeePerGas),
-      maxPriorityFeePerGas: numberToHex(fees.maxPriorityFeePerGas),
-    };
+    return prepareWalletTransaction(client, from, to, data);
   };
   const registered = async (vault: Address) => {
     await assertArcChain(client);

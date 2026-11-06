@@ -212,3 +212,32 @@ in durable booking storage and are disclosed through participant-authorized,
 hash-verified ticket retrieval only. The backend returns Cache-Control: no-store
 for private data. Real agent replies require ANTHROPIC_API_KEY; search additionally
 requires TAVILY_API_KEY. No model or verification mock is enabled by env flags.
+
+## Money snapshots, history and wallet actions (B8 backend)
+
+- GET `/trips/:tripId/money`: member balances plus the caller's cumulative
+  deposited/spent/locked/available/withdrawn amounts, wallet ERC20 balance,
+  settlement flag and indexed block. Onchain reads use that same indexed block.
+- GET `/trips/:tripId/history?limit=20&before=<block>:<logIndex>`: newest-first
+  immutable vault events with actual transaction hashes and a nextCursor.
+  Ordering uses numeric block height and log index rather than decimal text order.
+- POST `/trips/:tripId/actions`: prepares unsigned member wallet transactions
+  for deposit, withdraw, policy, reject, refund or settle. No member action is
+  sent by the backend. Deposits include an exact-amount USDC approval when needed.
+
+Amounts are decimal strings of six-decimal base units. Action bodies are strict
+and contain no selectable sender, recipient or spender. Examples:
+
+```json
+{ "action": "deposit", "amount": "10000000" }
+```
+
+```json
+{ "action": "policy", "autoApproveMax": "10000000", "totalCap": "50000000" }
+```
+
+The response is `{ action, transactions }`. Sign/send each transaction in order
+with the wallet matching `from`, wait for its receipt, and refresh trip state.
+The current wallet still needs USDC for Arc gas; native gas fees use 18-decimal
+quantities and never enter vault principal accounting. Above-limit approvals
+continue to use the fresh World attestation flow, not this preparation endpoint.

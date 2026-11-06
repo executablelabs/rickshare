@@ -174,6 +174,15 @@ export async function createLocalChain() {
       vault,
       wallet,
       receipt,
+      mint: async (to: typeof accounts.alice.address, amount: bigint) =>
+        receipt(
+          await wallet(accounts.deployer).writeContract({
+            address: ARC_USDC,
+            abi: mint,
+            functionName: "mint",
+            args: [to, amount],
+          }),
+        ),
       close: async () => {
         node.kill();
         await node.exited;

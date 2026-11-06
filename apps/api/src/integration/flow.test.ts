@@ -2,6 +2,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { ARC_USDC, asHex, contractQuote, inviteTypedData } from "@rickshare/shared";
 import { erc20Abi, tripVaultAbi } from "@rickshare/shared/abi";
+import { getAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
 import { z } from "zod";
@@ -22,6 +23,8 @@ import { createProposalChain } from "../modules/proposals/chain";
 import { MerchantClient } from "../modules/proposals/merchants";
 import { ProposalService } from "../modules/proposals/service";
 import { createTripChain } from "../modules/trips/chain";
+import { MoneyService } from "../modules/trips/money";
+import { MoneyAction } from "../modules/trips/money-schemas";
 import { TripService } from "../modules/trips/service";
 import { createLocalChain } from "./local-chain";
 
@@ -32,6 +35,72 @@ beforeAll(async () => {
   local = await createLocalChain();
   database = createDatabase(":memory:");
   merchantStore = new MerchantStore(":memory:");
+}, 120_000);
+
+test("money preparation signs only member-owned actions and history paginates by chain order", async () => {
+  const indexer = new IndexerService(database, createIndexSource(local.factory, local.client));
+  await indexer.sync();
+  const money = new MoneyService(
+    database,
+    createTripChain(local.factory, local.client),
+    indexer,
+    local.client,
+  );
+  const before = await money.balances(local.accounts.alice.address, local.vault);
+  const amount = 1_000_000n;
+  await local.mint(local.accounts.alice.address, amount);
+  const prepared = await money.prepare(local.accounts.alice.address, local.vault, {
+    action: "deposit",
+    amount: amount.toString(),
+  });
+  expect(prepared.transactions).toHaveLength(2);
+  for (const transaction of prepared.transactions) {
+    expect(transaction.from).toBe(local.accounts.alice.address);
+    expect(transaction.value).toBe("0x0");
+    await local.receipt(
+      await local.wallet(local.accounts.alice).sendTransaction({
+        to: getAddress(transaction.to),
+        data: asHex(transaction.data),
+        value: 0n,
+        maxFeePerGas: BigInt(transaction.maxFeePerGas),
+        maxPriorityFeePerGas: BigInt(transaction.maxPriorityFeePerGas),
+      }),
+    );
+  }
+  const after = await money.balances(local.accounts.alice.address, local.vault);
+  expect(BigInt(after.own.available)).toBe(BigInt(before.own.available) + amount);
+  const withdrawal = await money.prepare(local.accounts.alice.address, local.vault, {
+    action: "withdraw",
+    amount: amount.toString(),
+  });
+  const transaction = withdrawal.transactions[0];
+  if (!transaction) throw new Error("No withdrawal transaction");
+  await local.receipt(
+    await local.wallet(local.accounts.alice).sendTransaction({
+      to: getAddress(transaction.to),
+      data: asHex(transaction.data),
+      value: 0n,
+    }),
+  );
+  const restored = await money.balances(local.accounts.alice.address, local.vault);
+  expect(restored.own.available).toBe(before.own.available);
+  expect(BigInt(restored.own.withdrawn)).toBe(BigInt(before.own.withdrawn) + amount);
+  expect(
+    MoneyAction.safeParse({ action: "withdraw", amount: "1", member: local.accounts.bob.address })
+      .success,
+  ).toBe(false);
+  const first = await money.history(local.accounts.alice.address, local.vault, 2);
+  expect(first.events).toHaveLength(2);
+  if (!first.nextCursor) throw new Error("No history pagination cursor");
+  const second = await money.history(
+    local.accounts.alice.address,
+    local.vault,
+    2,
+    first.nextCursor,
+  );
+  expect(
+    second.events.every((event) => !first.events.some((previous) => previous.id === event.id)),
+  ).toBe(true);
 }, 120_000);
 
 test("the authenticated chat runtime turns a scoped model quote into a real paid ticket", async () => {

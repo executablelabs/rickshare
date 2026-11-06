@@ -29,6 +29,7 @@ import { MerchantClient } from "./modules/proposals/merchants";
 import { ProposalService } from "./modules/proposals/service";
 import { createTripChain } from "./modules/trips/chain";
 import { createItineraryStore, type ItineraryStore } from "./modules/trips/itinerary";
+import { MoneyService } from "./modules/trips/money";
 import { TripService } from "./modules/trips/service";
 
 export type RuntimeOptions = {
@@ -45,6 +46,7 @@ export type RuntimeOptions = {
   chat?: ChatStore;
   itinerary?: ItineraryStore;
   coordinator?: ChatCoordinator;
+  money?: MoneyService;
 };
 
 export function createRuntime(options: RuntimeOptions = {}) {
@@ -59,6 +61,7 @@ export function createRuntime(options: RuntimeOptions = {}) {
   let itinerary = options.itinerary;
   let agent = options.agent;
   let coordinator = options.coordinator;
+  let money = options.money;
   const db = () => {
     database ??= createDatabase();
     return database;
@@ -257,6 +260,19 @@ export function createRuntime(options: RuntimeOptions = {}) {
     coordinator: (): ChatCoordinator => {
       coordinator ??= new ChatCoordinator(db(), runtime.agent());
       return coordinator;
+    },
+    money: (): MoneyService => {
+      if (money) return money;
+      if (!config.TRIP_FACTORY_ADDRESS)
+        throw new AppError("CHAIN_NOT_CONFIGURED", "The trip factory is not configured.", 503);
+      const client = createArcClient();
+      money = new MoneyService(
+        db(),
+        createTripChain(getAddress(config.TRIP_FACTORY_ADDRESS), client),
+        runtime.indexer(),
+        client,
+      );
+      return money;
     },
     close: () => {
       indexer?.stop();
