@@ -42,7 +42,7 @@ export function Sheet({ open, onOpenChange, title, description, children }: Shee
             </div>
             <Drawer.Close
               aria-label="Close"
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-ink"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-ink hover:bg-paper"
             >
               <X aria-hidden="true" size={20} />
             </Drawer.Close>
