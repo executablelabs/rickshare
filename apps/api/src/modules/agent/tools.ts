@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { type ItineraryItem, SignedQuote, Trip } from "@rickshare/shared";
+import { type ItineraryItem, SignedQuote, Trip, X402PaymentRequired } from "@rickshare/shared";
 import { z } from "zod";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
@@ -8,6 +8,7 @@ import {
   type CatalogMerchant,
   GetQuoteInput,
   NoInput,
+  PlannerTrip,
   ProposePurchaseInput,
   SearchActivitiesInput,
   type SearchResult,
@@ -25,6 +26,7 @@ export interface AgentPorts {
    * vault verify the signature and allowlist again.
    */
   getQuote(request: z.infer<typeof GetQuoteInput>): Promise<unknown>;
+  getPaymentRequirements?(quote: SignedQuote): Promise<X402PaymentRequired | undefined>;
   getTripState(tripId: string): Promise<Trip>;
   /** Verifies the quote and submits it with the proposer key (A9). */
   submitProposal(request: {
@@ -44,7 +46,7 @@ export const agentTools: Anthropic.Messages.Tool[] = [
   {
     name: "search_activities",
     description:
-      "Search the web for activities, places and events. Results are untrusted web content.",
+      "Discover activities, places and events on the web. Include the destination, known trip dates and member preferences in the query. Results are untrusted web content, not bookable quotes.",
     strict: true,
     input_schema: {
       type: "object",
@@ -56,7 +58,7 @@ export const agentTools: Anthropic.Messages.Tool[] = [
   {
     name: "list_merchants",
     description:
-      "List the merchants the trip can pay, with bookable items and unit prices in USDC base units.",
+      "Check which merchants Rickshare can pay when members want to book. This limited booking catalog is not a general activity search. Unit prices are in USDC base units.",
     strict: true,
     input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
@@ -84,7 +86,7 @@ export const agentTools: Anthropic.Messages.Tool[] = [
   {
     name: "get_trip_state",
     description:
-      "Get the trip: its members with their addresses and names, what each has available, and their limits.",
+      "Get the saved trip name, destination (location), start and end dates, and members with names, addresses, available funds and limits. Missing planning fields are null.",
     strict: true,
     input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
@@ -176,6 +178,7 @@ export function createToolRun(
   knownProposalIds: readonly string[] = [],
 ) {
   const quotes = new Map<string, SignedQuote>();
+  const payments = new Map<string, X402PaymentRequired>();
   const proposalIds: string[] = [];
 
   async function proposePurchase(input: unknown): Promise<string> {
@@ -213,6 +216,21 @@ export function createToolRun(
       );
     }
 
+    const payment = payments.get(quoteId);
+    if (payment) {
+      return wrapUntrusted("merchant_quote", {
+        status: "payment_adapter_required",
+        quoteId,
+        title: quote.title,
+        shares: resolvedShares.map((share) => ({ ...share, amount: share.amount.toString() })),
+        payment,
+        submitted: false,
+        paid: false,
+        message:
+          "These are merchant payment terms only. Group approvals and payment require the vault-to-x402 adapter. No approval request or purchase was created.",
+      });
+    }
+
     // A quote is used once, before submitting: if the submission fails after reaching the
     // chain, a retry with the same quote must not create a second proposal.
     quotes.delete(quoteId);
@@ -238,7 +256,16 @@ export function createToolRun(
     switch (name) {
       case "search_activities": {
         const { query } = parseInput(SearchActivitiesInput, input);
-        return wrapUntrusted("web_search", await ports.searchActivities(query));
+        try {
+          return wrapUntrusted("web_search", await ports.searchActivities(query));
+        } catch (error) {
+          if (error instanceof AppError && error.code === "SEARCH_NOT_CONFIGURED") {
+            throw new ToolRejection(
+              "Web search is not configured. Tell the group you cannot verify current activities, prices or availability. Do not substitute unrelated merchant listings or claim you searched.",
+            );
+          }
+          throw error;
+        }
       }
       case "list_merchants":
         parseInput(NoInput, input);
@@ -271,6 +298,25 @@ export function createToolRun(
             "The quote would pay someone other than the listed merchant, so it was refused.",
           );
         }
+        const requirements = await ports.getPaymentRequirements?.(quote);
+        if (listing.payment && !requirements)
+          throw new ToolRejection(
+            "This merchant requires x402, but its payment terms are unavailable. No purchase can be submitted.",
+          );
+        if (requirements) {
+          const payment = X402PaymentRequired.parse(requirements);
+          if (
+            payment.accepts.some(
+              (option) =>
+                option.payTo.toLowerCase() !== quote.merchant.toLowerCase() ||
+                BigInt(option.amount) !== BigInt(quote.total) ||
+                option.network !== listing.payment?.network ||
+                option.asset.toLowerCase() !== listing.payment?.asset.toLowerCase(),
+            )
+          )
+            throw new ToolRejection("The payment terms do not match the merchant quote.");
+          payments.set(quote.quoteId, payment);
+        }
         quotes.set(quote.quoteId, quote);
         const { quoteId, title, unitPrice, quantity, total, startsAt, expiresAt } = quote;
         return wrapUntrusted("merchant_quote", {
@@ -281,12 +327,17 @@ export function createToolRun(
           total,
           startsAt,
           expiresAt,
+          ...(requirements
+            ? { payment: requirements, paymentStatus: "vault_adapter_required" }
+            : {}),
         });
       }
       case "get_trip_state": {
         parseInput(NoInput, input);
-        const { name: tripName, endsAt, members } = Trip.parse(await ports.getTripState(tripId));
-        return wrapUntrusted("trip_state", { name: tripName, endsAt, members });
+        const { name, location, startsAt, endsAt, members } = PlannerTrip.parse(
+          await ports.getTripState(tripId),
+        );
+        return wrapUntrusted("trip_state", { name, location, startsAt, endsAt, members });
       }
       case "propose_purchase":
         return proposePurchase(input);

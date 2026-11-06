@@ -1,7 +1,14 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { type QuoteTerms, quoteTypedData, SignedQuote, Ticket } from "@rickshare/shared";
+import {
+  type MerchantPayment,
+  type QuoteTerms,
+  quoteTypedData,
+  SignedQuote,
+  Ticket,
+} from "@rickshare/shared";
 import { getAddress, hashTypedData, keccak256, stringToHex } from "viem";
 import type { PrivateKeyAccount } from "viem/accounts";
+import type { z } from "zod";
 import catalogData from "./catalog.json";
 import type { MerchantChain } from "./chain";
 import { MerchantError } from "./errors";
@@ -14,6 +21,7 @@ type Options = {
   accounts: Map<string, PrivateKeyAccount>;
   startBlock?: bigint;
   now?: () => number;
+  payment?: z.infer<typeof MerchantPayment>;
 };
 
 export class MerchantService {
@@ -41,7 +49,11 @@ export class MerchantService {
   catalog() {
     return this.catalogData.map((merchant) => {
       const account = this.options.accounts.get(merchant.id);
-      return { ...merchant, ...(account ? { address: account.address } : {}) };
+      return {
+        ...merchant,
+        ...(account ? { address: account.address } : {}),
+        ...(this.options.payment ? { payment: this.options.payment } : {}),
+      };
     });
   }
 
@@ -96,8 +108,18 @@ export class MerchantService {
       quoteHash: hashTypedData(data),
       signature: await account.signTypedData(data),
     });
-    this.store.saveQuote(signed);
+    this.store.saveQuote(signed, this.options.payment ? "x402" : "vault");
     return signed;
+  }
+
+  async bookingQuote(hash: string) {
+    const quote = this.store.quote(hash);
+    if (!quote || this.store.quoteProtocol(hash) !== "x402")
+      throw new MerchantError("QUOTE_NOT_FOUND", "Request a new x402 merchant quote.", 404);
+    if (Date.parse(quote.expiresAt) <= this.now())
+      throw new MerchantError("QUOTE_EXPIRED", "Request a new merchant quote.", 409);
+    await this.requireChain().validate(getAddress(quote.vaultAddress), getAddress(quote.merchant));
+    return quote;
   }
 
   async deliver(vaultAddress: string, proposalId: string) {
@@ -124,6 +146,12 @@ export class MerchantService {
     if (proposal.status !== 1)
       throw new MerchantError("PURCHASE_NOT_LOCKED", "The purchase is not fully approved.", 409);
     const quote = this.store.quote(proposal.quoteHash);
+    if (this.store.quoteProtocol(proposal.quoteHash) === "x402")
+      throw new MerchantError(
+        "X402_VAULT_ADAPTER_REQUIRED",
+        "This quote requires x402 settlement.",
+        409,
+      );
     if (
       !quote ||
       quote.vaultAddress.toLowerCase() !== vault.toLowerCase() ||
