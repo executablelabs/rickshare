@@ -171,7 +171,12 @@ test("the organizer lets a friend in by signing the invite with a numeric deadli
       body: {
         authorized: false,
         typedData: {
-          domain: { name: "TripVault", version: "1", chainId: 5042002, verifyingContract: vault },
+          domain: {
+            name: "Rickshare TripVault",
+            version: "1",
+            chainId: 5042002,
+            verifyingContract: solo.vaultAddress,
+          },
           types: {
             Invite: [
               { name: "member", type: "address" },
