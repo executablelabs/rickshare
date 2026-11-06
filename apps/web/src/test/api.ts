@@ -57,6 +57,8 @@ export function tripRoutes(tripId: string, me: string, trip: unknown = tripFixtu
         error: { code: "NOT_CREATOR", message: "Only the trip creator can manage invitations." },
       },
     }),
+    [`GET /trips/${tripId}/chat`]: () => ({ body: { messages: [] } }),
+    [`GET /trips/${tripId}/proposals`]: () => ({ body: { proposals: [] } }),
     [`GET /trips/${tripId}/money`]: () => ({
       body: {
         own: { deposited: "0", spent: "0", locked: "0", available: "0", withdrawn: "0" },
