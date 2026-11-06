@@ -172,7 +172,9 @@ export class IndexerService {
             metadata?.name ?? `Trip ${snapshot.address.slice(0, 8)}…${snapshot.address.slice(-6)}`,
           ensName: registeredName,
           vaultAddress: snapshot.address,
+          startsAt: metadata?.startsAt ?? null,
           endsAt: snapshot.endsAt,
+          location: metadata?.location ?? null,
           members: snapshot.members.map((member) => ({
             ...member,
             ensName: registeredName
@@ -305,12 +307,16 @@ export class IndexerService {
           .filter((member) => member.ready)
           .map((member) => [member.address, `${member.label}.${registeredName}`]),
       );
-      const name =
-        transaction.select().from(tripMetadata).where(eq(tripMetadata.tripId, id)).get()?.name ??
-        previous.name;
+      const metadata = transaction
+        .select()
+        .from(tripMetadata)
+        .where(eq(tripMetadata.tripId, id))
+        .get();
       const trip = Trip.parse({
         ...previous,
-        name,
+        name: metadata?.name ?? previous.name,
+        startsAt: metadata?.startsAt ?? previous.startsAt ?? null,
+        location: metadata?.location ?? previous.location ?? null,
         ensName: registeredName,
         members: previous.members.map((member) => ({
           ...member,

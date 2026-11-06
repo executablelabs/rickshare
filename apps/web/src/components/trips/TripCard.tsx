@@ -1,8 +1,8 @@
-import { CalendarBlank, CaretRight } from "@phosphor-icons/react";
+import { CalendarBlank, CaretRight, MapPin } from "@phosphor-icons/react";
 import type { Trip } from "@rickshare/shared";
 import { Link } from "@tanstack/react-router";
 import type { Address } from "viem";
-import { formatDay } from "../../lib/format-date";
+import { formatDay, formatTripDates } from "../../lib/format-date";
 import { memberOf } from "../../lib/trips";
 import { Amount } from "../ui/Amount";
 import { AvatarStack } from "../ui/AvatarStack";
@@ -21,8 +21,18 @@ export function TripCard({ trip, viewer }: { trip: Trip; viewer: Address | undef
           <h3 className="truncate text-xl">{trip.name}</h3>
           <p className="flex items-center gap-1.5 text-sm text-ink-muted">
             <CalendarBlank aria-hidden="true" size={16} />
-            {ended ? `Ended ${formatDay(trip.endsAt)}` : `Ends ${formatDay(trip.endsAt)}`}
+            {trip.startsAt
+              ? formatTripDates(trip.startsAt, trip.endsAt)
+              : ended
+                ? `Ended ${formatDay(trip.endsAt)}`
+                : formatTripDates(null, trip.endsAt)}
           </p>
+          {trip.location && (
+            <p className="flex items-center gap-1.5 text-sm text-ink-muted">
+              <MapPin aria-hidden="true" size={16} className="shrink-0" />
+              <span className="truncate">{trip.location}</span>
+            </p>
+          )}
         </div>
         <CaretRight
           aria-hidden="true"

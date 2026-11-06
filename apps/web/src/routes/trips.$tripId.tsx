@@ -7,7 +7,7 @@ import { TripNames } from "../components/shell/TripNames";
 import { MoneyPanel } from "../components/trips/MoneyPanel";
 import { TripActionsProvider } from "../components/trips/TripActions";
 import { Button } from "../components/ui/Button";
-import { formatDay } from "../lib/format-date";
+import { formatTripDates } from "../lib/format-date";
 import { messageOf } from "../lib/http";
 import { useTrip } from "../lib/trips";
 
@@ -56,7 +56,8 @@ function TripPage() {
         tripId={tripId}
         tripName={trip.data.name}
         tripEnsName={trip.data.ensName}
-        subtitle={`Ends ${formatDay(trip.data.endsAt)}`}
+        subtitle={formatTripDates(trip.data.startsAt, trip.data.endsAt)}
+        tripLocation={trip.data.location}
         members={trip.data.members}
         aside={onMoneyTab ? undefined : <MoneyPanel />}
         onSignOut={signOut}

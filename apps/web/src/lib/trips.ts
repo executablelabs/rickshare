@@ -88,7 +88,12 @@ export function memberOf(trip: Trip | undefined, address: Address | undefined) {
 }
 
 export const tripsApi = {
-  async prepareCreate(input: { name: string; endsAt: string }) {
+  async prepareCreate(input: {
+    name: string;
+    startsAt: string;
+    endsAt: string;
+    location?: string;
+  }) {
     return readApi(
       await api.trips.$post({ json: input }),
       z.object({ creationId: z.string(), transaction: WalletTransaction }),

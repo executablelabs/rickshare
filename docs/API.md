@@ -140,7 +140,7 @@ WalletTransaction containing chainId, from, to, data, zero native value and Arc
 gas-fee quantities. The connected wallet must match `from` and sign/send it.
 
 - GET `/trips`: authenticated `{ trips }` containing only the member's trips.
-- POST `/trips` with `{ name, endsAt }`: returns `{ creationId, expiresAt,
+- POST `/trips` with `{ name, startsAt, endsAt, location? }`: returns `{ creationId, expiresAt,
   transaction }` for a creator-only initial member list.
 - POST `/trips/confirm` with `{ creationId, transactionHash }`: verifies the
   factory receipt/creator/end time and returns tripId, vaultAddress and indexed.
@@ -148,6 +148,21 @@ gas-fee quantities. The connected wallet must match `from` and sign/send it.
 - PATCH `/trips/:tripId` with `{ name }`: creator-only trip rename.
 - POST `/trips/:tripId/members/me` with `{ displayName }`: updates only the
   signed-in member's untrusted display label, not their identity or money.
+
+Creation has no one-year upper bound. `endsAt` must be a valid future ISO timestamp;
+when supplied, `startsAt` must be earlier than `endsAt`. The web form requires both
+dates and translates the organizer's local start/end calendar days into ISO instants.
+Only `endsAt` is the on-chain vault deadline; the start date is planning metadata,
+not a restriction on pre-trip deposits or approvals. `startsAt` remains optional for
+older API clients. Trip responses may include `startsAt` and `location` (nullable or
+absent for legacy trips). Location is optional, editable text of up to 160 characters,
+persisted through confirmation, indexing and metadata refresh. It never selects a payee.
+
+The web form can suggest common destination names from the title (e.g. `NY 27`
+becomes `New York, United States`). These are local text suggestions, not geocoded
+coordinates or a global place-search service; unknown or multi-city names are left
+for the organizer to specify. Editing the location prevents later title edits from
+overwriting it. Dates are always selected explicitly, not inferred from a title's year.
 
 Invitations preserve the contract's existing creator-signature authority:
 

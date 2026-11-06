@@ -31,11 +31,25 @@ export class TripService {
     return this.options.now?.() ?? Date.now();
   }
 
-  async prepare(actor: Address, input: { name: string; endsAt: string }) {
-    const endsAt = BigInt(Math.floor(Date.parse(input.endsAt) / 1000));
+  async prepare(
+    actor: Address,
+    input: {
+      name: string;
+      startsAt?: string | undefined;
+      endsAt: string;
+      location?: string | undefined;
+    },
+  ) {
+    const end = Date.parse(input.endsAt);
+    const start = input.startsAt ? Date.parse(input.startsAt) : undefined;
+    if (!Number.isFinite(end))
+      throw new AppError("INVALID_TRIP_END", "Choose a valid future trip end.", 400);
+    if (start !== undefined && (!Number.isFinite(start) || start >= end))
+      throw new AppError("INVALID_TRIP_DATES", "The trip end must be after its start.", 400);
+    const endsAt = BigInt(Math.floor(end / 1000));
     const now = Math.floor(this.now() / 1000);
-    if (endsAt <= BigInt(now) || endsAt > BigInt(now + 365 * 86400))
-      throw new AppError("INVALID_TRIP_END", "Choose a future trip end within one year.", 400);
+    if (endsAt <= BigInt(now))
+      throw new AppError("INVALID_TRIP_END", "Choose a future trip end.", 400);
     const transaction = await this.chain.prepareCreate(actor, endsAt);
     const id = randomUUID();
     const expiresAt = Math.min(this.now() + 3600_000, Number(endsAt) * 1000);
@@ -45,6 +59,8 @@ export class TripService {
         id,
         creator: actor.toLowerCase(),
         name: input.name,
+        startsAt: input.startsAt ?? null,
+        location: input.location?.trim() || null,
         endsAt: endsAt.toString(),
         expiresAt,
       })
@@ -93,8 +109,16 @@ export class TripService {
         .run();
       transaction
         .insert(tripMetadata)
-        .values({ tripId: vault.toLowerCase(), name: pending.name })
-        .onConflictDoUpdate({ target: tripMetadata.tripId, set: { name: pending.name } })
+        .values({
+          tripId: vault.toLowerCase(),
+          name: pending.name,
+          startsAt: pending.startsAt,
+          location: pending.location,
+        })
+        .onConflictDoUpdate({
+          target: tripMetadata.tripId,
+          set: { name: pending.name, startsAt: pending.startsAt, location: pending.location },
+        })
         .run();
     });
     let indexed = true;

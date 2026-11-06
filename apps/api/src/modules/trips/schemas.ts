@@ -3,7 +3,12 @@ import { getAddress } from "viem";
 import { z } from "zod";
 
 export const CreateTrip = z
-  .object({ name: z.string().trim().min(1).max(40), endsAt: z.string().datetime() })
+  .object({
+    name: z.string().trim().min(1).max(40),
+    startsAt: z.string().datetime().optional(),
+    endsAt: z.string().datetime(),
+    location: z.string().trim().max(160).optional(),
+  })
   .strict();
 export const ConfirmCreation = z
   .object({

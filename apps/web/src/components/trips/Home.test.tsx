@@ -79,7 +79,8 @@ async function fillNewTrip(name: string, endsOn: string) {
   fireEvent.click(await screen.findByRole("button", { name: "Start a trip" }));
   const sheet = await screen.findByRole("dialog", { name: "New trip" });
   fireEvent.change(within(sheet).getByLabelText("Trip name"), { target: { value: name } });
-  fireEvent.change(within(sheet).getByLabelText("Ends on"), { target: { value: endsOn } });
+  fireEvent.change(within(sheet).getByLabelText("Start date"), { target: { value: endsOn } });
+  fireEvent.change(within(sheet).getByLabelText("End date"), { target: { value: endsOn } });
   fireEvent.click(within(sheet).getByRole("button", { name: "Create trip" }));
   return sheet;
 }
@@ -108,7 +109,9 @@ test("creates a trip: prepare, send from the wallet, confirm, then open it", asy
   await waitFor(() => expect(router.state.location.pathname).toBe(`/trips/${vault}/plan`));
   expect(calls.find((call) => call.route === "POST /trips")?.body).toEqual({
     name: "India 26",
+    startsAt: new Date("2099-12-18T00:00:00").toISOString(),
     endsAt: new Date("2099-12-18T23:59:00").toISOString(),
+    location: "India",
   });
   expect(sendTransaction).toHaveBeenCalledWith({
     from: getAddress(me),
@@ -141,13 +144,16 @@ test("keeps the sheet open and explains a cancelled wallet request", async () =>
   expect(within(sheet).getByRole("button", { name: "Try again" })).toBeEnabled();
 });
 
-test("asks for a name and a future end date before preparing anything", async () => {
+test("asks for a name and both trip dates before preparing anything", async () => {
   const calls = stubApi({ "GET /trips": () => ({ body: { trips: [] } }) });
   await renderHome();
 
   const sheet = await fillNewTrip("", "");
 
   expect(within(sheet).getByText("Give the trip a name.")).toBeInTheDocument();
-  expect(within(sheet).getByText("Pick a day after today.")).toBeInTheDocument();
+  expect(within(sheet).getByText("Choose a start date from today onwards.")).toBeInTheDocument();
+  expect(
+    within(sheet).getByText("Choose an end date on or after the start date."),
+  ).toBeInTheDocument();
   expect(calls.some((call) => call.route === "POST /trips")).toBe(false);
 });
