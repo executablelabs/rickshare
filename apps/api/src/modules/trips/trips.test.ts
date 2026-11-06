@@ -1,10 +1,10 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { arcTestnet, inviteTypedData, type WalletTransaction } from "@rickshare/shared";
 import { getAddress, type Hex, verifyTypedData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { type AppDatabase, createDatabase } from "../../db/client";
-import { tripInvites } from "../../db/schema";
+import { tripCreations, tripInvites } from "../../db/schema";
 import { IndexerService } from "../indexer/service";
 import type { IndexSource } from "../indexer/types";
 import type { TripChain } from "./chain";
@@ -20,7 +20,9 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.$client.close();
 });
 
-function fixture() {
+function fixture(
+  gasSponsor = { cover: mock(async (_id: string, transaction: WalletTransaction) => transaction) },
+) {
   let now = Date.now();
   const endsAt = BigInt(Math.floor(now / 1000) + 86400);
   const db = createDatabase(":memory:");
@@ -71,17 +73,62 @@ function fixture() {
     origin: "http://localhost:5173",
     digest: (token) => createHash("sha256").update(token).digest("hex"),
     now: () => now,
+    gasSponsor,
   });
   return {
     db,
     service,
+    chain,
+    indexer,
     members,
     endsAt,
+    gasSponsor,
     advance: (milliseconds: number) => {
       now += milliseconds;
     },
   };
 }
+
+test("trip preparation covers the user's fee before returning their own transaction", async () => {
+  const f = fixture();
+  const input = { name: "India 26", endsAt: new Date(Number(f.endsAt) * 1000).toISOString() };
+  const prepared = await f.service.prepare(alice.address, input);
+  expect(f.gasSponsor.cover).toHaveBeenCalledWith(prepared.creationId, prepared.transaction);
+  expect(prepared.transaction.from).toBe(alice.address);
+  expect(prepared.transaction.value).toBe("0x0");
+  const retry = await f.service.prepare(alice.address, input);
+  expect(retry.creationId).toBe(prepared.creationId);
+  expect(f.db.select().from(tripCreations).all()).toHaveLength(1);
+});
+
+test("failed fee coverage can be retried with the same creation request", async () => {
+  const gasSponsor = {
+    cover: mock(async (_id: string, transaction: WalletTransaction) => transaction),
+  };
+  gasSponsor.cover.mockRejectedValueOnce(new Error("Sponsor unavailable"));
+  const f = fixture(gasSponsor);
+  const input = { name: "India 26", endsAt: new Date(Number(f.endsAt) * 1000).toISOString() };
+  await expect(f.service.prepare(alice.address, input)).rejects.toThrow("Sponsor unavailable");
+  const saved = f.db.select().from(tripCreations).get();
+  const prepared = await f.service.prepare(alice.address, input);
+  expect(prepared.creationId).toBe(saved?.id ?? "");
+  expect(gasSponsor.cover.mock.calls[0]?.[0]).toBe(prepared.creationId);
+});
+
+test("trip creation never falls back to asking the user to fund its fee", async () => {
+  const f = fixture();
+  const service = new TripService(f.db, f.chain, f.indexer, {
+    origin: "http://localhost:5173",
+    digest: (value) => value,
+  });
+  await expect(
+    service.prepare(alice.address, {
+      name: "India 26",
+      endsAt: new Date(Number(f.endsAt) * 1000).toISOString(),
+    }),
+  ).rejects.toMatchObject({ code: "GAS_SPONSOR_NOT_CONFIGURED" });
+  expect(f.db.select().from(tripCreations).all()).toHaveLength(0);
+});
 
 function token(url: string) {
   const value = new URL(url).pathname.split("/").at(-1);
