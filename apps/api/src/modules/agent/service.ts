@@ -49,7 +49,7 @@ function textOf(response: ModelResponse): string {
 
 export interface AgentDependencies {
   model: AgentModel;
-  ports: AgentPorts;
+  ports: AgentPorts | ((tripId: string) => AgentPorts);
   chat: ChatStore;
   now?: () => Date;
 }
@@ -65,11 +65,14 @@ export function createAgentService({
       return await model.createMessage({
         model: AGENT_MODEL,
         max_tokens: MAX_OUTPUT_TOKENS,
-        system: SYSTEM_PROMPT,
+        system: [
+          { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+          { type: "text", text: `Current UTC time: ${now().toISOString()}` },
+        ],
         tools: agentTools,
         messages,
         output_config: { effort: "medium" },
-        // System prompt and tools are identical on every call, so they cache well.
+        // The static prompt has its own cache boundary before the changing clock context.
         cache_control: { type: "ephemeral" },
         // On a safety decline, the API retries on a fallback model inside the same call.
         betas: ["server-side-fallback-2026-07-01"],
@@ -90,7 +93,12 @@ export function createAgentService({
 
   async function plan(tripId: string, history: ChatMessage[]) {
     const messages = toModelMessages(history);
-    const tools = createToolRun(tripId, ports, now, chat.agentProposalIds(tripId));
+    const tools = createToolRun(
+      tripId,
+      typeof ports === "function" ? ports(tripId) : ports,
+      now,
+      chat.agentProposalIds(tripId),
+    );
     const finish = (text: string) => ({ text, proposalIds: [...tools.proposalIds] });
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -147,7 +155,7 @@ export function createAgentService({
 
   return {
     /** Saves a member's message, lets the agent work, and saves and returns its reply. */
-    async reply(request: { tripId: string; author: string; text: string }) {
+    async reply(request: { tripId: string; author: string; text: string; requestId?: string }) {
       return oneTurnAtATime(request.tripId, async () => {
         const memberMessage = chat.append({
           tripId: request.tripId,
@@ -155,6 +163,7 @@ export function createAgentService({
           author: request.author,
           text: request.text,
           proposalIds: [],
+          ...(request.requestId ? { clientRequestId: request.requestId } : {}),
         });
         const history = chat.listRecent(request.tripId, HISTORY_LIMIT);
         const { text, proposalIds } = await plan(request.tripId, history);
@@ -164,6 +173,7 @@ export function createAgentService({
           author: null,
           text,
           proposalIds,
+          ...(request.requestId ? { clientRequestId: request.requestId } : {}),
         });
         return { memberMessage, agentMessage };
       });

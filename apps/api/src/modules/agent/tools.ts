@@ -31,7 +31,10 @@ export interface AgentPorts {
     tripId: string;
     quote: SignedQuote;
     shares: Array<{ member: string; amount: bigint }>;
-  }): Promise<{ proposalId: string }>;
+  }): Promise<{
+    proposalId: string;
+    status?: "pending" | "locked" | "fulfilled" | "refunded" | "rejected";
+  }>;
   replaceItinerary(tripId: string, drafts: ItineraryDraft[]): ItineraryItem[];
 }
 
@@ -68,8 +71,13 @@ export const agentTools: Anthropic.Beta.BetaTool[] = [
         merchantId: { type: "string" },
         itemId: { type: "string" },
         quantity: { type: "integer", description: "Number of tickets, 1 to 20." },
+        startsAt: {
+          type: "string",
+          description:
+            "Explicit activity start in ISO 8601 UTC. Ask the group if the date or time is unclear.",
+        },
       },
-      required: ["merchantId", "itemId", "quantity"],
+      required: ["merchantId", "itemId", "quantity", "startsAt"],
       additionalProperties: false,
     },
   },
@@ -209,10 +217,13 @@ export function createToolRun(
     // chain, a retry with the same quote must not create a second proposal.
     quotes.delete(quoteId);
     let proposalId: string;
+    let status = "submitted";
     try {
       // The quote goes through untouched: its merchant is the payee, and nothing the model
       // wrote can replace it.
-      ({ proposalId } = await ports.submitProposal({ tripId, quote, shares: resolvedShares }));
+      const submitted = await ports.submitProposal({ tripId, quote, shares: resolvedShares });
+      proposalId = submitted.proposalId;
+      status = submitted.status ?? "submitted";
     } catch (error) {
       logger.error(failureCode("AGENT_PROPOSAL_UNCONFIRMED", error));
       throw new ToolRejection(
@@ -220,7 +231,7 @@ export function createToolRun(
       );
     }
     proposalIds.push(proposalId);
-    return JSON.stringify({ proposalId, status: "pending" });
+    return JSON.stringify({ proposalId, status });
   }
 
   async function run(name: string, input: unknown): Promise<string> {
@@ -243,7 +254,12 @@ export function createToolRun(
         // SignedQuote keeps the vault, chain and location the signature covers; the older
         // Quote schema would strip them and the proposal could never be verified.
         const quote = SignedQuote.parse(await ports.getQuote(request));
-        if (quote.itemId !== request.itemId || quote.quantity !== request.quantity) {
+        if (
+          quote.itemId !== request.itemId ||
+          quote.quantity !== request.quantity ||
+          Math.floor(Date.parse(quote.startsAt) / 1000) !==
+            Math.floor(Date.parse(request.startsAt) / 1000)
+        ) {
           throw new ToolRejection("The merchant quoted a different item. Try again.");
         }
         const trip = Trip.parse(await ports.getTripState(tripId));

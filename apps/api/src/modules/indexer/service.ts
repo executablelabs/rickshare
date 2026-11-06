@@ -15,6 +15,7 @@ import {
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import { TripEventBus } from "./bus";
+import { saveTripEvent } from "./events";
 import type { IndexSource, TripEventEnvelope } from "./types";
 
 export class IndexerService {
@@ -119,12 +120,7 @@ export class IndexerService {
     const committed = this.db.transaction((transaction) => {
       const events: TripEventEnvelope[] = [];
       const append = (tripId: string, data: TripEvent) => {
-        const row = transaction
-          .insert(tripEvents)
-          .values({ tripId, payload: JSON.stringify(TripEvent.parse(data)) })
-          .returning()
-          .get();
-        events.push({ id: row.id.toString(), tripId, data });
+        events.push(saveTripEvent(transaction, tripId, data));
       };
       for (const log of logs) {
         transaction

@@ -79,6 +79,7 @@ export const ItineraryItem = z.object({
 
 export const ChatMessage = z.object({
   id: z.string(),
+  clientRequestId: z.string().uuid().optional(),
   tripId: z.string(),
   role: z.enum(["member", "agent"]),
   author: Address.nullable(),
