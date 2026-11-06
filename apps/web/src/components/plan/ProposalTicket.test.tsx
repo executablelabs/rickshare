@@ -1,6 +1,7 @@
 import type { Proposal } from "@rickshare/shared";
-import { expect, test } from "vitest";
-import { ticketStatus } from "./ProposalTicket";
+import { act, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
+import { ProposalTicket, ticketStatus } from "./ProposalTicket";
 
 const angie = "0x00000000000000000000000000000000000000A1";
 const gitau = "0x00000000000000000000000000000000000000c3";
@@ -18,10 +19,59 @@ const base: Proposal = {
     { member: gitau, amount: "42000000", state: "waiting" },
   ],
   status: "pending",
-  deadline: "2026-12-11T00:00:00.000Z",
+  deadline: new Date(Date.now() + 86400000).toISOString(),
   ticketHash: null,
   txHash: "0x00",
 };
+
+test("an expired pending share cannot keep asking its member to approve", () => {
+  expect(ticketStatus({ ...base, deadline: "2020-01-01T00:00:00.000Z" }, gitau)).toMatchObject({
+    label: "Expired",
+    tone: "neutral",
+  });
+});
+
+test("removes approval actions when a pending ticket expires while open", () => {
+  vi.useFakeTimers();
+  try {
+    render(
+      <ProposalTicket
+        proposal={{ ...base, deadline: new Date(Date.now() + 1000).toISOString() }}
+        members={[]}
+        viewer={gitau}
+        actions={<button type="button">Approve my share</button>}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Approve my share" })).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1001));
+    expect(screen.getByText("Expired")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve my share" })).not.toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("uses the current clock when a stream update replaces the proposal deadline", () => {
+  vi.useFakeTimers();
+  try {
+    const ticket = (deadline: number) => (
+      <ProposalTicket
+        proposal={{ ...base, deadline: new Date(deadline).toISOString() }}
+        members={[]}
+        viewer={gitau}
+        actions={<button type="button">Approve my share</button>}
+      />
+    );
+    const view = render(ticket(Date.now() + 60000));
+    act(() => vi.advanceTimersByTime(10000));
+    view.rerender(ticket(Date.now() + 1000));
+    act(() => vi.advanceTimersByTime(1001));
+    expect(screen.getByText("Expired")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve my share" })).not.toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 test.each([
   [

@@ -77,6 +77,8 @@
    name appears exactly behind the rickshaw. 5rem is the splash mark's width (w-20). */
 @theme {
   --animate-wheel-spin: wheel-spin 600ms linear infinite;
+  /* The signature moment from DESIGN.md: your stamp presses onto the ticket. */
+  --animate-stamp: stamp-press 180ms ease-out both;
   --animate-rickshaw-bob: rickshaw-bob 300ms ease-in-out infinite alternate;
   --animate-road: road 400ms linear infinite;
   --animate-splash-drive:
@@ -86,6 +88,16 @@
   --animate-splash-wheels: splash-wheels 1350ms both;
   --animate-splash-exit: splash-exit 300ms ease-in 1650ms both;
 
+  @keyframes stamp-press {
+    from {
+      scale: 1.12;
+      rotate: -6deg;
+    }
+    to {
+      scale: 1;
+      rotate: -2deg;
+    }
+  }
   @keyframes wheel-spin {
     to {
       transform: rotate(1turn);

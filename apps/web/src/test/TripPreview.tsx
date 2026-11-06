@@ -1,8 +1,10 @@
-import type { Trip } from "@rickshare/shared";
+import type { ChatMessage, Proposal, Trip } from "@rickshare/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Address } from "viem";
 import { useWallet, WalletContext } from "../auth/wallet";
+import { Composer } from "../components/plan/Composer";
+import { Feed } from "../components/plan/Feed";
 import { AppShell } from "../components/shell/AppShell";
 import { MoneyPanel } from "../components/trips/MoneyPanel";
 import { ReadyChecklist } from "../components/trips/ReadyChecklist";
@@ -35,6 +37,45 @@ const sampleTrip: Trip = {
   })),
 };
 
+const [, bashy, gitau] = sampleTrip.members.map((member) => member.address);
+const sampleProposal: Proposal = {
+  id: "1",
+  tripId: sampleTrip.id,
+  merchant: `0x${"d".repeat(40)}`,
+  merchantName: "Goa Adventures",
+  title: "Tandem paragliding, Arambol",
+  location: "Arambol beach, Goa",
+  startsAt: "2026-12-12T04:30:00.000Z",
+  total: "84000000",
+  shares: [
+    { member: me, amount: "42000000", state: "waiting" },
+    { member: gitau ?? me, amount: "42000000", state: "approved" },
+  ],
+  status: "pending",
+  deadline: "2026-12-11T00:00:00.000Z",
+  ticketHash: null,
+  txHash: "0x00",
+};
+const sampleMessages: ChatMessage[] = [
+  ["m1", "member", bashy, "Anything fun for Saturday morning in Goa?", []],
+  ["m2", "member", me, "Something with a view. Gitau and I are in, Bashy is surfing.", []],
+  [
+    "m3",
+    "agent",
+    null,
+    "Tandem paragliding over Arambol fits Saturday morning. I proposed it for Angie and Gitau.",
+    ["1"],
+  ],
+].map(([id, role, author, text, proposalIds], index) => ({
+  id: id as string,
+  tripId: sampleTrip.id,
+  role: role as ChatMessage["role"],
+  author: (author as string | null) ?? null,
+  text: text as string,
+  proposalIds: proposalIds as string[],
+  createdAt: `2026-12-01T10:0${index}:00.000Z`,
+}));
+
 export default function TripPreview() {
   const wallet = useWallet();
   const [client] = useState(() => {
@@ -63,6 +104,7 @@ export default function TripPreview() {
             <AppShell
               tripId={sampleTrip.id}
               tripName={sampleTrip.name}
+              tripEnsName={sampleTrip.ensName}
               subtitle="Ends 18 Dec"
               members={sampleTrip.members}
               aside={<MoneyPanel />}
@@ -71,6 +113,18 @@ export default function TripPreview() {
               <div className="flex flex-col gap-5">
                 <h1 className="sr-only">Plan</h1>
                 <ReadyChecklist />
+                <Feed
+                  messages={sampleMessages}
+                  proposals={[sampleProposal]}
+                  thinking={false}
+                  onSuggest={() => undefined}
+                />
+                <Composer
+                  value=""
+                  onChange={() => undefined}
+                  onSend={() => undefined}
+                  disabled={false}
+                />
               </div>
             </AppShell>
           </TripActionsProvider>
