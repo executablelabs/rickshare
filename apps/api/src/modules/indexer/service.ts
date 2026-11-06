@@ -16,6 +16,7 @@ import {
 } from "../../db/schema";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
+import { isRpcRateLimit } from "../chain/rpc";
 import { TripEventBus } from "./bus";
 import { saveTripEvent } from "./events";
 import type { IndexSource, TripEventEnvelope } from "./types";
@@ -24,6 +25,8 @@ export class IndexerService {
   readonly bus = new TripEventBus();
   private running: Promise<void> | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
+  private retryAt = 0;
+  private rateLimitFailures = 0;
   readonly cursorId: string;
 
   constructor(
@@ -36,16 +39,42 @@ export class IndexerService {
 
   sync(): Promise<void> {
     if (this.running) return this.running;
-    this.running = this.cycle().finally(() => {
-      this.running = null;
-    });
+    if (Date.now() < this.retryAt)
+      return Promise.reject(
+        new AppError(
+          "RPC_RATE_LIMITED",
+          "Trip updates are temporarily rate limited. Please retry shortly.",
+          503,
+        ),
+      );
+    this.running = this.cycle()
+      .then(() => {
+        this.retryAt = 0;
+        this.rateLimitFailures = 0;
+      })
+      .catch((error: unknown) => {
+        if (!isRpcRateLimit(error)) throw error;
+        this.retryAt = Date.now() + Math.min(60_000, 15_000 * 2 ** this.rateLimitFailures);
+        this.rateLimitFailures = Math.min(this.rateLimitFailures + 1, 3);
+        throw new AppError(
+          "RPC_RATE_LIMITED",
+          "Trip updates are temporarily rate limited. Please retry shortly.",
+          503,
+        );
+      })
+      .finally(() => {
+        this.running = null;
+      });
     return this.running;
   }
 
   start(interval: number) {
     if (this.timer) return;
     const run = () => {
-      void this.sync().catch(() => logger.error("INDEXER_SYNC_FAILED"));
+      if (this.running || Date.now() < this.retryAt) return;
+      void this.sync().catch((error: unknown) =>
+        logger.error(isRpcRateLimit(error) ? "INDEXER_RPC_RATE_LIMITED" : "INDEXER_SYNC_FAILED"),
+      );
     };
     run();
     this.timer = setInterval(run, interval);
@@ -97,26 +126,34 @@ export class IndexerService {
       ]),
     ];
     const logs = await this.source.events(vaults, from, to);
+    // Contract state changes emit vault events; idle batches need no repeated balance reads.
+    const changedVaults = new Set([
+      ...created.map((entry) => entry.vault.toLowerCase()),
+      ...logs.map((log) => log.vault.toLowerCase()),
+    ]);
     const snapshots = await Promise.all(
-      vaults.map(async (vault: Address) => {
-        const previous = this.db
-          .select()
-          .from(projectedProposals)
-          .where(eq(projectedProposals.tripId, vault.toLowerCase()))
-          .all();
-        const ids = [
-          ...new Set([
-            ...previous.map((row) => row.proposalId),
-            ...logs
-              .filter(
-                (log) => log.vault.toLowerCase() === vault.toLowerCase() && log.proposalId !== null,
-              )
-              .map((log) => log.proposalId)
-              .filter((id): id is string => id !== null),
-          ]),
-        ];
-        return this.source.snapshot(vault, to, ids);
-      }),
+      vaults
+        .filter((vault) => changedVaults.has(vault.toLowerCase()))
+        .map(async (vault: Address) => {
+          const previous = this.db
+            .select()
+            .from(projectedProposals)
+            .where(eq(projectedProposals.tripId, vault.toLowerCase()))
+            .all();
+          const ids = [
+            ...new Set([
+              ...previous.map((row) => row.proposalId),
+              ...logs
+                .filter(
+                  (log) =>
+                    log.vault.toLowerCase() === vault.toLowerCase() && log.proposalId !== null,
+                )
+                .map((log) => log.proposalId)
+                .filter((id): id is string => id !== null),
+            ]),
+          ];
+          return this.source.snapshot(vault, to, ids);
+        }),
     );
     const hash = await this.source.blockHash(to);
     const committed = this.db.transaction((transaction) => {
