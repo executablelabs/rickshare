@@ -57,12 +57,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const renderToast = (toast: ToastItem) => (
     <div
       key={toast.id}
-      className="pointer-events-auto flex w-full max-w-[400px] items-center gap-3 rounded-control bg-ink py-1 pr-1 pl-4 text-sm text-card"
+      className="pointer-events-auto flex w-full max-w-[400px] items-center gap-3 rounded-control bg-ink py-1 pr-1 pl-4 text-sm text-card shadow-card"
     >
       {toast.tone === "success" ? (
-        <CheckCircle aria-hidden="true" size={20} className="shrink-0" />
+        <CheckCircle aria-hidden="true" size={20} className="shrink-0 text-stamp-tint" />
       ) : (
-        <WarningCircle aria-hidden="true" size={20} className="shrink-0" />
+        <WarningCircle aria-hidden="true" size={20} className="shrink-0 text-declined-tint" />
       )}
       <p className="flex-1 py-2">{toast.message}</p>
       <button

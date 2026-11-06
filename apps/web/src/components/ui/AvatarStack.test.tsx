@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
-import { initialOf } from "./Avatar";
+import { Avatar, initialOf, memberTint } from "./Avatar";
 import { AvatarStack, listNames } from "./AvatarStack";
 
 const members = ["Angie", "Bashy", "Gitau", "Wanjiru"].map((displayName, index) => ({
@@ -39,4 +39,20 @@ test.each([
   ["", "?"],
 ])("uses the first letter of %j", (name, expected) => {
   expect(initialOf(name)).toBe(expected);
+});
+
+test("gives a member the same tint whatever the address casing", () => {
+  const address = "0xAbCdEf0000000000000000000000000000000001";
+  expect(memberTint(address)).toBe(memberTint(address.toLowerCase()));
+});
+
+test("spreads members across tints", () => {
+  const tints = new Set(members.map((member) => memberTint(member.address)));
+  expect(tints.size).toBeGreaterThan(1);
+});
+
+test("tints an avatar by its color key, not its name", () => {
+  render(<Avatar name="Angie" colorKey={members[1]?.address ?? ""} />);
+  const avatar = screen.getByRole("img", { name: "Angie" });
+  expect(avatar.className).toContain(memberTint(members[1]?.address ?? ""));
 });

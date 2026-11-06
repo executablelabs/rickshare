@@ -25,6 +25,7 @@ export function AvatarStack({ members, max = 3 }: AvatarStackProps) {
         <Avatar
           key={member.address}
           name={member.displayName}
+          colorKey={member.address}
           size="sm"
           className={index === 0 ? "outline-2 outline-paper" : "-ml-2 outline-2 outline-paper"}
         />

@@ -52,6 +52,7 @@ function UiGallery() {
 
       <Section title="Chips">
         <div className="flex flex-wrap gap-2">
+          <Chip tone="action">Waiting for you</Chip>
           <Chip tone="stamp">Approved</Chip>
           <Chip tone="waiting">Waiting on Bashy</Chip>
           <Chip>Not in</Chip>
