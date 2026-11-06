@@ -46,6 +46,7 @@ class FakeEns implements EnsChain {
   addresses = new Map<string, Address>();
   texts = new Map<string, string>();
   itineraryWriters = new Set<Address>();
+  failNext: string | undefined;
 
   predict(salt: bigint) {
     return getAddress(
@@ -71,6 +72,12 @@ class FakeEns implements EnsChain {
       const call = decodeFunctionData({ abi: registryAbi, data });
       const found = this.registries.get(to)?.get(call.args?.[0] as string);
       switch (call.functionName) {
+        case "getParent":
+          return encodeFunctionResult({
+            abi: registryAbi,
+            functionName: "getParent",
+            result: this.parents.get(to) ?? [zeroAddress, ""],
+          });
         case "findOwner":
           return encodeFunctionResult({
             abi: registryAbi,
@@ -122,6 +129,10 @@ class FakeEns implements EnsChain {
       args: readonly unknown[];
     };
     if (record) this.sent.push({ signer, to, functionName: call.functionName, args: call.args });
+    if (this.failNext === call.functionName) {
+      this.failNext = undefined;
+      throw new Error("simulated RPC failure");
+    }
     const [a, b, c, d, , f] = call.args;
     const revert = () => {
       throw new AppError("ENS_CALL_REVERTED", "rejected", 409);
@@ -230,6 +241,52 @@ describe("parent setup", () => {
 });
 
 describe("trip names", () => {
+  test("repairs records after registration succeeded but the address write failed", async () => {
+    const { chain, ens } = await setUp();
+    chain.failNext = "multicall";
+    await expect(ens.provisionTrip(trip)).rejects.toThrow("simulated RPC failure");
+    chain.sent = [];
+    const names = await ens.provisionTrip(trip);
+    expect(chain.sentNames()).not.toContain("register");
+    expect(chain.addresses.get(dnsEncode(names.trip))).toBe(VAULT);
+    expect(chain.addresses.get(dnsEncode(names.members[ANGIE] ?? ""))).toBe(ANGIE);
+    expect(await ens.agentCanWrite(names, ITINERARY_KEY)).toBe(true);
+  });
+
+  test("repairs parent links after deployment succeeded but linking failed", async () => {
+    const { chain, ens } = await setUp();
+    chain.failNext = "setParent";
+    await expect(ens.provisionTrip(trip)).rejects.toThrow("simulated RPC failure");
+    const names = await ens.provisionTrip(trip);
+    expect(chain.parents.get(names.registry)?.[1]).toBe("india-26-3fa2");
+  });
+
+  test("uses persisted labels after trip/member display names change", async () => {
+    const { ens } = await setUp();
+    const names = await ens.provisionTrip(trip);
+    const renamed = await ens.provisionTrip({
+      ...trip,
+      name: "New name",
+      label: "india-26-3fa2",
+      members: trip.members.map((member) => ({
+        ...member,
+        displayName: "Changed",
+        label: member.address === ANGIE ? "angie" : "bashy",
+      })),
+    });
+    expect(renamed).toEqual(names);
+  });
+
+  test("rejects a trip label already attached to another vault", async () => {
+    const { ens } = await setUp();
+    await ens.provisionTrip(trip);
+    await expect(
+      ens.provisionTrip({
+        ...trip,
+        vault: getAddress("0x3fa2000000000000000000000000000000000002"),
+      }),
+    ).rejects.toMatchObject({ code: "ENS_LABEL_TAKEN" });
+  });
   test("register the trip, each member and the agent until the trip ends", async () => {
     const { chain, ens } = await setUp();
 
