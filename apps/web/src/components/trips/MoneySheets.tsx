@@ -85,11 +85,27 @@ export function useMoneyFlow(trip: Trip) {
         current.completed++;
       }
       next();
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: tripKeys.one(trip.id) }),
-        queryClient.invalidateQueries({ queryKey: tripKeys.money(trip.id) }),
-        queryClient.invalidateQueries({ queryKey: tripKeys.list }),
-      ]);
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          queryClient.invalidateQueries({ queryKey: tripKeys.list }),
+          new Promise<never>((_resolve, reject) => {
+            timeout = setTimeout(
+              () =>
+                reject(
+                  new ApiError(
+                    "TRIP_REFRESH_PENDING",
+                    "Your transaction is confirmed. The trip is still updating. Check the previous attempt.",
+                    503,
+                  ),
+                ),
+              15_000,
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeout);
+      }
       batch.current = undefined;
     });
   }
@@ -193,7 +209,7 @@ export function AddMoneySheet({ trip, open, onOpenChange }: SheetProps) {
 export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
   const wallet = useWallet();
   const showToast = useToast();
-  const { runner, run } = useMoneyFlow(trip);
+  const { runner, run, pending } = useMoneyFlow(trip);
   const me = memberOf(trip, wallet.address);
   const initial = {
     auto: me ? toUsdInput(BigInt(me.policy.autoApproveMax)) : "",
@@ -232,6 +248,7 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
     <Sheet
       open={open}
       onOpenChange={closeUnlessRunning(runner, onOpenChange, () => {
+        if (pending) return;
         setAuto(initial.auto);
         setCap(initial.cap);
         setTouched(false);
@@ -248,7 +265,7 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
           onChange={(event) => setAuto(event.target.value)}
           hint="Per purchase. Use 0 to always be asked."
           error={autoError}
-          disabled={runner.running}
+          disabled={runner.running || pending}
         />
         <Field
           label="Total cap"
@@ -258,11 +275,17 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
           onChange={(event) => setCap(event.target.value)}
           hint="Automatic approvals stop once your spending on this trip reaches this."
           error={capError}
-          disabled={runner.running}
+          disabled={runner.running || pending}
         />
         <Steps labels={STEPS} current={runner.current} error={runner.error} />
         <Button type="submit" fullWidth disabled={runner.running}>
-          {runner.running ? "Saving…" : runner.error ? "Try again" : "Save limits"}
+          {runner.running
+            ? "Saving…"
+            : pending
+              ? "Check previous attempt"
+              : runner.error
+                ? "Try again"
+                : "Save limits"}
         </Button>
       </form>
     </Sheet>
