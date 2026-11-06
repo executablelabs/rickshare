@@ -15,7 +15,8 @@ export class ProposalService {
   constructor(
     private readonly db: AppDatabase,
     private readonly chain: ProposalChain,
-    private readonly merchants: Pick<MerchantClient, "ticket">,
+    private readonly merchants: Pick<MerchantClient, "ticket"> &
+      Partial<Pick<MerchantClient, "paymentRequirements">>,
     private readonly refresh: () => Promise<void>,
     private readonly now: () => number = Date.now,
   ) {}
@@ -141,6 +142,12 @@ export class ProposalService {
     }
     if (Date.parse(quote.expiresAt) <= this.now())
       throw new AppError("QUOTE_EXPIRED", "Request a new merchant quote.", 409);
+    if (await this.merchants.paymentRequirements?.(quote))
+      throw new AppError(
+        "X402_VAULT_ADAPTER_REQUIRED",
+        "This merchant requires x402. Group-funded payment is waiting for the vault adapter; no purchase was submitted.",
+        409,
+      );
     const { endsAt } = await this.chain.validate(
       vault,
       getAddress(quote.merchant),

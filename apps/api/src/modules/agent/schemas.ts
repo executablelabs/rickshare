@@ -1,5 +1,11 @@
-import { Address, IsoDate, type MerchantCatalog, UsdcAmount } from "@rickshare/shared";
+import { Address, IsoDate, type MerchantCatalog, Trip, UsdcAmount } from "@rickshare/shared";
 import { z } from "zod";
+
+// Accept planning metadata when present, including while older trips have no saved destination.
+export const PlannerTrip = Trip.extend({
+  startsAt: IsoDate.nullable().optional().default(null),
+  location: z.string().trim().max(160).nullable().optional().default(null),
+});
 
 // Tool inputs come from the model, so they are validated here even though the tool
 // definitions are strict; extra fields (such as a payee) are rejected, not ignored.

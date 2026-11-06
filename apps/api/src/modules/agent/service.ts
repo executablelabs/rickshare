@@ -68,7 +68,10 @@ export function createAgentService({
   modelId = DEFAULT_AGENT_MODEL,
   now = () => new Date(),
 }: AgentDependencies) {
-  async function callModel(messages: Anthropic.Messages.MessageParam[]): Promise<ModelResponse> {
+  async function callModel(
+    messages: Anthropic.Messages.MessageParam[],
+    tripContext: string,
+  ): Promise<ModelResponse> {
     try {
       return await model.createMessage({
         model: modelId,
@@ -76,6 +79,7 @@ export function createAgentService({
         system: [
           // Static prompt first, clock last: providers cache the longest unchanged prefix.
           { type: "text", text: SYSTEM_PROMPT },
+          { type: "text", text: `Saved trip context for this turn:\n${tripContext}` },
           { type: "text", text: `Current UTC time: ${now().toISOString()}` },
         ],
         tools: agentTools,
@@ -104,9 +108,11 @@ export function createAgentService({
       chat.agentProposalIds(tripId),
     );
     const finish = (text: string) => ({ text, proposalIds: [...tools.proposalIds] });
+    // Resolve references such as "there" even when the model does not request a tool.
+    const tripContext = await tools.execute("get_trip_state", {});
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const response = await callModel(messages);
+      const response = await callModel(messages, tripContext.content);
       if (response.stop_reason === "refusal") return finish(AGENT_REPLIES.refused);
       if (response.stop_reason === "pause_turn") {
         messages.push({ role: "assistant", content: response.content });

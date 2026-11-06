@@ -214,6 +214,7 @@ export function createRuntime(options: RuntimeOptions = {}) {
             (await runtime.merchants().catalog()).filter((merchant) => !!merchant.address),
           getQuote: (request) =>
             runtime.merchants().quote({ ...request, vaultAddress: getAddress(tripId) }),
+          getPaymentRequirements: (quote) => runtime.merchants().paymentRequirements(quote),
           getTripState: async (requestedTrip) => {
             if (requestedTrip.toLowerCase() !== tripId.toLowerCase())
               throw new AppError(
