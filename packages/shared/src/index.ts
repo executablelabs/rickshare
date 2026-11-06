@@ -13,3 +13,4 @@ export { MerchantCatalog, MerchantQuoteRequest, TicketBundle } from "./merchants
 export { formatUsdc, parseUsdc } from "./money";
 export * from "./schemas";
 export { WalletTransaction } from "./transactions";
+export { MerchantPayment, X402Booking, X402PaymentRequired } from "./x402";

@@ -29,5 +29,21 @@ export const config = z
       z.coerce.number().int().min(500).max(60000).default(2000),
     ),
     ARC_START_BLOCK: z.preprocess(blankToUndefined, z.string().regex(/^\d+$/).default("0")),
+    X402_ENABLED: z.preprocess(
+      blankToUndefined,
+      z
+        .enum(["true", "false"])
+        .default("false")
+        .transform((value) => value === "true"),
+    ),
+    X402_NETWORK: z.preprocess(blankToUndefined, z.literal("eip155:84532").default("eip155:84532")),
+    X402_FACILITATOR_URL: z.preprocess(
+      blankToUndefined,
+      z
+        .string()
+        .url()
+        .refine((value) => ["http:", "https:"].includes(new URL(value).protocol))
+        .default("https://x402.org/facilitator"),
+    ),
   })
   .parse(process.env);
