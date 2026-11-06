@@ -5,6 +5,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { AuthGuard } from "../auth/AuthGuard";
 import { toWalletCall, useWallet } from "../auth/wallet";
 import { Loader } from "../components/brand/Loader";
+import { TravelArt, TravelStamp } from "../components/brand/Travel";
 import { Wordmark } from "../components/brand/Wordmark";
 import { FundingAddress } from "../components/trips/FundingAddress";
 import { Button } from "../components/ui/Button";
@@ -30,18 +31,24 @@ function Join() {
 
 function Card({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-paper px-5 py-10">
-      <div className="flex w-full max-w-[460px] flex-col gap-6 overflow-hidden rounded-band border border-rule bg-card p-6 shadow-card lg:p-8">
-        <div className="-mx-6 -mt-6 bg-brand-orange px-6 py-5 lg:-mx-8 lg:-mt-8 lg:px-8">
-          <Wordmark />
-        </div>
+    <main className="travel-entry">
+      <div className="travel-entry__story">
+        <Wordmark />
+        <p>
+          Good company.
+          <br />
+          <span>Your next adventure.</span>
+        </p>
+        <TravelArt vehicle="plane" photo />
+      </div>
+      <div className="travel-entry__card">
+        <TravelStamp vehicle="plane">A personal invitation</TravelStamp>
         <div className="flex flex-col gap-3">
-          <span className="flex size-12 items-center justify-center rounded-control bg-brand-sky text-ink">
-            {icon}
-          </span>
+          <span className="travel-entry__icon">{icon}</span>
           <h1 className="text-3xl">{title}</h1>
         </div>
         {children}
+        <p className="travel-entry__footer">Your share. Your call. Every step of the way.</p>
       </div>
     </main>
   );

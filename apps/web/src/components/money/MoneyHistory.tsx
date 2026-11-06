@@ -1,10 +1,25 @@
+import {
+  ArrowCounterClockwise,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpRight,
+  CheckCircle,
+  FlagCheckered,
+  Receipt,
+  SlidersHorizontal,
+  Ticket,
+  Users,
+  XCircle,
+} from "@phosphor-icons/react";
 import { Address, arcTestnet, UsdcAmount } from "@rickshare/shared";
+import { useWallet } from "../../auth/wallet";
 import { formatUsd } from "../../lib/format-usd";
 import { messageOf } from "../../lib/http";
 import { type HistoryEvent, useHistory } from "../../lib/money";
 import { useProposals } from "../../lib/plan";
 import { Loader } from "../brand/Loader";
 import { useTripActions } from "../trips/TripActions";
+import { displayNameOf } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 
 const labels: Record<string, string> = {
@@ -21,8 +36,23 @@ const labels: Record<string, string> = {
   Withdrawn: "Money withdrawn",
 };
 
+const icons: Record<string, typeof Receipt> = {
+  MemberJoined: Users,
+  PolicySet: SlidersHorizontal,
+  Proposed: Receipt,
+  ShareChanged: SlidersHorizontal,
+  Locked: CheckCircle,
+  Rejected: XCircle,
+  Fulfilled: Ticket,
+  Refunded: ArrowCounterClockwise,
+  Settled: FlagCheckered,
+  Deposited: ArrowDown,
+  Withdrawn: ArrowUp,
+};
+
 export function MoneyHistory() {
   const { trip } = useTripActions();
+  const wallet = useWallet();
   const history = useHistory(trip.id);
   const proposals = useProposals(trip.id);
   const seen = new Set<string>();
@@ -39,16 +69,17 @@ export function MoneyHistory() {
     const member = actor.success
       ? trip.members.find((member) => member.address.toLowerCase() === actor.data.toLowerCase())
       : undefined;
+    const isYou = actor.success && actor.data.toLowerCase() === wallet.address?.toLowerCase();
+    const name = displayNameOf(member?.displayName ?? "");
+    const actorName = isYou && name !== member?.displayName ? "You" : name;
     const amount = UsdcAmount.safeParse(event.data.amount);
     if (amount.success && (event.name === "Deposited" || event.name === "Withdrawn"))
-      return `${member?.displayName ?? "A member"} ${event.name === "Deposited" ? "added" : "withdrew"} ${formatUsd(BigInt(amount.data))}`;
+      return `${actorName} ${event.name === "Deposited" ? "added" : "withdrew"} ${formatUsd(BigInt(amount.data))}`;
+    if (isYou && event.name === "PolicySet") return "Updated your limits";
     return labels[event.name] ?? "Trip updated";
   }
   return (
-    <section
-      aria-labelledby="history-title"
-      className="flex flex-col gap-4 rounded-ticket border border-rule bg-card p-5 shadow-card"
-    >
+    <section aria-labelledby="history-title" className="travel-receipts flex flex-col gap-4">
       <h2 id="history-title" className="font-display text-xl font-semibold">
         History
       </h2>
@@ -60,31 +91,39 @@ export function MoneyHistory() {
             <p className="text-ink-muted">No money activity yet.</p>
           )}
           <ol aria-label="Money history" className="divide-y divide-rule">
-            {events.map((event) => (
-              <li key={event.id} className="flex flex-col gap-1 py-3">
-                <p className="font-semibold wrap-anywhere">{describe(event)}</p>
-                {event.proposalId && (
-                  <p className="text-sm text-ink-muted wrap-anywhere">
-                    {proposals.data?.find((proposal) => proposal.id === event.proposalId)?.title ??
-                      `Purchase #${event.proposalId}`}
-                  </p>
-                )}
-                <details className="text-sm text-ink-muted">
-                  <summary className="flex min-h-11 cursor-pointer items-center underline">
-                    Transaction details
-                  </summary>
-                  <p>Block {event.blockNumber}</p>
+            {events.map((event) => {
+              const Icon = icons[event.name] ?? Receipt;
+              return (
+                <li key={event.id} className="flex items-start gap-3 py-3">
+                  <span
+                    className="flex size-10 shrink-0 items-center justify-center rounded-pill bg-paper text-ink"
+                    aria-hidden="true"
+                  >
+                    <Icon size={20} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold wrap-anywhere">{describe(event)}</p>
+                    {event.proposalId && (
+                      <p className="text-sm text-ink-muted wrap-anywhere">
+                        {proposals.data?.find((proposal) => proposal.id === event.proposalId)
+                          ?.title ?? `Purchase #${event.proposalId}`}
+                      </p>
+                    )}
+                    <p className="mt-1 text-sm text-ink-muted">Block {event.blockNumber}</p>
+                  </div>
                   <a
                     href={`${arcTestnet.blockExplorers.default.url}/tx/${event.transactionHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-11 items-center text-stamp-ink underline"
+                    aria-label="View transaction"
+                    title="View transaction"
+                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink hover:bg-paper"
                   >
-                    View transaction
+                    <ArrowUpRight size={20} aria-hidden="true" />
                   </a>
-                </details>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ol>
           {history.isError && (
             <div role="alert" className="flex flex-col items-start gap-3">

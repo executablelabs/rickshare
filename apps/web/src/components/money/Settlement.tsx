@@ -1,8 +1,10 @@
+import { FlagCheckered } from "@phosphor-icons/react";
 import type { Proposal } from "@rickshare/shared";
 import { useState } from "react";
 import { formatWhen } from "../../lib/format-date";
 import { useProposals } from "../../lib/plan";
 import { useMoney } from "../../lib/trips";
+import { TapeLabel } from "../brand/TravelDetails";
 import { useMoneyFlow } from "../trips/MoneySheets";
 import { useTripActions } from "../trips/TripActions";
 import { Button } from "../ui/Button";
@@ -56,25 +58,41 @@ export function Settlement() {
     (proposal) => proposal.status === "locked" && Date.parse(proposal.deadline) <= Date.now(),
   );
   return (
-    <section
-      aria-labelledby="settlement-title"
-      className="flex flex-col gap-4 rounded-ticket border border-rule bg-card p-5 shadow-card"
-    >
+    <section aria-labelledby="settlement-title" className="travel-settlement flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <TapeLabel>Journey’s end</TapeLabel>
+        <FlagCheckered aria-hidden="true" size={28} className="shrink-0 text-ink" />
+      </div>
       <h2 id="settlement-title" className="font-display text-xl font-semibold">
         Wrap up the trip
       </h2>
+      <div className="flex flex-col gap-1 self-start rounded-control border border-dashed border-rule-strong px-4 py-3">
+        <span className="text-sm text-ink-muted">
+          {ended ? "Trip ended" : "Settlement unlocks"}
+        </span>
+        <time dateTime={trip.endsAt} className="font-semibold">
+          {formatWhen(trip.endsAt)}
+        </time>
+      </div>
       <p>
         {money.data?.settled
           ? "The trip is settled. Each person can withdraw their own available balance."
           : "Settlement stops new purchases. It does not withdraw anyone’s money; each person chooses when to withdraw."}
       </p>
-      {!ended && !money.data?.settled && (
-        <p className="text-sm text-ink-muted">Available after {formatWhen(trip.endsAt)}.</p>
+      {!money.data?.settled && (!ended || !money.isSuccess) && (
+        <p id="settlement-reason" className="text-sm text-ink-muted">
+          {!ended
+            ? "The trip is still underway. You can settle after it ends."
+            : money.isError
+              ? "The balance could not be loaded. Refresh the balance before settling."
+              : "Checking the trip balance before settlement becomes available."}
+        </p>
       )}
       {!money.data?.settled && (
         <Button
           variant="secondary"
           disabled={!ended || !money.isSuccess}
+          aria-describedby={!ended || !money.isSuccess ? "settlement-reason" : undefined}
           onClick={() => setOpen(true)}
         >
           Settle trip

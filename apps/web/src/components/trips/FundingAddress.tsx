@@ -24,7 +24,7 @@ export function FundingAddress() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-ticket border border-rule bg-paper p-3">
+    <div className="travel-funding min-w-0">
       <label htmlFor={id} className="text-sm font-semibold">
         Your wallet on Arc Testnet
       </label>
