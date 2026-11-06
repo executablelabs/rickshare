@@ -1,13 +1,16 @@
 import { cx } from "../../lib/cx";
 import { RickshawMark } from "./RickshawMark";
+import { TransportMark, type Vehicle } from "./TransportMark";
 
 export interface WordmarkProps {
   /** `ink` on light grounds; `card` on navy, where "share" turns marigold as DESIGN.md asks. */
   tone?: "ink" | "card";
   className?: string;
+  /** Marketing pages can opt into the transport family; the app keeps its original mark. */
+  vehicle?: Vehicle;
 }
 
-export function Wordmark({ tone = "ink", className }: WordmarkProps) {
+export function Wordmark({ tone = "ink", className, vehicle }: WordmarkProps) {
   return (
     <span
       className={cx(
@@ -16,7 +19,11 @@ export function Wordmark({ tone = "ink", className }: WordmarkProps) {
         className,
       )}
     >
-      <RickshawMark className={cx("w-10", tone === "card" ? "text-card" : "text-ink")} />
+      {vehicle ? (
+        <TransportMark vehicle={vehicle} />
+      ) : (
+        <RickshawMark className={cx("w-10", tone === "card" ? "text-card" : "text-ink")} />
+      )}
       <span>
         Rick<span className={tone === "card" ? "text-marigold" : undefined}>share</span>
       </span>
