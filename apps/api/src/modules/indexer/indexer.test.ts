@@ -3,7 +3,14 @@ import type { Member } from "@rickshare/shared";
 import { eq } from "drizzle-orm";
 import { getAddress, type Hex } from "viem";
 import { type AppDatabase, createDatabase } from "../../db/client";
-import { chainCursors, chainEvents, indexedVaults, tripEvents } from "../../db/schema";
+import {
+  chainCursors,
+  chainEvents,
+  ensMembers,
+  ensTrips,
+  indexedVaults,
+  tripEvents,
+} from "../../db/schema";
 import { IndexerService } from "./service";
 import type { IndexSource, TripEventEnvelope, VaultSnapshot } from "./types";
 
@@ -155,4 +162,41 @@ test("changed finalized history fails closed and membership is enforced", async 
   f.corrupt();
   await expect(f.service.sync()).rejects.toThrow("Indexed chain history changed");
   expect(f.service.events(vault)).toHaveLength(2);
+});
+
+test("only confirmed ENS names project and survive metadata refresh, new blocks and restart", async () => {
+  const f = fixture();
+  const tripId = vault.toLowerCase();
+  const name = "goa-0123.rickshare.eth";
+  await f.service.sync();
+  f.db.insert(ensTrips).values({ tripId, name }).run();
+  f.db
+    .insert(ensMembers)
+    .values({
+      id: `${tripId}:${alice.toLowerCase()}`,
+      tripId,
+      address: alice.toLowerCase(),
+      label: "alice",
+    })
+    .run();
+  f.service.refreshMetadata(vault);
+  expect(f.service.getTrip(vault).ensName).toBeNull();
+  expect(f.service.getTrip(vault).members[0]?.ensName).toBeNull();
+
+  f.db.update(ensTrips).set({ registry: factory, resolver: merchant }).run();
+  f.service.refreshMetadata(vault);
+  expect(f.service.getTrip(vault).ensName).toBe(name);
+  expect(f.service.getTrip(vault).members[0]?.ensName).toBeNull();
+  f.db.update(ensMembers).set({ ready: true }).run();
+  f.service.refreshMetadata(vault);
+  const event = f.service.events(vault).at(-1)?.data;
+  expect(event?.type === "balances.updated" && event.members[0]?.ensName).toBe(`alice.${name}`);
+  expect(f.service.getTrip(vault).members[0]?.available).toBe("100000000");
+
+  f.next();
+  await f.service.sync();
+  const restarted = new IndexerService(f.db, f.source);
+  expect(restarted.getTrip(vault).ensName).toBe(name);
+  expect(restarted.getTrip(vault).members[0]?.ensName).toBe(`alice.${name}`);
+  expect(restarted.getTrip(vault).members[0]?.available).toBe("90000000");
 });

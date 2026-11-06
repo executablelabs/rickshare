@@ -5,6 +5,8 @@ import type { AppDatabase } from "../../db/client";
 import {
   chainCursors,
   chainEvents,
+  ensMembers,
+  ensTrips,
   indexedVaults,
   memberMetadata,
   projectedProposals,
@@ -153,15 +155,29 @@ export class IndexerService {
           .from(tripMetadata)
           .where(eq(tripMetadata.tripId, tripId))
           .get();
+        const names = transaction.select().from(ensTrips).where(eq(ensTrips.tripId, tripId)).get();
+        const registeredName = names?.registry && names.resolver ? names.name : null;
+        const memberNames = new Map(
+          transaction
+            .select()
+            .from(ensMembers)
+            .where(eq(ensMembers.tripId, tripId))
+            .all()
+            .filter((member) => member.ready)
+            .map((member) => [member.address, `${member.label}.${registeredName}`]),
+        );
         const trip = Trip.parse({
           id: tripId,
           name:
             metadata?.name ?? `Trip ${snapshot.address.slice(0, 8)}…${snapshot.address.slice(-6)}`,
-          ensName: null,
+          ensName: registeredName,
           vaultAddress: snapshot.address,
           endsAt: snapshot.endsAt,
           members: snapshot.members.map((member) => ({
             ...member,
+            ensName: registeredName
+              ? (memberNames.get(member.address.toLowerCase()) ?? null)
+              : null,
             displayName:
               transaction
                 .select()
@@ -278,14 +294,27 @@ export class IndexerService {
         .get();
       if (!row) return null;
       const previous = Trip.parse(JSON.parse(row.payload));
+      const names = transaction.select().from(ensTrips).where(eq(ensTrips.tripId, id)).get();
+      const registeredName = names?.registry && names.resolver ? names.name : null;
+      const memberNames = new Map(
+        transaction
+          .select()
+          .from(ensMembers)
+          .where(eq(ensMembers.tripId, id))
+          .all()
+          .filter((member) => member.ready)
+          .map((member) => [member.address, `${member.label}.${registeredName}`]),
+      );
       const name =
         transaction.select().from(tripMetadata).where(eq(tripMetadata.tripId, id)).get()?.name ??
         previous.name;
       const trip = Trip.parse({
         ...previous,
         name,
+        ensName: registeredName,
         members: previous.members.map((member) => ({
           ...member,
+          ensName: registeredName ? (memberNames.get(member.address.toLowerCase()) ?? null) : null,
           displayName:
             transaction
               .select()
