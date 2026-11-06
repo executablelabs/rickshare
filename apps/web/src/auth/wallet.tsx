@@ -19,6 +19,7 @@ export type Wallet = {
 
 /** What the app asks the wallet to send: always to a contract, never with native value. */
 export type WalletCall = {
+  from?: Address;
   to: Address;
   data: Hex;
   maxFeePerGas?: Hex;
@@ -30,7 +31,13 @@ export function toWalletCall(transaction: WalletTransaction): WalletCall {
   const { data, maxFeePerGas, maxPriorityFeePerGas } = transaction;
   if (!isHex(data) || !isHex(maxFeePerGas) || !isHex(maxPriorityFeePerGas))
     throw new Error("The prepared transaction is malformed. Try again.");
-  return { to: getAddress(transaction.to), data, maxFeePerGas, maxPriorityFeePerGas };
+  return {
+    from: getAddress(transaction.from),
+    to: getAddress(transaction.to),
+    data,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+  };
 }
 
 const unavailable = () => {
