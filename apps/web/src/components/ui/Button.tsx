@@ -4,9 +4,9 @@ import { cx } from "../../lib/cx";
 type ButtonVariant = "primary" | "secondary" | "destructive";
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-ink text-card",
-  secondary: "bg-card text-ink ring-1 ring-inset ring-ink",
-  destructive: "bg-transparent text-declined",
+  primary: "bg-coral text-card enabled:hover:bg-coral-strong enabled:active:bg-coral-strong",
+  secondary: "bg-card text-ink ring-1 ring-inset ring-rule-strong enabled:hover:bg-paper",
+  destructive: "bg-transparent text-declined enabled:hover:bg-declined-tint",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -26,7 +26,7 @@ export function Button({
       type={type}
       className={cx(
         "inline-flex h-12 items-center justify-center gap-2 rounded-control px-5 text-base font-semibold",
-        "disabled:cursor-not-allowed disabled:opacity-50",
+        "motion-safe:transition-colors motion-safe:duration-150 disabled:cursor-not-allowed disabled:opacity-50",
         variantClasses[variant],
         fullWidth && "w-full",
         className,

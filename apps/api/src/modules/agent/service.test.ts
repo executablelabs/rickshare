@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import Anthropic from "@anthropic-ai/sdk";
 import { createDatabase } from "../../db/client";
 import { AppError } from "../../lib/errors";
 import { createChatStore } from "../chat/service";
 import {
-  AGENT_MODEL,
   AGENT_REPLIES,
   type AgentModel,
   createAgentService,
+  DEFAULT_AGENT_MODEL,
   MAX_TOOL_ROUNDS,
+  ModelUnavailableError,
 } from "./service";
 import {
   ALLOWLISTED_MERCHANT,
@@ -30,6 +30,7 @@ const toolUse = (id: string, name: string, input: unknown): Block => ({
   id,
   name,
   input,
+  caller: { type: "direct" },
 });
 const respond = (stop_reason: Response["stop_reason"], ...content: Block[]): Response => ({
   stop_reason,
@@ -73,7 +74,12 @@ const shares = [
   { member: ANGIE, amount: "42000000" },
   { member: GITAU, amount: "42000000" },
 ];
-const quoteRequest = { merchantId: "goa-adventures", itemId: "arambol-paragliding", quantity: 2 };
+const quoteRequest = {
+  merchantId: "goa-adventures",
+  itemId: "arambol-paragliding",
+  quantity: 2,
+  startsAt: "2026-12-14T10:00:00.000Z",
+};
 
 describe("a planning turn", () => {
   test("proposes through the tools and saves the reply with its proposal ids", async () => {
@@ -103,17 +109,14 @@ describe("a planning turn", () => {
     ]);
   });
 
-  test("calls the configured model with strict tools, caching and fallbacks", async () => {
+  test("calls the configured model with strict tools and medium effort", async () => {
     const run = setup([respond("end_turn", text("Happy to help."))]);
     await run.agent.reply(ask);
 
     const [request] = run.requests;
     expect(request).toMatchObject({
-      model: AGENT_MODEL,
+      model: DEFAULT_AGENT_MODEL,
       output_config: { effort: "medium" },
-      cache_control: { type: "ephemeral" },
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
     });
     expect(request?.tools?.every((tool) => "strict" in tool && tool.strict)).toBe(true);
     expect(request?.messages).toEqual([
@@ -212,6 +215,29 @@ describe("hidden instructions in a search result", () => {
 });
 
 describe("concurrent messages", () => {
+  test("the first queued turn cannot react to a later message", async () => {
+    const chat = createChatStore(createDatabase(":memory:"), () => NOW);
+    const received: string[][] = [];
+    const model: AgentModel = {
+      createMessage: async (request) => {
+        received.push(
+          request.messages
+            .filter((message) => message.role === "user")
+            .map((message) => JSON.parse(String(message.content)).text),
+        );
+        await Bun.sleep(1);
+        return respond("end_turn", text("Noted."));
+      },
+    };
+    const agent = createAgentService({ model, ports: createFakePorts().ports, chat });
+    await Promise.all([
+      agent.reply({ ...ask, text: "first request" }),
+      agent.reply({ ...ask, text: "later request" }),
+    ]);
+    expect(received[0]).toEqual(["first request"]);
+    expect(received[1]).toEqual(["first request", "later request"]);
+  });
+
   test("run one turn per trip at a time, each seeing the earlier reply", async () => {
     const chat = createChatStore(createDatabase(":memory:"), () => NOW);
     const seen: string[][] = [];
@@ -237,7 +263,7 @@ describe("concurrent messages", () => {
 
     // The other trip ran alongside; the second india26 turn saw the first one's reply.
     expect(maxActive).toBe(2);
-    expect(seen).toContainEqual(["user", "user", "assistant"]);
+    expect(seen).toContainEqual(["user", "assistant", "user"]);
   });
 
   test("a failed turn does not block the next one", async () => {
@@ -246,7 +272,7 @@ describe("concurrent messages", () => {
     const model: AgentModel = {
       async createMessage() {
         calls += 1;
-        if (calls === 1) throw new Anthropic.APIConnectionError({ message: "offline" });
+        if (calls === 1) throw new ModelUnavailableError("CONNECTION");
         return respond("end_turn", text("Back again."));
       },
     };
@@ -291,7 +317,7 @@ describe("stopping", () => {
     const agent = createAgentService({
       model: {
         createMessage: async () => {
-          throw new Anthropic.APIConnectionError({ message: "offline" });
+          throw new ModelUnavailableError("CONNECTION");
         },
       },
       ports: createFakePorts().ports,

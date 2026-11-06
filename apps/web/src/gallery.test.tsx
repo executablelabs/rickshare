@@ -14,7 +14,17 @@ async function renderGallery() {
 test("shows a section for every primitive", async () => {
   await renderGallery();
   const sections = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-  expect(sections).toEqual(["Buttons", "Chips", "Amounts", "Avatars", "Fields", "Sheet", "Toasts"]);
+  expect(sections).toEqual([
+    "Buttons",
+    "Chips",
+    "Amounts",
+    "Avatars",
+    "Fields",
+    "Sheet",
+    "Toasts",
+    "Brand",
+    "Loader",
+  ]);
 });
 
 test("opens the sample sheet", async () => {

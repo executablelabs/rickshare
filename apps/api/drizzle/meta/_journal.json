@@ -36,6 +36,20 @@
       "when": 1793919149001,
       "tag": "0004_chat_and_itinerary",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793921410973,
+      "tag": "0005_trips_and_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793922821619,
+      "tag": "0006_durable_chat_requests",
+      "breakpoints": true
     }
   ]
 }

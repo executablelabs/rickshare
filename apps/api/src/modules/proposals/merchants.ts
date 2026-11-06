@@ -73,7 +73,9 @@ export class MerchantClient {
       quote.merchant.toLowerCase() !== merchant.address.toLowerCase() ||
       quote.vaultAddress.toLowerCase() !== request.vaultAddress.toLowerCase() ||
       quote.itemId !== request.itemId ||
-      quote.quantity !== request.quantity
+      quote.quantity !== request.quantity ||
+      Math.floor(Date.parse(quote.startsAt) / 1000) !==
+        Math.floor(Date.parse(request.startsAt) / 1000)
     )
       throw new AppError(
         "MERCHANT_QUOTE_MISMATCH",

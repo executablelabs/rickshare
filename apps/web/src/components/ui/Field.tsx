@@ -38,7 +38,8 @@ export function Field({
         className={cx(
           "h-12 rounded-control bg-card px-4 text-base text-ink ring-1 ring-inset",
           "placeholder:text-ink-muted disabled:opacity-50",
-          error ? "ring-declined" : "ring-rule",
+          "motion-safe:transition-shadow motion-safe:duration-150",
+          error ? "ring-declined" : "ring-rule enabled:hover:ring-rule-strong",
         )}
       />
       {hint && (
