@@ -132,7 +132,8 @@ export function AppShell({
           aria-label="Group money"
           className="hidden xl:col-start-3 xl:row-start-1 xl:block xl:py-8 xl:pr-10"
         >
-          {aside}
+          {/* Stays in view while a long feed scrolls past. */}
+          <div className="xl:sticky xl:top-8">{aside}</div>
         </aside>
       )}
     </div>
