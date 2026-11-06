@@ -1,6 +1,6 @@
 import { CalendarBlank, MapPin, Storefront } from "@phosphor-icons/react";
 import type { Member, Proposal } from "@rickshare/shared";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { cx } from "../../lib/cx";
 import { formatWhen } from "../../lib/format-date";
 import { Amount } from "../ui/Amount";
@@ -30,7 +30,7 @@ function stampOf(share: Share | undefined): StampKind {
 }
 
 /** What the ticket says about itself, from the viewer's point of view. */
-export function ticketStatus(proposal: Proposal, viewer: string | undefined) {
+export function ticketStatus(proposal: Proposal, viewer: string | undefined, now = Date.now()) {
   const mine = proposal.shares.find(
     (share) => share.member.toLowerCase() === viewer?.toLowerCase(),
   );
@@ -44,6 +44,8 @@ export function ticketStatus(proposal: Proposal, viewer: string | undefined) {
     case "locked":
       return { label: "Everyone's in", tone: "stamp", mine } as const;
     default:
+      if (Date.parse(proposal.deadline) <= now)
+        return { label: "Expired", tone: "neutral", mine } as const;
       if (!mine) return { label: "Not for you", tone: "neutral", mine } as const;
       if (mine.state === "waiting")
         return { label: "Waiting for you", tone: "action", mine } as const;
@@ -73,7 +75,16 @@ export function ProposalTicket({
   className,
   pressed,
 }: ProposalTicketProps) {
-  const status = ticketStatus(proposal, viewer);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (proposal.status !== "pending" || Date.parse(proposal.deadline) <= now) return;
+    const timer = window.setTimeout(
+      () => setNow(Date.now()),
+      Math.max(0, Math.min(Date.parse(proposal.deadline) - Date.now(), 2147483647)),
+    );
+    return () => window.clearTimeout(timer);
+  }, [proposal.deadline, proposal.status, now]);
+  const status = ticketStatus(proposal, viewer, now);
   const waitingForYou = status.tone === "action";
 
   if (!status.mine && proposal.status === "pending")

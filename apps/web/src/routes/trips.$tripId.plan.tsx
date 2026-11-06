@@ -34,6 +34,7 @@ function Plan() {
   useTripStream(trip.id);
   const [draft, setDraft] = useState("");
   const [waitingFor, setWaitingFor] = useState<string | null>(null);
+  const retry = useRef<{ requestId: string; text: string } | null>(null);
   const end = useRef<HTMLDivElement>(null);
 
   const messages = chat.data ?? [];
@@ -43,7 +44,10 @@ function Plan() {
     !messages.some((message) => message.role === "agent" && message.clientRequestId === waitingFor);
 
   useEffect(() => {
-    if (!thinking && waitingFor) setWaitingFor(null);
+    if (!thinking && waitingFor) {
+      setWaitingFor(null);
+      retry.current = null;
+    }
   }, [thinking, waitingFor]);
 
   // Keep the newest message in view as the conversation grows.
@@ -54,7 +58,8 @@ function Plan() {
 
   function send(text: string) {
     if (!wallet.address) return;
-    const requestId = crypto.randomUUID();
+    const requestId = retry.current?.text === text ? retry.current.requestId : crypto.randomUUID();
+    retry.current = { requestId, text };
     const optimistic: ChatMessage = {
       id: `pending:${requestId}`,
       clientRequestId: requestId,
@@ -72,6 +77,16 @@ function Plan() {
     setWaitingFor(requestId);
     sendChat(trip.id, requestId, text)
       .then((result) => {
+        if (result.status !== "complete" && result.status !== "processing") {
+          queryClient.setQueryData<ChatMessage[]>(planKeys.chat(trip.id), (current) =>
+            (current ?? []).filter((message) => message.id !== optimistic.id),
+          );
+          setWaitingFor(null);
+          setDraft(text);
+          showToast("That request stopped. Check the plan before sending a new request.", {
+            tone: "error",
+          });
+        }
         if (result.reply)
           queryClient.setQueryData<ChatMessage[]>(planKeys.chat(trip.id), (current) =>
             mergeMessages(
@@ -85,6 +100,14 @@ function Plan() {
         void queryClient.invalidateQueries({ queryKey: planKeys.proposals(trip.id) });
       })
       .catch((error: unknown) => {
+        const completed = queryClient
+          .getQueryData<ChatMessage[]>(planKeys.chat(trip.id))
+          ?.some((message) => message.role === "agent" && message.clientRequestId === requestId);
+        if (completed) {
+          retry.current = null;
+          setWaitingFor(null);
+          return;
+        }
         queryClient.setQueryData<ChatMessage[]>(planKeys.chat(trip.id), (current) =>
           (current ?? []).filter((message) => message.id !== optimistic.id),
         );

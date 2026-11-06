@@ -137,7 +137,7 @@ test("an empty plan offers ideas, and a sent message shows the planner's reply",
 });
 
 test("a failed send puts the text back and explains why", async () => {
-  stubApi({
+  const calls = stubApi({
     ...tripRoutes(tripId, me, linkedTrip()),
     [`POST /trips/${tripId}/chat`]: () => ({
       status: 503,
@@ -153,6 +153,83 @@ test("a failed send puts the text back and explains why", async () => {
   expect(await screen.findByText("The trip agent is unavailable right now.")).toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: "Ask for ideas" })).toHaveValue("Dinner ideas");
   expect(screen.queryByRole("list", { name: "Messages" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  await waitFor(() =>
+    expect(calls.filter((call) => call.route === `POST /trips/${tripId}/chat`)).toHaveLength(2),
+  );
+  const sends = calls.filter((call) => call.route === `POST /trips/${tripId}/chat`);
+  expect(sends[0]?.body).toEqual(sends[1]?.body);
+});
+
+test("a stopped planner request restores the draft and allows editing a new request", async () => {
+  const calls = stubApi({
+    ...tripRoutes(tripId, me, linkedTrip()),
+    [`POST /trips/${tripId}/chat`]: (body) => ({
+      body: {
+        requestId: (body as { requestId: string }).requestId,
+        status: "failed",
+        errorCode: "AGENT_UNAVAILABLE",
+        reply: null,
+      },
+    }),
+  });
+  await renderPlan();
+  const box = await screen.findByRole("textbox", { name: "Ask for ideas" });
+  fireEvent.change(box, { target: { value: "Dinner ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  expect(await screen.findByText(/That request stopped/)).toBeInTheDocument();
+  expect(box).toHaveValue("Dinner ideas");
+  expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+  fireEvent.change(box, { target: { value: "Lunch ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  await waitFor(() =>
+    expect(calls.filter((call) => call.route === `POST /trips/${tripId}/chat`)).toHaveLength(2),
+  );
+  const sends = calls.filter((call) => call.route === `POST /trips/${tripId}/chat`);
+  expect(sends[0]?.body).not.toEqual(sends[1]?.body);
+});
+
+test("a streamed reply completes a request even when its HTTP response fails", async () => {
+  const listeners = new Map<string, (frame: MessageEvent<string>) => void>();
+  vi.stubGlobal(
+    "EventSource",
+    class {
+      addEventListener(type: string, listener: (frame: MessageEvent<string>) => void) {
+        listeners.set(type, listener);
+      }
+      close() {}
+    },
+  );
+  try {
+    stubApi({
+      ...tripRoutes(tripId, me, linkedTrip()),
+      [`POST /trips/${tripId}/chat`]: (body) => {
+        const clientRequestId = (body as { requestId: string }).requestId;
+        listeners.get("chat.message")?.(
+          new MessageEvent("chat.message", {
+            data: JSON.stringify({
+              type: "chat.message",
+              message: { ...agentMessage, clientRequestId, proposalIds: [] },
+            }),
+          }),
+        );
+        return {
+          status: 503,
+          body: { error: { code: "UNAVAILABLE", message: "Response interrupted" } },
+        };
+      },
+    });
+    await renderPlan();
+    const box = await screen.findByRole("textbox", { name: "Ask for ideas" });
+    fireEvent.change(box, { target: { value: "Dinner ideas" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText("Paragliding fits Saturday morning.")).toBeInTheDocument();
+    await waitFor(() => expect(box).toHaveValue(""));
+    expect(screen.queryByText("Response interrupted")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 test("a ticket waiting for you can be declined with the prepared reject", async () => {
@@ -250,4 +327,30 @@ test("someone outside a purchase sees it collapsed, with nothing to approve", as
   const ticket = await screen.findByRole("article", { name: "Tandem paragliding, Arambol" });
   expect(within(ticket).getByText(/Your balance doesn't move/)).toBeInTheDocument();
   expect(within(ticket).queryByRole("button")).not.toBeInTheDocument();
+});
+
+test("opens a participant ticket from the click before the asynchronous ticket request", async () => {
+  const popup = { opener: window, location: { href: "" }, close: vi.fn() };
+  const open = vi.spyOn(window, "open").mockReturnValue(popup as unknown as Window);
+  stubApi({
+    ...tripRoutes(tripId, me, linkedTrip()),
+    [`GET /trips/${tripId}/chat`]: () => ({ body: { messages: [agentMessage] } }),
+    [`GET /trips/${tripId}/proposals`]: () => ({
+      body: { proposals: [{ ...proposal, status: "fulfilled" }] },
+    }),
+    [`GET /trips/${tripId}/proposals/7/ticket`]: () => ({
+      body: {
+        proposalId: "7",
+        code: "ticket-one",
+        url: "https://tickets.example/one",
+        holders: [me, bashy],
+      },
+    }),
+  });
+  await renderPlan();
+  fireEvent.click(await screen.findByRole("button", { name: "View my ticket" }));
+  expect(open).toHaveBeenCalledWith("", "_blank");
+  await waitFor(() => expect(popup.location.href).toBe("https://tickets.example/one"));
+  expect(popup.opener).toBeNull();
+  expect(sendTransaction).not.toHaveBeenCalled();
 });

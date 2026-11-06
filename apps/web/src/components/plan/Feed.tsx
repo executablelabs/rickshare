@@ -37,10 +37,20 @@ function TicketLink({ proposal }: { proposal: Proposal }) {
       fullWidth
       disabled={opening}
       onClick={() => {
+        const popup = window.open("", "_blank");
+        if (popup) popup.opener = null;
         setOpening(true);
         fetchTicket(trip.id, proposal.id)
-          .then((ticket) => window.open(ticket.url, "_blank", "noopener"))
-          .catch((error: unknown) => showToast(messageOf(error), { tone: "error" }))
+          .then((ticket) => {
+            if (!["https:", "http:"].includes(new URL(ticket.url).protocol))
+              throw new Error("This ticket link is invalid. Try again.");
+            if (popup) popup.location.href = ticket.url;
+            else window.location.assign(ticket.url);
+          })
+          .catch((error: unknown) => {
+            popup?.close();
+            showToast(messageOf(error), { tone: "error" });
+          })
           .finally(() => setOpening(false));
       }}
     >
@@ -64,7 +74,7 @@ function Bubble({ message, pending }: { message: ChatMessage; pending: boolean }
         <PlannerAvatar />
         <div className="flex max-w-[85%] flex-col gap-1">
           <span className="text-xs font-semibold text-ink-muted">Planner</span>
-          <p className="rounded-ticket rounded-bl-sm bg-card px-4 py-3 whitespace-pre-wrap shadow-card">
+          <p className="rounded-ticket rounded-bl-sm bg-card px-4 py-3 whitespace-pre-wrap wrap-anywhere shadow-card">
             {message.text}
           </p>
         </div>
@@ -76,7 +86,7 @@ function Bubble({ message, pending }: { message: ChatMessage; pending: boolean }
       <div className="flex justify-end">
         <p
           className={cx(
-            "max-w-[85%] rounded-ticket rounded-br-sm bg-ink px-4 py-3 whitespace-pre-wrap text-card",
+            "max-w-[85%] rounded-ticket rounded-br-sm bg-ink px-4 py-3 whitespace-pre-wrap wrap-anywhere text-card",
             pending && "opacity-70",
           )}
         >
@@ -97,7 +107,7 @@ function Bubble({ message, pending }: { message: ChatMessage; pending: boolean }
         <span className="text-xs font-semibold text-ink-muted">
           {author?.displayName ?? "A member"}
         </span>
-        <p className="rounded-ticket rounded-bl-sm bg-card px-4 py-3 whitespace-pre-wrap ring-1 ring-rule">
+        <p className="rounded-ticket rounded-bl-sm bg-card px-4 py-3 whitespace-pre-wrap wrap-anywhere ring-1 ring-rule">
           {message.text}
         </p>
       </div>
