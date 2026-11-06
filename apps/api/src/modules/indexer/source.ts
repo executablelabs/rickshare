@@ -1,6 +1,6 @@
 import { arcTestnet, Member, Proposal } from "@rickshare/shared";
 import { tripFactoryAbi, tripVaultAbi } from "@rickshare/shared/abi";
-import { type Address, getAddress } from "viem";
+import { type Address, getAddress, parseEventLogs } from "viem";
 import { AppError } from "../../lib/errors";
 import { assertArcChain, createArcClient } from "../chain/clients";
 import type { ChainEvent, IndexSource } from "./types";
@@ -43,13 +43,13 @@ export function createIndexSource(
     },
     async events(vaults, fromBlock, toBlock) {
       if (vaults.length === 0) return [];
+      // Arc's public RPC rejects ABI-wide OR topics even for a single block.
+      // Fetch by vault and retain strictly decoded events locally instead.
       const groups = await Promise.all(
-        vaults.map((address) =>
-          client.getContractEvents({
-            address,
+        vaults.map(async (address) =>
+          parseEventLogs({
             abi: tripVaultAbi,
-            fromBlock,
-            toBlock,
+            logs: await client.getLogs({ address, fromBlock, toBlock }),
             strict: true,
           }),
         ),
