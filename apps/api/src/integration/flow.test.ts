@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { ARC_USDC, contractQuote } from "@rickshare/shared";
+import { ARC_USDC, asHex, contractQuote, inviteTypedData } from "@rickshare/shared";
 import { erc20Abi, tripVaultAbi } from "@rickshare/shared/abi";
 import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
@@ -17,6 +17,8 @@ import { createIndexSource } from "../modules/indexer/source";
 import { createProposalChain } from "../modules/proposals/chain";
 import { MerchantClient } from "../modules/proposals/merchants";
 import { ProposalService } from "../modules/proposals/service";
+import { createTripChain } from "../modules/trips/chain";
+import { TripService } from "../modules/trips/service";
 import { createLocalChain } from "./local-chain";
 
 let local: Awaited<ReturnType<typeof createLocalChain>>;
@@ -26,6 +28,67 @@ beforeAll(async () => {
   local = await createLocalChain();
   database = createDatabase(":memory:");
   merchantStore = new MerchantStore(":memory:");
+}, 120_000);
+
+test("wallet-signed creation and creator-authorized single-use invitations reach real vault membership", async () => {
+  const indexer = new IndexerService(database, createIndexSource(local.factory, local.client));
+  const chain = createTripChain(local.factory, local.client);
+  const trips = new TripService(database, chain, indexer, {
+    origin: "http://localhost:5173",
+    digest: (token) => token,
+  });
+  const prepared = await trips.prepare(local.accounts.alice.address, {
+    name: "Mumbai weekend",
+    endsAt: new Date(Date.now() + 86400_000).toISOString(),
+  });
+  const createdHash = await local.wallet(local.accounts.alice).sendTransaction({
+    to: prepared.transaction.to as `0x${string}`,
+    data: asHex(prepared.transaction.data),
+    value: 0n,
+  });
+  await local.receipt(createdHash);
+  const confirmed = await trips.confirm(
+    local.accounts.alice.address,
+    prepared.creationId,
+    createdHash,
+  );
+  const vault = confirmed.vaultAddress;
+  expect(indexer.getTrip(vault).members).toHaveLength(1);
+  const invite = await trips.createInvite(local.accounts.alice.address, vault);
+  const token = new URL(invite.url).pathname.split("/").at(-1);
+  if (!token) throw new Error("No invite token");
+  const claimed = await trips.claim(local.accounts.bob.address, token);
+  expect(claimed.status).toBe("claimed");
+  await expect(trips.claim(local.accounts.carol.address, token)).rejects.toThrow(
+    "already been claimed",
+  );
+  const signing = await trips.authorize(local.accounts.alice.address, vault, invite.inviteId);
+  if (!signing.typedData) throw new Error("No invite data");
+  const signature = await local.accounts.alice.signTypedData(
+    inviteTypedData({
+      chainId: 5042002,
+      vaultAddress: vault,
+      member: local.accounts.bob.address,
+      deadline: BigInt(signing.typedData.message.deadline),
+    }),
+  );
+  await trips.authorize(local.accounts.alice.address, vault, invite.inviteId, signature);
+  const accepted = await trips.invite(local.accounts.bob.address, invite.inviteId);
+  if (!accepted.transaction) throw new Error("No join transaction");
+  const joined = await local
+    .wallet(local.accounts.bob)
+    .sendTransaction({ to: vault, data: asHex(accepted.transaction.data), value: 0n });
+  await local.receipt(joined);
+  await trips.confirmJoin(local.accounts.bob.address, invite.inviteId, joined);
+  expect(indexer.getTrip(vault).members).toHaveLength(2);
+  await trips.profile(local.accounts.bob.address, vault, "Bashy");
+  expect(
+    indexer.getTrip(vault).members.find((member) => member.address === local.accounts.bob.address)
+      ?.displayName,
+  ).toBe("Bashy");
+  expect(
+    (await trips.list(local.accounts.bob.address)).some((trip) => trip.id === vault.toLowerCase()),
+  ).toBe(true);
 }, 120_000);
 afterAll(async () => {
   merchantStore?.close();

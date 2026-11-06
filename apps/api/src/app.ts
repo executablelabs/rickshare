@@ -8,6 +8,7 @@ import { createAuthRoutes } from "./modules/auth/routes";
 import type { AuthEnv } from "./modules/auth/service";
 import { createIndexerRoutes } from "./modules/indexer/routes";
 import { createProposalRoutes } from "./modules/proposals/routes";
+import { createTripRoutes } from "./modules/trips/routes";
 import { createRuntime, type Runtime, type RuntimeOptions } from "./runtime";
 
 export function createApp(options: RuntimeOptions & { runtime?: Runtime } = {}) {
@@ -25,7 +26,8 @@ export function createApp(options: RuntimeOptions & { runtime?: Runtime } = {}) 
     .route(
       "/",
       createProposalRoutes(runtime.auth, runtime.indexer, runtime.proposals, runtime.merchants),
-    );
+    )
+    .route("/", createTripRoutes(runtime.auth, runtime.trips));
 }
 
 export const app = createApp();

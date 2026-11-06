@@ -132,3 +132,39 @@ Identical retries return the known receipt; ambiguous RPC failures never trigger
 another broadcast of that quote. Once the indexer sees its Proposed event, a
 retry can recover the actual proposal ID. A quote cannot be reused with different
 participants or amounts. All proposer transactions share a serialized queue.
+
+## Trip creation and invitations (B3)
+
+The API never impersonates a member wallet. Creation and joining return a
+WalletTransaction containing chainId, from, to, data, zero native value and Arc
+gas-fee quantities. The connected wallet must match `from` and sign/send it.
+
+- GET `/trips`: authenticated `{ trips }` containing only the member's trips.
+- POST `/trips` with `{ name, endsAt }`: returns `{ creationId, expiresAt,
+  transaction }` for a creator-only initial member list.
+- POST `/trips/confirm` with `{ creationId, transactionHash }`: verifies the
+  factory receipt/creator/end time and returns tripId, vaultAddress and indexed.
+- GET `/trips/:tripId`: current authenticated member trip state.
+- PATCH `/trips/:tripId` with `{ name }`: creator-only trip rename.
+- POST `/trips/:tripId/members/me` with `{ displayName }`: updates only the
+  signed-in member's untrusted display label, not their identity or money.
+
+Invitations preserve the contract's existing creator-signature authority:
+
+1. Creator POSTs `/trips/:tripId/invites` with `{}` or `{ expiresAt }` to get a
+   single-use link. Only a hash of its opaque token is stored.
+2. Recipient signs in and POSTs `/invites/:token/claim`. The link is atomically
+   bound to that wallet and returns an inviteId. Another wallet cannot reuse it.
+3. Creator GETs `/trips/:tripId/invites`, then GETs
+   `/trips/:tripId/invites/:inviteId/authorization` for the exact EIP-712 Invite
+   typed data. Sign its deadline as a uint256 (the JSON response uses a string).
+4. Creator POSTs `{ signature }` to that authorization endpoint.
+5. Recipient polls GET `/invites/:inviteId`. Once authorized, it returns the
+   wallet-signed join transaction. The API cannot sign membership on its own.
+6. Recipient POSTs `/invites/:inviteId/confirm` with `{ transactionHash }` after
+   mining. Lost confirmation responses can recover from actual onchain membership.
+
+The creator must be online to authorize a newly claimed wallet. Signed grants
+cannot be revoked by merely changing backend metadata; the contract expiry is
+the authority. Joining never changes an existing purchase's participants.
+World linking should follow joining and precede the first deposit in onboarding.
