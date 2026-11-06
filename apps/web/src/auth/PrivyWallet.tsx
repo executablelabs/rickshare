@@ -1,7 +1,7 @@
 import { PrivyProvider, useActiveWallet, usePrivy, useWallets } from "@privy-io/react-auth";
 import { arcTestnet } from "@rickshare/shared";
 import type { ReactNode } from "react";
-import { createWalletClient, custom, getAddress } from "viem";
+import { createWalletClient, custom, getAddress, publicActions } from "viem";
 import { config } from "../config";
 import { WalletContext } from "./wallet";
 
@@ -42,6 +42,25 @@ function WalletBridge({ children }: { children: ReactNode }) {
       )
     : undefined;
   const address = wallet ? getAddress(wallet.address) : undefined;
+
+  /** A client for the selected account on Arc, refusing to sign if the wallet moved underneath. */
+  async function verifiedClient() {
+    if (!wallet || !address) throw new Error("Your account is not ready. Try again.");
+    await wallet.switchChain(chain.id);
+    const provider = await wallet.getEthereumProvider();
+    const client = createWalletClient({
+      account: address,
+      chain,
+      transport: custom(provider),
+    }).extend(publicActions);
+    const [account] = await client.getAddresses();
+    if (
+      account?.toLowerCase() !== address.toLowerCase() ||
+      (await client.getChainId()) !== chain.id
+    )
+      throw new Error("Your account changed. Continue to sign in again.");
+    return client;
+  }
   return (
     <WalletContext.Provider
       value={{
@@ -51,22 +70,25 @@ function WalletBridge({ children }: { children: ReactNode }) {
         address,
         login,
         logout,
-        signMessage: async (message) => {
-          if (!wallet || !address) throw new Error("Your account is not ready. Try again.");
-          await wallet.switchChain(chain.id);
-          const provider = await wallet.getEthereumProvider();
-          const client = createWalletClient({
-            account: address,
-            chain,
-            transport: custom(provider),
+        signMessage: async (message) => (await verifiedClient()).signMessage({ message }),
+        signTypedData: async (typedData) => (await verifiedClient()).signTypedData(typedData),
+        sendTransaction: async (transaction) => {
+          const client = await verifiedClient();
+          const hash = await client.sendTransaction({
+            to: transaction.to,
+            data: transaction.data,
+            value: 0n,
+            ...(transaction.maxFeePerGas
+              ? {
+                  maxFeePerGas: BigInt(transaction.maxFeePerGas),
+                  maxPriorityFeePerGas: BigInt(transaction.maxPriorityFeePerGas ?? "0x0"),
+                }
+              : {}),
           });
-          const [account] = await client.getAddresses();
-          if (
-            account?.toLowerCase() !== address.toLowerCase() ||
-            (await client.getChainId()) !== chain.id
-          )
-            throw new Error("Your account changed. Continue to sign in again.");
-          return client.signMessage({ message });
+          const receipt = await client.waitForTransactionReceipt({ hash });
+          if (receipt.status !== "success")
+            throw new Error("The transaction failed, so nothing in the trip changed. Try again.");
+          return hash;
         },
       }}
     >

@@ -26,6 +26,8 @@ function SignedIn({ children }: { children: ReactNode }) {
         login: vi.fn(),
         logout: vi.fn(),
         signMessage: vi.fn(),
+        signTypedData: vi.fn(),
+        sendTransaction: vi.fn(),
       }}
     >
       {children}

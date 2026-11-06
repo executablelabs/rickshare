@@ -37,6 +37,8 @@ test.each([
           login: vi.fn(),
           logout: vi.fn(),
           signMessage: vi.fn(),
+          signTypedData: vi.fn(),
+          sendTransaction: vi.fn(),
         }}
       >
         <AppProviders router={router} />
@@ -70,6 +72,8 @@ test("an account change hides private UI until the new account has its own sessi
         login: vi.fn(),
         logout: vi.fn(),
         signMessage: vi.fn(),
+        signTypedData: vi.fn(),
+        sendTransaction: vi.fn(),
       }}
     >
       <AppProviders router={router} />
