@@ -15,6 +15,30 @@ export function formatDay(iso: string, locale?: string): string {
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(new Date(iso));
 }
 
+export function formatTripDates(
+  startsAt: string | null | undefined,
+  endsAt: string,
+  locale?: string,
+): string {
+  const formatter = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  return startsAt
+    ? formatter.formatRange(new Date(startsAt), new Date(endsAt))
+    : `Ends ${formatter.format(new Date(endsAt))}`;
+}
+
+/** The beginning of the chosen day in the organizer's time zone. */
+export function startOfDay(dateInput: string): string {
+  return new Date(`${dateInput}T00:00:00`).toISOString();
+}
+
+export function todayInput(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 /** The end of the chosen calendar day in the member's time zone, as an ISO instant. */
 export function endOfDay(dateInput: string): string {
   return new Date(`${dateInput}T23:59:00`).toISOString();

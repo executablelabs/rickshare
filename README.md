@@ -66,7 +66,7 @@ Before returning the creation transaction, the API estimates its gas with a simu
 
 `GAS_SPONSOR_MAX_FEE_USDC` caps each allowance (default `1` USDC), and `GAS_SPONSOR_DAILY_BUDGET_USDC` caps daily allowances (default `10` USDC, UTC). Each wallet can receive five creation allowances per UTC day. The sponsor also pays the funding transfer's network fee, additional to these allowance budgets. Allowances are ordinary wallet funds and remain with the user if creation is cancelled.
 
-Retries with the same creator, name and end date reuse unfinished creation requests for up to one hour. Signed funding transfers are saved before broadcast, so retries and API restarts reuse the same transfer. New requests recover outstanding funding first to serialize the sponsor's nonce. The saved creation transaction retains its funded fee settings on retry.
+Retries with the same creator, name, dates and location reuse unfinished creation requests for up to one hour. Signed funding transfers are saved before broadcast, so retries and API restarts reuse the same transfer. New requests recover outstanding funding first to serialize the sponsor's nonce. The saved creation transaction retains its funded fee settings on retry.
 
 For Railway, keep the key in the API service's environment variables and deploy this implementation, its runtime wiring and its migration together. A configured key alone does not activate gas funding in older API releases. Verify an authenticated empty wallet receives its allowance before opening transaction confirmation. Fee coverage applies to trip creation; other wallet actions retain their existing fee flows.
 

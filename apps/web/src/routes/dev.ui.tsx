@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react";
 import { Loader } from "../components/brand/Loader";
 import { RickshawMark } from "../components/brand/RickshawMark";
 import { ProposalTicket } from "../components/plan/ProposalTicket";
+import { CreateTripSheet } from "../components/trips/CreateTripSheet";
 import { TripCard } from "../components/trips/TripCard";
 import { Amount } from "../components/ui/Amount";
 import { Avatar } from "../components/ui/Avatar";
@@ -76,6 +77,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function UiGallery() {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [tripOpen, setTripOpen] = useState(false);
   const showToast = useToast();
 
   return (
@@ -176,6 +178,15 @@ function UiGallery() {
           <RickshawMark className="w-12 text-ink" />
           <RickshawMark className="w-6 text-ink" />
         </div>
+      </Section>
+
+      <Section title="Trip creation">
+        <div id="trip-creation">
+          <Button variant="secondary" onClick={() => setTripOpen(true)}>
+            Preview new trip
+          </Button>
+        </div>
+        <CreateTripSheet open={tripOpen} onOpenChange={setTripOpen} />
       </Section>
 
       <Section title="Tickets">

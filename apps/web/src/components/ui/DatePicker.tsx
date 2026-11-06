@@ -18,30 +18,34 @@ export function DatePicker({
   min,
   error,
   disabled,
+  label = "Ends on",
+  hint = "After this day, settle the trip and withdraw any leftovers.",
+  calendarLabel = "Choose trip end date",
 }: {
   value: string;
   onChange: (value: string) => void;
   min: string;
   error?: string | undefined;
   disabled: boolean;
+  label?: string;
+  hint?: string;
+  calendarLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const earliest = new Date(`${min}T00:00:00`);
-  const latest = new Date(Date.now() + 365 * 86400_000);
-  latest.setDate(latest.getDate() - 1);
   const selected = value ? new Date(`${value}T00:00:00`) : undefined;
 
   return (
     <div className="relative">
       <Field
-        label="Ends on"
+        label={label}
         type="date"
         min={min}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         error={error}
         disabled={disabled}
-        hint="After this day, settle the trip and withdraw any leftovers."
+        hint={hint}
         className="trip-date-field"
       />
       <Popover.Root open={open} onOpenChange={setOpen}>
@@ -49,7 +53,7 @@ export function DatePicker({
           <button
             type="button"
             disabled={disabled}
-            aria-label="Choose trip end date"
+            aria-label={calendarLabel}
             className="absolute top-7 right-1 inline-flex size-11 items-center justify-center rounded-control bg-card text-ink hover:bg-paper disabled:opacity-50"
           >
             <CalendarBlank aria-hidden="true" size={22} />
@@ -60,7 +64,7 @@ export function DatePicker({
             align="end"
             sideOffset={8}
             collisionPadding={8}
-            aria-label="Choose trip end date"
+            aria-label={calendarLabel}
             className="z-50 rounded-ticket border border-rule bg-card p-2 text-ink shadow-card"
             onOpenAutoFocus={(event) => event.preventDefault()}
           >
@@ -72,8 +76,7 @@ export function DatePicker({
               showOutsideDays
               fixedWeeks
               startMonth={earliest}
-              endMonth={latest}
-              disabled={[{ before: earliest }, { after: latest }]}
+              disabled={{ before: earliest }}
               onSelect={(day) => {
                 if (!day) return;
                 onChange(

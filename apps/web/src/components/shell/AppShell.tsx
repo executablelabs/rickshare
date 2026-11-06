@@ -4,6 +4,7 @@ import {
   ChatsCircle,
   Coins,
   type Icon,
+  MapPin,
   SignOut,
   SquaresFour,
 } from "@phosphor-icons/react";
@@ -26,6 +27,7 @@ export interface AppShellProps {
   tripId: string;
   tripName?: string | undefined;
   tripEnsName?: string | null | undefined;
+  tripLocation?: string | null | undefined;
   /** A short line under the trip name, e.g. "Ends 18 Dec". */
   subtitle?: string | undefined;
   members?: Array<Pick<Member, "address" | "displayName">> | undefined;
@@ -42,6 +44,7 @@ export function AppShell({
   tripId,
   tripName,
   tripEnsName,
+  tripLocation,
   subtitle,
   members,
   aside,
@@ -131,6 +134,12 @@ export function AppShell({
               <div className="flex min-w-0 flex-col">
                 <p className="truncate font-display text-2xl font-semibold">{tripName}</p>
                 {subtitle && <p className="text-sm text-card/75">{subtitle}</p>}
+                {tripLocation && (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-card/90">
+                    <MapPin aria-hidden="true" size={15} className="shrink-0" />
+                    <span className="truncate">{tripLocation}</span>
+                  </p>
+                )}
                 {tripEnsName && <p className="break-all text-xs text-card/75">{tripEnsName}</p>}
               </div>
             ) : (
