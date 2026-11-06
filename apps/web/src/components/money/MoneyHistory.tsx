@@ -47,7 +47,7 @@ export function MoneyHistory() {
   return (
     <section
       aria-labelledby="history-title"
-      className="flex flex-col gap-3 rounded-ticket bg-card p-5 shadow-card"
+      className="flex flex-col gap-4 rounded-ticket border border-rule bg-card p-5 shadow-card"
     >
       <h2 id="history-title" className="font-display text-xl font-semibold">
         History

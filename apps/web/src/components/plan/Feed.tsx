@@ -74,7 +74,7 @@ function Bubble({ message, pending }: { message: ChatMessage; pending: boolean }
         <PlannerAvatar />
         <div className="flex max-w-[85%] flex-col gap-1">
           <span className="text-xs font-semibold text-ink-muted">Planner</span>
-          <p className="rounded-ticket rounded-bl-sm bg-card px-4 py-3 whitespace-pre-wrap wrap-anywhere shadow-card">
+          <p className="rounded-ticket rounded-bl-sm border border-rule bg-card px-4 py-3 whitespace-pre-wrap wrap-anywhere">
             {message.text}
           </p>
         </div>
@@ -135,10 +135,10 @@ export function Feed({
     return (
       <section
         aria-labelledby="ask-title"
-        className="flex flex-col gap-4 rounded-ticket bg-card p-5 shadow-card"
+        className="flex flex-col gap-4 rounded-ticket border border-rule bg-card p-6 shadow-card"
       >
         <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-pill bg-coral-tint text-coral-ink">
+          <span className="flex size-11 items-center justify-center rounded-control bg-brand-sky text-ink">
             <Sparkle aria-hidden="true" size={20} />
           </span>
           <h2 id="ask-title" className="text-xl">

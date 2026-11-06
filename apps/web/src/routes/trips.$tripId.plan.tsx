@@ -110,8 +110,13 @@ function Plan() {
   }
 
   return (
-    <div className="flex min-h-[60dvh] flex-col gap-5">
-      <h1 className="sr-only">Plan</h1>
+    <div className="flex min-h-[60dvh] flex-col gap-6">
+      <div className="flex flex-col gap-2 border-b border-rule pb-6">
+        <h1 className="font-display text-3xl font-semibold">Plan</h1>
+        <p className="text-ink-muted">
+          Bring the group’s ideas together. Everyone keeps their own say.
+        </p>
+      </div>
       <ReadyChecklist />
       {chat.isPending || proposals.isPending ? (
         <Loader label="Loading the plan" />

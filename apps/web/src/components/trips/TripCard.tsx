@@ -14,7 +14,7 @@ export function TripCard({ trip, viewer }: { trip: Trip; viewer: Address | undef
     <Link
       to="/trips/$tripId/plan"
       params={{ tripId: trip.id }}
-      className="group flex flex-col gap-5 rounded-ticket bg-card p-5 shadow-card ring-1 ring-transparent hover:ring-rule-strong motion-safe:transition-shadow motion-safe:duration-150"
+      className="group flex flex-col gap-5 rounded-ticket border border-rule bg-card p-5 shadow-card ring-1 ring-transparent hover:ring-rule-strong motion-safe:transition-shadow motion-safe:duration-150"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">

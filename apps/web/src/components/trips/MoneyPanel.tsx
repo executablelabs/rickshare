@@ -11,7 +11,7 @@ import { useTripActions } from "./TripActions";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-1 rounded-control bg-paper p-3">
       <span className="text-xs text-ink-muted">{label}</span>
       <Amount value={BigInt(value)} />
     </div>
@@ -44,23 +44,23 @@ export function MoneyPanel() {
   const ended = money.data.settled || Date.parse(trip.endsAt) <= Date.now();
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <section
         aria-labelledby="my-money-title"
-        className="flex flex-col gap-5 rounded-ticket bg-card p-5 shadow-card"
+        className="flex flex-col gap-5 overflow-hidden rounded-ticket border border-rule bg-card p-5 shadow-card"
       >
-        <div className="flex flex-col gap-1">
-          <h2 id="my-money-title" className="text-sm font-semibold text-ink-muted">
+        <div className="-mx-5 -mt-5 flex flex-col gap-2 bg-ink px-5 py-6 text-card">
+          <h2 id="my-money-title" className="text-sm font-semibold text-card/75">
             Your balance
           </h2>
           <Amount value={BigInt(money.data.own.available)} display className="text-3xl" />
           {money.data && (
-            <p className="text-sm text-ink-muted">
+            <p className="text-sm text-card/75">
               In your wallet: {formatUsd(BigInt(money.data.walletBalance))}
             </p>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3 border-t border-rule pt-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Added" value={money.data.own.deposited} />
           <Stat label="Held" value={money.data.own.locked} />
           <Stat label="Spent" value={money.data.own.spent} />
@@ -94,7 +94,7 @@ export function MoneyPanel() {
 
       <section
         aria-labelledby="group-title"
-        className="flex flex-col gap-1 rounded-ticket bg-card p-5 shadow-card"
+        className="flex flex-col gap-2 rounded-ticket border border-rule bg-card p-5 shadow-card"
       >
         <h2 id="group-title" className="text-sm font-semibold text-ink-muted">
           The group

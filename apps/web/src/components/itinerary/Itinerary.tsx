@@ -37,8 +37,13 @@ export function Itinerary() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="font-display text-2xl font-semibold">Itinerary</h1>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2 border-b border-rule pb-6">
+        <h1 className="font-display text-3xl font-semibold">Itinerary</h1>
+        <p className="text-ink-muted">
+          Your days together, with plans and booked tickets in one place.
+        </p>
+      </div>
       {itinerary.isPending || proposals.isPending ? (
         <Loader label="Loading itinerary" />
       ) : itinerary.isError || proposals.isError ? (
@@ -58,7 +63,7 @@ export function Itinerary() {
           </Button>
         </div>
       ) : items.length === 0 ? (
-        <section className="flex flex-col items-start gap-3 rounded-ticket bg-card p-5 shadow-card">
+        <section className="flex flex-col items-start gap-4 rounded-ticket border border-rule bg-card p-6 shadow-card">
           <h2 className="font-display text-xl font-semibold">No plans yet</h2>
           <p className="text-ink-muted">
             Ask the planner for ideas. Your days and booked tickets will appear here.
@@ -80,14 +85,14 @@ export function Itinerary() {
             )}
             className="flex flex-col gap-3"
           >
-            <h2 className="font-display text-xl font-semibold">
+            <h2 className="self-start rounded-control bg-brand-sky px-3 py-2 font-display text-lg font-semibold">
               {new Intl.DateTimeFormat(undefined, {
                 weekday: "long",
                 day: "numeric",
                 month: "short",
               }).format(new Date(day.startsAt))}
             </h2>
-            <ol className="flex flex-col gap-3">
+            <ol className="flex flex-col gap-4 border-l-2 border-rule pl-4">
               {day.items.map((item) => {
                 const proposal = proposals.data.find((proposal) => proposal.id === item.proposalId);
                 const mine = proposal?.shares.some(
@@ -98,7 +103,7 @@ export function Itinerary() {
                   <li key={item.id}>
                     <article
                       aria-label={item.title}
-                      className="flex flex-col gap-3 rounded-ticket bg-card p-5 shadow-card"
+                      className="flex flex-col gap-3 rounded-ticket border border-rule bg-card p-5 shadow-card"
                     >
                       <time
                         dateTime={item.startsAt}
