@@ -1,0 +1,93 @@
+.travel-postcard {
+  width: 220px;
+  padding: 9px 9px 6px;
+  background: var(--paper);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+  transition: transform 400ms var(--brand-ease);
+}
+.travel-postcard__photo {
+  position: relative;
+  height: 138px;
+  overflow: hidden;
+  background: var(--brand-sky);
+}
+.travel-postcard__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.travel-postcard__photo > span {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--card);
+  text-shadow: var(--brand-photo-text-shadow);
+}
+.travel-postcard__caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  font-size: var(--text-xs);
+}
+.travel-route {
+  width: 200px;
+  height: auto;
+  pointer-events: none;
+}
+.travel-tape {
+  display: inline-block;
+  padding: 8px 14px;
+  background: var(--brand-yellow);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transform: rotate(-2deg);
+}
+.journey-track {
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(var(--journey-count), var(--journey-stop-size, 56px));
+}
+.journey-track::before {
+  content: "";
+  position: absolute;
+  top: 28px;
+  bottom: 28px;
+  left: 32px;
+  border-left: 1px dashed var(--ink-muted);
+}
+.journey-track__vehicle {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  top: 4px;
+  left: 0;
+  width: 64px;
+  height: 48px;
+  background: var(--paper);
+  transform: translateY(calc(var(--journey-current) * var(--journey-stop-size, 56px)));
+  transition: transform 550ms var(--brand-ease);
+  pointer-events: none;
+}
+.journey-track__vehicle .transport-mark {
+  width: 60px;
+  height: 45px;
+  flex-basis: 60px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .travel-postcard,
+  .journey-track__vehicle {
+    transition: none;
+  }
+  .travel-tape {
+    transform: none;
+  }
+}

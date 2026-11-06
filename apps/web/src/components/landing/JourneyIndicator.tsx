@@ -1,14 +1,17 @@
-import { TransportMark, type Vehicle } from "../brand/TransportMark";
+import type { Vehicle } from "../brand/TransportMark";
+import { JourneyTrack } from "../brand/TravelDetails";
 import { landingStops } from "./useLandingJourney";
 import "./journey-indicator.css";
 
 export function JourneyIndicator({ vehicle }: { vehicle: Vehicle }) {
   return (
     <nav className="journey-indicator" aria-label="Page journey" data-vehicle={vehicle}>
-      <div className="journey-indicator__track">
-        <span className="journey-indicator__position" aria-hidden="true">
-          <TransportMark vehicle={vehicle} />
-        </span>
+      <JourneyTrack
+        vehicle={vehicle}
+        current={landingStops.findIndex((stop) => stop.vehicle === vehicle)}
+        count={landingStops.length}
+        className="journey-indicator__track"
+      >
         {landingStops.map((stop, index) => (
           <a
             key={stop.id}
@@ -21,7 +24,7 @@ export function JourneyIndicator({ vehicle }: { vehicle: Vehicle }) {
             <span className="journey-indicator__dot" aria-hidden="true" />
           </a>
         ))}
-      </div>
+      </JourneyTrack>
     </nav>
   );
 }

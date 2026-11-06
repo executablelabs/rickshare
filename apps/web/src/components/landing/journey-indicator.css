@@ -38,7 +38,7 @@
   border-left: 1px dashed var(--landing-muted);
   opacity: 0.5;
 }
-.journey-indicator__position {
+.journey-indicator__track .journey-track__vehicle {
   position: absolute;
   z-index: 2;
   top: 4px;
@@ -49,7 +49,7 @@
   place-items: center;
   border-radius: var(--landing-radius-sm);
   background: var(--landing-cream);
-  transform: translateY(calc(var(--journey-step) * var(--journey-stop-size)));
+  transform: translateY(calc(var(--journey-current) * var(--journey-stop-size)));
   transition: transform 550ms var(--landing-ease);
   pointer-events: none;
 }
@@ -61,7 +61,7 @@
   min-height: 44px;
   border-radius: var(--landing-radius-sm);
 }
-.journey-indicator__position .transport-mark {
+.journey-indicator__track .journey-track__vehicle .transport-mark {
   width: 60px;
   height: 45px;
   flex-basis: 60px;
@@ -112,11 +112,11 @@
     grid-template-rows: 44px;
     width: 224px;
   }
-  .journey-indicator__position {
+  .journey-indicator__track .journey-track__vehicle {
     top: 0;
     width: 56px;
     height: 44px;
-    transform: translateX(calc(var(--journey-step) * var(--journey-stop-size)));
+    transform: translateX(calc(var(--journey-current) * var(--journey-stop-size)));
   }
   .journey-indicator__track::before {
     top: 50%;
@@ -126,7 +126,7 @@
     border-left: 0;
     border-top: 1px dashed var(--landing-muted);
   }
-  .journey-indicator__position .transport-mark {
+  .journey-indicator__track .journey-track__vehicle .transport-mark {
     width: 48px;
     height: 36px;
     flex-basis: 48px;
@@ -140,7 +140,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .journey-indicator__position,
+  .journey-indicator__track .journey-track__vehicle,
   .journey-indicator__dot {
     transition: none;
   }

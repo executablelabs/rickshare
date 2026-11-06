@@ -11,6 +11,7 @@ import {
   Ticket,
 } from "@phosphor-icons/react";
 import { useState } from "react";
+import { TapeLabel } from "../brand/TravelDetails";
 import { Wordmark } from "../brand/Wordmark";
 import { ProposalTicket } from "../plan/ProposalTicket";
 import { Amount } from "../ui/Amount";
@@ -49,9 +50,9 @@ export function HeroProduct() {
   return (
     <figure aria-label="Example trip" className="hero-product" data-reveal>
       <Postcard className="hero-product__postcard" />
-      <div className="hero-product__sticker" aria-hidden="true">
+      <TapeLabel className="hero-product__sticker">
         <Sparkle size={17} weight="fill" /> More memories. Less maths.
-      </div>
+      </TapeLabel>
       <div className="product-window hero-product__window">
         <WindowBar />
         <TripHeader />

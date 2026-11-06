@@ -6,12 +6,14 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   label: string;
   hint?: string | undefined;
   error?: string | undefined;
+  prefix?: string | undefined;
 }
 
 export function Field({
   label,
   hint,
   error,
+  prefix,
   className,
   "aria-describedby": extraDescribedBy,
   "aria-invalid": ariaInvalid,
@@ -29,19 +31,30 @@ export function Field({
       <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
-      <input
-        {...inputProps}
-        id={id}
-        // A visible error always marks the input invalid, whatever the caller passes.
-        aria-invalid={error ? true : ariaInvalid}
-        aria-describedby={describedBy || undefined}
-        className={cx(
-          "h-12 rounded-control bg-card px-4 text-base text-ink ring-1 ring-inset",
-          "placeholder:text-ink-muted disabled:opacity-50",
-          "motion-safe:transition-shadow motion-safe:duration-150",
-          error ? "ring-declined" : "ring-rule enabled:hover:ring-rule-strong",
+      <div className="relative">
+        {prefix && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base text-ink-muted"
+          >
+            {prefix}
+          </span>
         )}
-      />
+        <input
+          {...inputProps}
+          id={id}
+          // A visible error always marks the input invalid, whatever the caller passes.
+          aria-invalid={error ? true : ariaInvalid}
+          aria-describedby={describedBy || undefined}
+          className={cx(
+            "h-12 w-full min-w-0 rounded-control bg-card px-4 text-base text-ink ring-1 ring-inset",
+            prefix && "pl-9",
+            "placeholder:text-ink-muted disabled:opacity-50",
+            "motion-safe:transition-shadow motion-safe:duration-150",
+            error ? "ring-declined" : "ring-rule enabled:hover:ring-rule-strong",
+          )}
+        />
+      </div>
       {hint && (
         <p id={hintId} className="text-sm text-ink-muted">
           {hint}

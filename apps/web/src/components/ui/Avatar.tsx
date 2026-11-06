@@ -1,3 +1,4 @@
+import { User } from "@phosphor-icons/react";
 import { cx } from "../../lib/cx";
 
 type AvatarSize = "sm" | "md";
@@ -23,7 +24,24 @@ export interface AvatarProps {
   className?: string;
 }
 
+export function displayNameOf(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed && !/^0x[\da-f]/i.test(trimmed) && !/\.eth$/i.test(trimmed)) return name;
+  const travelers = [
+    "Sunny traveler",
+    "Coastal traveler",
+    "Mountain traveler",
+    "City explorer",
+    "Island explorer",
+    "Trail traveler",
+  ];
+  let hash = 0;
+  for (const char of name.toLowerCase()) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) >>> 0;
+  return travelers[hash % travelers.length] ?? "Travel buddy";
+}
+
 export function initialOf(name: string): string {
+  if (displayNameOf(name) !== name) return "?";
   const [first = "?"] = Array.from(name.trim());
   return first.toLocaleUpperCase();
 }
@@ -38,10 +56,12 @@ export function memberTint(colorKey: string): (typeof memberTints)[number] {
 }
 
 export function Avatar({ name, colorKey = name, size = "md", className }: AvatarProps) {
+  const label = displayNameOf(name);
+  const hasName = label === name && name.trim().length > 0;
   return (
     <span
       role="img"
-      aria-label={name}
+      aria-label={label}
       className={cx(
         "inline-flex shrink-0 items-center justify-center rounded-pill font-semibold",
         memberTint(colorKey),
@@ -49,7 +69,11 @@ export function Avatar({ name, colorKey = name, size = "md", className }: Avatar
         className,
       )}
     >
-      <span aria-hidden="true">{initialOf(name)}</span>
+      {hasName ? (
+        <span aria-hidden="true">{initialOf(name)}</span>
+      ) : (
+        <User aria-hidden="true" size={20} />
+      )}
     </span>
   );
 }

@@ -6,7 +6,7 @@ export interface WordmarkProps {
   /** `ink` on light grounds; `card` on navy, where "share" turns marigold as DESIGN.md asks. */
   tone?: "ink" | "card";
   className?: string;
-  /** Marketing pages can opt into the transport family; the app keeps its original mark. */
+  /** Selects the shared transport family for the current journey stop. */
   vehicle?: Vehicle;
 }
 
