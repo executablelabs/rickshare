@@ -1,0 +1,147 @@
+.journey-indicator {
+  --journey-step: 0;
+  --journey-stop-size: 56px;
+  position: fixed;
+  z-index: 30;
+  right: 14px;
+  top: 50%;
+  width: 82px;
+  padding: 12px 8px;
+  transform: translateY(-50%);
+  border: 1px solid var(--landing-rule);
+  border-radius: var(--landing-radius-pill);
+  background: var(--landing-cream);
+  color: var(--landing-ink);
+  box-shadow: var(--landing-paper-shadow);
+}
+.journey-indicator[data-vehicle="bus"] {
+  --journey-step: 1;
+}
+.journey-indicator[data-vehicle="train"] {
+  --journey-step: 2;
+}
+.journey-indicator[data-vehicle="plane"] {
+  --journey-step: 3;
+}
+.journey-indicator__track {
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(4, var(--journey-stop-size));
+  width: 64px;
+}
+.journey-indicator__track::before {
+  content: "";
+  position: absolute;
+  top: 28px;
+  bottom: 28px;
+  left: 50%;
+  border-left: 1px dashed var(--landing-muted);
+  opacity: 0.5;
+}
+.journey-indicator__position {
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  left: 0;
+  width: 64px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--landing-radius-sm);
+  background: var(--landing-cream);
+  transform: translateY(calc(var(--journey-step) * var(--journey-stop-size)));
+  transition: transform 550ms var(--landing-ease);
+  pointer-events: none;
+}
+.journey-indicator__stop {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--landing-radius-sm);
+}
+.journey-indicator__position .transport-mark {
+  width: 60px;
+  height: 45px;
+  flex-basis: 60px;
+}
+.journey-indicator__dot {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--landing-muted);
+  border-radius: 50%;
+  background: var(--landing-cream);
+  transition:
+    background-color 180ms,
+    opacity 180ms;
+}
+.journey-indicator__stop:hover .journey-indicator__dot,
+.journey-indicator__stop:focus-visible .journey-indicator__dot {
+  background: var(--landing-yellow);
+}
+.journey-indicator__stop[aria-current] .journey-indicator__dot {
+  opacity: 0;
+}
+
+@media (min-width: 1101px) {
+  .landing .landing-container,
+  .landing .landing-nav__inner {
+    width: min(calc(100% - 160px), 1200px);
+    margin-left: max(40px, calc((100% - 1360px) / 2));
+    margin-right: auto;
+  }
+  .landing .landing-hero__grid {
+    gap: 50px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .journey-indicator {
+    top: auto;
+    right: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 50%;
+    width: 250px;
+    padding: 8px 12px;
+    border-radius: var(--landing-radius-pill);
+    transform: translateX(-50%);
+  }
+  .journey-indicator__track {
+    grid-template-columns: repeat(4, var(--journey-stop-size));
+    grid-template-rows: 44px;
+    width: 224px;
+  }
+  .journey-indicator__position {
+    top: 0;
+    width: 56px;
+    height: 44px;
+    transform: translateX(calc(var(--journey-step) * var(--journey-stop-size)));
+  }
+  .journey-indicator__track::before {
+    top: 50%;
+    bottom: auto;
+    left: 28px;
+    right: 28px;
+    border-left: 0;
+    border-top: 1px dashed var(--landing-muted);
+  }
+  .journey-indicator__position .transport-mark {
+    width: 48px;
+    height: 36px;
+    flex-basis: 48px;
+  }
+  .landing .landing-footer {
+    padding-bottom: 110px;
+  }
+  html:has(.landing) {
+    scroll-padding-bottom: 96px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-indicator__position,
+  .journey-indicator__dot {
+    transition: none;
+  }
+}
