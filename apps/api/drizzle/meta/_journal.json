@@ -50,6 +50,13 @@
       "when": 1793922821619,
       "tag": "0006_durable_chat_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793947202373,
+      "tag": "0007_ens_names",
+      "breakpoints": true
     }
   ]
 }

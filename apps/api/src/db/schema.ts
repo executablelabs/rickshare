@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const authChallenges = sqliteTable(
   "auth_challenges",
@@ -140,6 +140,27 @@ export const memberMetadata = sqliteTable("member_metadata", {
   id: text("id").primaryKey(),
   displayName: text("display_name").notNull(),
 });
+
+export const ensTrips = sqliteTable("ens_trips", {
+  tripId: text("trip_id").primaryKey(),
+  name: text("name").notNull().unique(),
+  registry: text("registry"),
+  resolver: text("resolver"),
+  itineraryHash: text("itinerary_hash"),
+  errorCode: text("error_code"),
+});
+
+export const ensMembers = sqliteTable(
+  "ens_members",
+  {
+    id: text("id").primaryKey(),
+    tripId: text("trip_id").notNull(),
+    address: text("address").notNull(),
+    label: text("label").notNull(),
+    ready: integer("ready", { mode: "boolean" }).notNull().default(false),
+  },
+  (table) => [uniqueIndex("ens_members_trip_label").on(table.tripId, table.label)],
+);
 
 // Rows mirror the ChatMessage and ItineraryItem schemas in @rickshare/shared. Money never lives here;
 // the chain is the source of truth for balances and proposals.
