@@ -17,6 +17,7 @@ const tabs: Array<{ to: TripTabPath; label: string; icon: Icon }> = [
 export interface AppShellProps {
   tripId: string;
   tripName?: string;
+  tripEnsName?: string | null;
   members?: Array<Pick<Member, "address" | "displayName">>;
   /** Desktop-only right panel for the group's money. */
   aside?: ReactNode;
@@ -34,7 +35,14 @@ function Brand({ className }: { className?: string }) {
   );
 }
 
-export function AppShell({ tripId, tripName, members, aside, children }: AppShellProps) {
+export function AppShell({
+  tripId,
+  tripName,
+  tripEnsName,
+  members,
+  aside,
+  children,
+}: AppShellProps) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[256px_minmax(0,560px)_minmax(0,1fr)] lg:gap-x-10">
       <nav
@@ -78,7 +86,10 @@ export function AppShell({ tripId, tripName, members, aside, children }: AppShel
           )}
         >
           {tripName ? (
-            <p className="font-display text-2xl font-semibold">{tripName}</p>
+            <div className="min-w-0">
+              <p className="font-display text-2xl font-semibold">{tripName}</p>
+              {tripEnsName && <p className="mt-1 break-all text-xs text-card/70">{tripEnsName}</p>}
+            </div>
           ) : (
             <Brand className="flex" />
           )}
