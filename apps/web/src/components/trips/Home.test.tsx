@@ -157,3 +157,23 @@ test("asks for a name and both trip dates before preparing anything", async () =
   ).toBeInTheDocument();
   expect(calls.some((call) => call.route === "POST /trips")).toBe(false);
 });
+
+test("fee coverage must succeed before requesting a wallet confirmation", async () => {
+  stubApi({
+    "GET /trips": () => ({ body: { trips: [] } }),
+    "POST /trips": () => ({
+      status: 503,
+      body: {
+        error: {
+          code: "GAS_SPONSOR_EMPTY",
+          message: "Rickshare's setup-fee balance needs a top-up. Please try again later.",
+        },
+      },
+    }),
+  });
+  await renderHome();
+  const sheet = await fillNewTrip("India 26", "2099-12-18");
+  expect(await within(sheet).findByRole("alert")).toHaveTextContent("setup-fee balance");
+  expect(within(sheet).getByText(/Rickshare covers the setup fee/)).toBeInTheDocument();
+  expect(sendTransaction).not.toHaveBeenCalled();
+});

@@ -12,4 +12,7 @@ test("invalid ports, addresses and keys fail configuration validation", () => {
   expect(configSchema.safeParse({ PORT: "0" }).success).toBe(false);
   expect(configSchema.safeParse({ TRIP_FACTORY_ADDRESS: "not-an-address" }).success).toBe(false);
   expect(configSchema.safeParse({ AGENT_PRIVATE_KEY: "not-a-key" }).success).toBe(false);
+  expect(configSchema.safeParse({ GAS_SPONSOR_PRIVATE_KEY: "not-a-key" }).success).toBe(false);
+  expect(configSchema.safeParse({ GAS_SPONSOR_MAX_FEE_USDC: "-1" }).success).toBe(false);
+  expect(configSchema.safeParse({ GAS_SPONSOR_DAILY_BUDGET_USDC: "1e6" }).success).toBe(false);
 });

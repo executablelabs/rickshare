@@ -58,6 +58,18 @@ See each `.env.example`. Keys:
 - web: `VITE_API_URL`, `VITE_ARC_RPC_URL`, `VITE_SEPOLIA_RPC_URL`, `VITE_PRIVY_APP_ID` (everything prefixed `VITE_` is public)
 - contracts: `ARC_RPC_URL`, `DEPLOYER_PRIVATE_KEY`, `AGENT_ADDRESS`, `VERIFIER_ADDRESS`
 
+### App-funded trip creation
+
+Set `GAS_SPONSOR_PRIVATE_KEY` in the API environment to a dedicated app wallet funded with Arc testnet USDC from [Circle's faucet](https://faucet.circle.com). Restart the API after configuration. Trip creation requires fee coverage and returns a retryable service error if coverage is unavailable.
+
+Before returning the creation transaction, the API estimates its gas with a simulation-only funded balance, adds a 25% gas buffer, and transfers the resulting native USDC allowance to the signed-in user. The user confirms their own factory transaction, preserving trip ownership. Native gas accounting uses 18 decimals; trip deposits still use the 6-decimal ERC-20 interface.
+
+`GAS_SPONSOR_MAX_FEE_USDC` caps each allowance (default `1` USDC), and `GAS_SPONSOR_DAILY_BUDGET_USDC` caps daily allowances (default `10` USDC, UTC). Each wallet can receive five creation allowances per UTC day. The sponsor also pays the funding transfer's network fee, additional to these allowance budgets. Allowances are ordinary wallet funds and remain with the user if creation is cancelled.
+
+Retries with the same creator, name, dates and location reuse unfinished creation requests for up to one hour. Signed funding transfers are saved before broadcast, so retries and API restarts reuse the same transfer. New requests recover outstanding funding first to serialize the sponsor's nonce. The saved creation transaction retains its funded fee settings on retry.
+
+For Railway, keep the key in the API service's environment variables and deploy this implementation, its runtime wiring and its migration together. A configured key alone does not activate gas funding in older API releases. Verify an authenticated empty wallet receives its allowance before opening transaction confirmation. Fee coverage applies to trip creation; other wallet actions retain their existing fee flows.
+
 ### Optional x402 merchant checkout
 
 Set `X402_ENABLED=true` in the merchant service to advertise x402 v2 `exact` checkout for new quotes. The initial payment network is Base Sepolia (`eip155:84532`), using USDC and the configured facilitator. The activity price and recipient come from the signed merchant quote. Verified, successfully settled payments return a booking ticket and a `PAYMENT-RESPONSE` receipt.

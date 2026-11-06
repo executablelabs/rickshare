@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { arcTestnet, asHex, inviteTypedData } from "@rickshare/shared";
+import { arcTestnet, asHex, inviteTypedData, type WalletTransaction } from "@rickshare/shared";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { type Address, getAddress, type Hex } from "viem";
 import type { AppDatabase } from "../../db/client";
@@ -24,6 +24,9 @@ export class TripService {
       origin: string;
       digest: (token: string) => string;
       now?: () => number;
+      gasSponsor?: {
+        cover(creationId: string, transaction: WalletTransaction): Promise<WalletTransaction>;
+      };
     },
   ) {}
 
@@ -50,21 +53,46 @@ export class TripService {
     const now = Math.floor(this.now() / 1000);
     if (endsAt <= BigInt(now))
       throw new AppError("INVALID_TRIP_END", "Choose a future trip end.", 400);
-    const transaction = await this.chain.prepareCreate(actor, endsAt);
-    const id = randomUUID();
-    const expiresAt = Math.min(this.now() + 3600_000, Number(endsAt) * 1000);
-    this.db
-      .insert(tripCreations)
-      .values({
-        id,
-        creator: actor.toLowerCase(),
-        name: input.name,
-        startsAt: input.startsAt ?? null,
-        location: input.location?.trim() || null,
-        endsAt: endsAt.toString(),
-        expiresAt,
-      })
-      .run();
+    if (!this.options.gasSponsor)
+      throw new AppError(
+        "GAS_SPONSOR_NOT_CONFIGURED",
+        "Rickshare's setup-fee coverage is not configured yet. Please try again later.",
+        503,
+      );
+    let transaction = await this.chain.prepareCreate(actor, endsAt);
+    const startsAt = input.startsAt ?? null;
+    const location = input.location?.trim() || null;
+    const existing = this.db
+      .select()
+      .from(tripCreations)
+      .where(
+        and(
+          eq(tripCreations.creator, actor.toLowerCase()),
+          eq(tripCreations.name, input.name),
+          eq(tripCreations.endsAt, endsAt.toString()),
+          startsAt === null ? isNull(tripCreations.startsAt) : eq(tripCreations.startsAt, startsAt),
+          location === null ? isNull(tripCreations.location) : eq(tripCreations.location, location),
+          isNull(tripCreations.vault),
+          gt(tripCreations.expiresAt, this.now()),
+        ),
+      )
+      .get();
+    const id = existing?.id ?? randomUUID();
+    const expiresAt = existing?.expiresAt ?? Math.min(this.now() + 3600_000, Number(endsAt) * 1000);
+    if (!existing)
+      this.db
+        .insert(tripCreations)
+        .values({
+          id,
+          creator: actor.toLowerCase(),
+          name: input.name,
+          startsAt,
+          location,
+          endsAt: endsAt.toString(),
+          expiresAt,
+        })
+        .run();
+    transaction = await this.options.gasSponsor.cover(id, transaction);
     return { creationId: id, expiresAt: new Date(expiresAt).toISOString(), transaction };
   }
 

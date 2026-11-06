@@ -61,8 +61,15 @@
     {
       "idx": 8,
       "version": "6",
+      "when": 1793959200000,
+      "tag": "0008_trip_gas_sponsorships",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
       "when": 1793988384417,
-      "tag": "0008_trip_planning_details",
+      "tag": "0009_trip_planning_details",
       "breakpoints": true
     }
   ]

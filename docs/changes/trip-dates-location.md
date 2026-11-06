@@ -7,7 +7,7 @@ Remove the one-year trip-end restriction from both API validation and the calend
 ## Implementation
 
 - `Trip` gains additive optional/nullable `startsAt` and `location` fields for legacy compatibility.
-- Migration `0008_trip_planning_details` adds nullable planning columns to pending creations and trip metadata; confirmation and projection/metadata refresh preserve them.
+- Migration `0009_trip_planning_details` adds nullable planning columns after the already-deployed `0008_trip_gas_sponsorships`; confirmation and projection/metadata refresh preserve them. The snapshot chain includes both schemas.
 - Creation accepts any valid future end timestamp, with a supplied start preceding it. The browser requires both calendar dates, allows same-day trips, and imposes no one-year calendar ceiling.
 - The start is planning metadata; the existing contract's immutable end remains the settlement deadline. No contract redeployment or ABI change is needed.
 - Local destination suggestions are explicitly editable, stop following the title after manual changes, and avoid choosing between multiple recognised cities. Unknown destinations can be entered freely. No geocoding service, API key or paid model call is introduced.

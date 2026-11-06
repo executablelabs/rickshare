@@ -125,6 +125,18 @@ export const tripCreations = sqliteTable("trip_creations", {
   transactionHash: text("transaction_hash").unique(),
 });
 
+export const tripGasSponsorships = sqliteTable("trip_gas_sponsorships", {
+  creationId: text("creation_id").primaryKey(),
+  recipient: text("recipient").notNull(),
+  day: text("day").notNull(),
+  amount: text("amount").notNull(),
+  walletTransaction: text("wallet_transaction").notNull(),
+  signedTransaction: text("signed_transaction"),
+  transactionHash: text("transaction_hash"),
+  confirmed: integer("confirmed", { mode: "boolean" }).notNull().default(false),
+  errorCode: text("error_code"),
+});
+
 export const tripInvites = sqliteTable(
   "trip_invites",
   {
