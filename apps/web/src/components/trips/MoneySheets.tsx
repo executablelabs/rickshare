@@ -1,7 +1,7 @@
 import { arcTestnet, type Trip, type WalletTransaction } from "@rickshare/shared";
 import { tripVaultAbi } from "@rickshare/shared/abi";
 import { useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { encodeFunctionData } from "viem";
 import { toWalletCall, useWallet } from "../../auth/wallet";
 import { formatUsd } from "../../lib/format-usd";
@@ -218,6 +218,15 @@ export function LimitsSheet({ trip, open, onOpenChange }: SheetProps) {
   const [auto, setAuto] = useState(initial.auto);
   const [cap, setCap] = useState(initial.cap);
   const [touched, setTouched] = useState(false);
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (open && !wasOpen.current && !pending) {
+      setAuto(initial.auto);
+      setCap(initial.cap);
+      setTouched(false);
+    }
+    wasOpen.current = open;
+  }, [open, pending, initial.auto, initial.cap]);
   const autoValue = parseUsd(auto);
   const capValue = parseUsd(cap);
   const autoError =

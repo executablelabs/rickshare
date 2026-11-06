@@ -2,11 +2,12 @@
 
 ## Summary
 
-Stop the post-confirmation step from waiting indefinitely on trip refresh requests. One prefix invalidation starts fresh trip queries without overlapping cancellation, and a 15-second deadline restores an actionable state if the API is still busy. Limits remain locked to the retained request until the confirmed batch finishes refreshing.
+Stop the post-confirmation step from waiting indefinitely on trip refresh requests. One prefix invalidation starts fresh trip queries without overlapping cancellation, and a 15-second deadline restores an actionable state if the API is still busy. Limits remain locked to the retained request until the confirmed batch finishes refreshing, including when the trip provider closes and reopens the drawer. New requests initialize from the latest policy when the drawer opens.
 
 ## Files
 
 - `apps/web/src/components/trips/MoneySheets.tsx`: deduplicate invalidation, bound its wait, retain the confirmed transaction batch on timeout, and preserve limits across closing and reopening.
+- `apps/web/src/components/trips/TripActions.tsx`: keep the limits component mounted for the same trip so closing cannot discard a confirmed batch.
 - `docs/changes/wallet-refresh-{390,1280}.png`: screenshots of the confirmed transaction waiting for refresh.
 
 ## Interfaces touched
@@ -16,6 +17,7 @@ None. Signing, prepared transaction checks and receipt confirmation remain uncha
 ## Verification
 
 - Controlled browser: stalled refresh reaches the 15-second deadline; closing and reopening retains the submitted limits; retry starts fresh queries without preparing or sending another wallet transaction; late canceled responses cannot replace the recovered data.
+- Real `TripActionsProvider` browser verification: a pending close/reopen retains the batch and submitted limits despite newer policy props; retry prepares and sends exactly once; later opens load the latest policy while live updates preserve open edits.
 - Screenshots at 390px and 1280px captured with no horizontal overflow.
 - `bun run check`: pass (lint, all typechecks, API 182, shared 18, merchants 6, contracts 98, web 186 tests).
 - No test files added or edited, as requested by the owner.

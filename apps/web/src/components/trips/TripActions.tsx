@@ -68,12 +68,7 @@ export function TripActionsProvider({
       {children}
       <AddMoneySheet trip={trip} open={sheet === "addMoney"} onOpenChange={close} />
       <WithdrawSheet trip={trip} open={sheet === "withdraw"} onOpenChange={close} />
-      <LimitsSheet
-        key={sheet === "limits" ? "open" : "closed"}
-        trip={trip}
-        open={sheet === "limits"}
-        onOpenChange={close}
-      />
+      <LimitsSheet key={trip.id} trip={trip} open={sheet === "limits"} onOpenChange={close} />
       {invites.isSuccess && (
         <InviteSheet trip={trip} open={sheet === "invite"} onOpenChange={close} />
       )}
