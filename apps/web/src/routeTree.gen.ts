@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DevTripRouteImport } from './routes/dev.trip'
 import { Route as DevUiRouteImport } from './routes/dev.ui'
 import { Route as JoinTokenRouteImport } from './routes/join.$token'
 import { Route as TripsTripIdRouteImport } from './routes/trips.$tripId'
@@ -21,6 +22,11 @@ import { Route as TripsTripIdPlanRouteImport } from './routes/trips.$tripId.plan
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevTripRoute = DevTripRouteImport.update({
+  id: '/dev/trip',
+  path: '/dev/trip',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevUiRoute = DevUiRouteImport.update({
@@ -61,6 +67,7 @@ const TripsTripIdPlanRoute = TripsTripIdPlanRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dev/trip': typeof DevTripRoute
   '/dev/ui': typeof DevUiRoute
   '/join/$token': typeof JoinTokenRoute
   '/trips/$tripId': typeof TripsTripIdRouteWithChildren
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dev/trip': typeof DevTripRoute
   '/dev/ui': typeof DevUiRoute
   '/join/$token': typeof JoinTokenRoute
   '/trips/$tripId/itinerary': typeof TripsTripIdItineraryRoute
@@ -81,6 +89,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dev/trip': typeof DevTripRoute
   '/dev/ui': typeof DevUiRoute
   '/join/$token': typeof JoinTokenRoute
   '/trips/$tripId': typeof TripsTripIdRouteWithChildren
@@ -93,6 +102,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/dev/trip'
     | '/dev/ui'
     | '/join/$token'
     | '/trips/$tripId'
@@ -103,6 +113,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/dev/trip'
     | '/dev/ui'
     | '/join/$token'
     | '/trips/$tripId/itinerary'
@@ -112,6 +123,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/dev/trip'
     | '/dev/ui'
     | '/join/$token'
     | '/trips/$tripId'
@@ -123,6 +135,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DevTripRoute: typeof DevTripRoute
   DevUiRoute: typeof DevUiRoute
   JoinTokenRoute: typeof JoinTokenRoute
   TripsTripIdRoute: typeof TripsTripIdRouteWithChildren
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev/trip': {
+      id: '/dev/trip'
+      path: '/dev/trip'
+      fullPath: '/dev/trip'
+      preLoaderRoute: typeof DevTripRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dev/ui': {
@@ -209,6 +229,7 @@ const TripsTripIdRouteWithChildren = TripsTripIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DevTripRoute: DevTripRoute,
   DevUiRoute: DevUiRoute,
   JoinTokenRoute: JoinTokenRoute,
   TripsTripIdRoute: TripsTripIdRouteWithChildren,
