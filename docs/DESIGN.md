@@ -17,10 +17,16 @@ Every proposal is a ticket. Every approval is an ink stamp on it. The ticket car
 | `--ink-muted` | `#5B6475` | Secondary text |
 | `--rule` | `#DCE1E8` | Hairlines, perforations, input borders |
 | `--stamp` | `#2B44C6` | Approved stamps, links, focus ring |
-| `--marigold` | `#E9A21B` | "Waiting for you" only |
+| `--marigold` | `#E9A21B` | "Waiting for you", and the body of the brand mark |
 | `--declined` | `#B23A2E` | "Not for me" stamps and destructive actions only |
 
 Contrast: body text uses `--ink` on `--paper` or `--card`. `--marigold` is never used for text on white; pair it with an ink label.
+
+## Brand
+The mark is an auto-rickshaw seen from the side with two riders under one hood: one ride, shared. The hood, riders and wheels are `--ink` (or `--card` on an ink background); the body is `--marigold`. The wordmark is "Rickshare" in Bricolage Grotesque 600, with "share" in `--marigold` when it sits on `--ink`.
+- Source files live in `apps/web/public/brand/`. The in-app version is the `RickshawMark` component, and a test keeps the two identical.
+- Smallest size: 24px wide. Keep clear space of half the mark's height on every side.
+- Do not redraw, recolor, outline or add effects to the mark.
 
 ## Type
 - UI and body: **Geist** (variable), via Fontsource.
@@ -66,7 +72,11 @@ Desktop (1024px and up): left rail navigation, Plan feed in a 560px column, and 
 - Icons: Phosphor, regular weight, 20px.
 
 ## Motion
-One signature moment: when you approve, your stamp presses onto the ticket (scale 1.12 to 1, rotate -6deg to -2deg, 180ms, ease-out). Sheets slide (200ms). Nothing animates on page load. Under `prefers-reduced-motion`, the stamp appears without motion.
+One signature moment: when you approve, your stamp presses onto the ticket (scale 1.12 to 1, rotate -6deg to -2deg, 180ms, ease-out). Sheets slide (200ms). Under `prefers-reduced-motion`, the stamp appears without motion.
+
+Nothing animates on page load, with one exception: the splash. On the first load in a browser session, the rickshaw drives in on `--ink`, parks, and slides left as the wordmark appears beside it. Then the splash fades out. It lasts at most 2s, stops covering the app as soon as it fades, and is skipped entirely under reduced motion.
+
+Loading: when something needs a loading state, show the rickshaw loader, with wheels turning above a moving road and a plain label such as "Loading trip". Under reduced motion it is shown still.
 
 ## Copy
 - Plain verbs, sentence case, no exclamation marks, no emoji.
