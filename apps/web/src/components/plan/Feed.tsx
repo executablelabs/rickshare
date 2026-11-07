@@ -2,6 +2,7 @@ import { CircleNotch, Sparkle, Ticket as TicketIcon } from "@phosphor-icons/reac
 import type { ChatMessage, Proposal } from "@rickshare/shared";
 import { useState } from "react";
 import { useWallet } from "../../auth/wallet";
+import { activityText } from "../../lib/activity-suggestions";
 import { cx } from "../../lib/cx";
 import { messageOf } from "../../lib/http";
 import { fetchTicket } from "../../lib/plan";
@@ -75,7 +76,7 @@ function Bubble({ message, pending }: { message: ChatMessage; pending: boolean }
         <div className="flex max-w-[85%] flex-col gap-1">
           <span className="text-xs font-semibold text-ink-muted">Planner</span>
           <p className="rounded-ticket rounded-bl-sm border border-rule bg-card px-4 py-3 whitespace-pre-wrap wrap-anywhere">
-            {message.text}
+            {activityText(message.text)}
           </p>
         </div>
       </div>
@@ -130,8 +131,29 @@ export function Feed({
   const wallet = useWallet();
   const [pressed, setPressed] = useState<string | undefined>();
   const byId = new Map(proposals.map((proposal) => [proposal.id, proposal]));
+  const attachedIds = new Set(messages.flatMap((message) => message.proposalIds));
 
-  if (messages.length === 0 && !thinking)
+  function proposalCard(proposal: Proposal) {
+    const isParticipant = proposal.shares.some(
+      (share) => share.member.toLowerCase() === wallet.address?.toLowerCase(),
+    );
+    return (
+      <ProposalTicket
+        proposal={proposal}
+        members={trip.members}
+        viewer={wallet.address}
+        pressed={pressed}
+        actions={<ShareActions proposal={proposal} onApproved={setPressed} />}
+        footer={
+          proposal.status === "fulfilled" && isParticipant ? (
+            <TicketLink proposal={proposal} />
+          ) : undefined
+        }
+      />
+    );
+  }
+
+  if (messages.length === 0 && proposals.length === 0 && !thinking)
     return (
       <section aria-labelledby="ask-title" className="travel-empty flex flex-col gap-4">
         <div className="flex items-center gap-3">
@@ -170,28 +192,21 @@ export function Feed({
           {message.proposalIds.map((id) => {
             const proposal = byId.get(id);
             if (!proposal) return null;
-            const isParticipant = proposal.shares.some(
-              (share) => share.member.toLowerCase() === wallet.address?.toLowerCase(),
-            );
             return (
               <div key={id} className="lg:pl-11.5">
-                <ProposalTicket
-                  proposal={proposal}
-                  members={trip.members}
-                  viewer={wallet.address}
-                  pressed={pressed}
-                  actions={<ShareActions proposal={proposal} onApproved={setPressed} />}
-                  footer={
-                    proposal.status === "fulfilled" && isParticipant ? (
-                      <TicketLink proposal={proposal} />
-                    ) : undefined
-                  }
-                />
+                {proposalCard(proposal)}
               </div>
             );
           })}
         </li>
       ))}
+      {proposals
+        .filter((proposal) => !attachedIds.has(proposal.id))
+        .map((proposal) => (
+          <li key={`purchase:${proposal.id}`} className="lg:pl-11.5">
+            {proposalCard(proposal)}
+          </li>
+        ))}
       {thinking && (
         <li className="flex items-end gap-2.5" role="status">
           <PlannerAvatar />

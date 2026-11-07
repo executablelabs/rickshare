@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useWallet } from "../auth/wallet";
 import { Loader } from "../components/brand/Loader";
 import { TravelError, TravelIntro } from "../components/brand/Travel";
+import { ActivitySelection } from "../components/plan/ActivitySelection";
 import { Composer } from "../components/plan/Composer";
 import { Feed } from "../components/plan/Feed";
 import { FundingAddress } from "../components/trips/FundingAddress";
@@ -191,6 +192,7 @@ function Plan() {
                 onSuggest={setDraft}
               />
             )}
+            <ActivitySelection key={trip.id} messages={messages} />
             <div ref={end} />
           </div>
           <Composer value={draft} onChange={setDraft} onSend={send} disabled={thinking} />
