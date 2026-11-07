@@ -19,9 +19,12 @@ export function Itinerary() {
   const itinerary = useItinerary(trip.id);
   const proposals = useProposals(trip.id);
   const items = [...(itinerary.data ?? [])];
-  // A paid booking stays accessible even if the planner has not added it to its outline.
+  // Selections submitted outside chat still belong in the trip outline while approvals finish.
   for (const proposal of proposals.data ?? [])
-    if (proposal.status === "fulfilled" && !items.some((item) => item.proposalId === proposal.id))
+    if (
+      ["pending", "locked", "fulfilled"].includes(proposal.status) &&
+      !items.some((item) => item.proposalId === proposal.id)
+    )
       items.push({
         ...proposal,
         id: `booking:${proposal.id}`,
@@ -120,7 +123,9 @@ export function Itinerary() {
                                 ? "stamp"
                                 : status === "rejected"
                                   ? "declined"
-                                  : "neutral"
+                                  : status === "pending" || status === "locked"
+                                    ? "waiting"
+                                    : "neutral"
                             }
                           >
                             {status === "fulfilled"
@@ -131,7 +136,9 @@ export function Itinerary() {
                                   ? "Refunded"
                                   : status === "locked"
                                     ? "Waiting for ticket"
-                                    : "Planned"}
+                                    : status === "pending"
+                                      ? "Awaiting approvals"
+                                      : "Planned"}
                           </Chip>
                         </div>
                         {proposal && (

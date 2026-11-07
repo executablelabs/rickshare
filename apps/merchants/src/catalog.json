@@ -8,6 +8,18 @@
         "title": "Elephanta Caves ferry and guided walk",
         "location": "Mumbai",
         "unitPrice": "25000000"
+      },
+      {
+        "id": "central-park-walk-demo",
+        "title": "Central Park walk (testnet demo)",
+        "location": "New York",
+        "unitPrice": "3000000"
+      },
+      {
+        "id": "cannes-old-town-walk-demo",
+        "title": "Le Suquet old town walk (testnet demo)",
+        "location": "Cannes",
+        "unitPrice": "2000000"
       }
     ]
   },
@@ -20,6 +32,18 @@
         "title": "Tandem paragliding in Arambol",
         "location": "Goa",
         "unitPrice": "42000000"
+      },
+      {
+        "id": "hudson-river-park-walk-demo",
+        "title": "Hudson River Park walk (testnet demo)",
+        "location": "New York",
+        "unitPrice": "4000000"
+      },
+      {
+        "id": "karura-forest-walk-demo",
+        "title": "Karura Forest walk (testnet demo)",
+        "location": "Nairobi, Kenya",
+        "unitPrice": "3000000"
       }
     ]
   },
@@ -32,6 +56,18 @@
         "title": "Ajanta and Ellora day tour",
         "location": "Chhatrapati Sambhajinagar",
         "unitPrice": "60000000"
+      },
+      {
+        "id": "cannes-croisette-walk-demo",
+        "title": "La Croisette seafront walk (testnet demo)",
+        "location": "Cannes",
+        "unitPrice": "4000000"
+      },
+      {
+        "id": "nairobi-city-walk-demo",
+        "title": "Nairobi city walk (testnet demo)",
+        "location": "Nairobi, Kenya",
+        "unitPrice": "2000000"
       }
     ]
   }
