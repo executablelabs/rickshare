@@ -4,6 +4,8 @@
 
 Add the published World human-in-the-loop React/IDKit proof flow to manual member-share approval. Fresh OIDC authentication still has to match the wallet's linked World identity. In proof mode, the API withholds the contract attestation until the exact share's Proof of Human verifies in the configured environment and its nullifier is consumed atomically.
 
+The pending proof expires no later than the authenticated identity's `auth_time` plus `WORLD_MAX_AUTH_AGE_SECONDS`, so completing a slow proof cannot release an attestation after authentication becomes stale. The existing request, proposal and quote deadlines may shorten that window further.
+
 ## Interfaces touched
 
 - Additive request states `awaiting_proof` and `processing_proof`, public `humanApproval` challenge metadata, and authenticated same-origin `POST /world/requests/:requestId/proof`.
@@ -17,7 +19,7 @@ The official React approval hook, IDKit widget and server signing helper provide
 
 ## Verification
 
-The checks below passed before the staging follow-up. For that follow-up, tests were neither added nor run locally at the owner's request; the change was checked with lint, typechecking and configuration inspection.
+Initial validation preceded the staging follow-up. That follow-up initially used lint, typechecking and configuration inspection; merge review additionally ran the checks listed below.
 
 - Full `bun run check` against GitHub main `41331b7`: lint, all typechecks and 508 tests pass (197 API, 189 web, 98 contract, 18 shared, 6 merchant). On this Windows host, supported local Vitest options `--maxWorkers=2 --testTimeout=120000` were supplied without changing committed test configuration or assertions.
 - Targeted API identity, proof, signature, binding, replay and cancellation checks pass with stubbed World verification.
@@ -25,6 +27,14 @@ The checks below passed before the staging follow-up. For that follow-up, tests 
 - Lint and frozen-lockfile verification pass.
 - Production web build passes. Browser previews with the real SDK hook at [390px](A8-human-approval-390.png) and [1280px](A8-human-approval-1280.png) show the exact share, an enabled proof trigger, no horizontal overflow, no runtime errors and no World request before the user clicks.
 - The owner's downloaded RP signing key was verified against the supplied signer address and stored in the ignored local API environment and Railway API variables. No key material was printed or added to source. The production feature flag remains false pending deployment and real-user verification.
+
+### Merge review
+
+- Combined with main `5670aba`: full `bun run check` passes with 508 existing tests and unchanged test timeouts, using `VITEST_MAX_WORKERS=2`; production web build passes.
+- After the staging follow-up and authentication-age fix: all 197 API tests, 34 focused approval/proof/OIDC/config tests, API typecheck, repository lint and production web build pass. The build includes web typechecking.
+- Inline checks verify production/staging isolation, server-selected proof environments, mismatched verifier responses, action/nonce/wallet signal binding and environment-separated nullifier digests.
+- Controlled-clock checks reject a proof completed after a 60-second authentication window, accept completion within that window, reject an older authentication timestamp even before request expiry, and reject an already-stale callback. Rejected proofs expose no attestation and consume no nullifier.
+- No test files were added or changed during merge review, as explicitly requested by the user.
 
 ## Setup and follow-ups
 

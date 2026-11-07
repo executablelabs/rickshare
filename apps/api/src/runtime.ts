@@ -136,6 +136,7 @@ export function createRuntime(options: RuntimeOptions = {}) {
           secret: config.SESSION_SECRET,
           verifierKey: asHex(config.VERIFIER_PRIVATE_KEY),
           attestationTtlSeconds: config.ATTESTATION_TTL_SECONDS,
+          maxAuthAgeSeconds: config.WORLD_MAX_AUTH_AGE_SECONDS,
           issuer: config.WORLD_ISSUER,
           clientId: config.WORLD_CLIENT_ID,
           humanApprovalsEnabled: config.WORLD_HUMAN_APPROVAL_ENABLED,

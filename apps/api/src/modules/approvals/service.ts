@@ -18,6 +18,7 @@ type WorldOptions = {
   secret: string;
   verifierKey: Hex;
   attestationTtlSeconds: number;
+  maxAuthAgeSeconds?: number;
   issuer: string;
   clientId: string;
   now?: () => number;
@@ -223,9 +224,16 @@ export class WorldApprovalService {
             );
           const expiresAt = Math.min(
             row.expiresAt,
+            (identity.authenticatedAt + (this.options.maxAuthAgeSeconds ?? 300)) * 1000,
             Number(context.deadline) * 1000,
             Number(context.quoteExpiresAt) * 1000,
           );
+          if (expiresAt <= this.now())
+            throw new AppError(
+              "WORLD_EXPIRED",
+              "Complete a fresh World authentication request.",
+              401,
+            );
           const challenge = this.options.proofs.challenge(context, row.id, expiresAt);
           const awaiting = this.db
             .update(worldFlows)
