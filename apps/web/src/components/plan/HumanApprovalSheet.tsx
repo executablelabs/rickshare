@@ -5,11 +5,20 @@ import type { UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { config } from "../../config";
 import { formatUsd } from "../../lib/format-usd";
-import { messageOf } from "../../lib/http";
+import { ApiError, messageOf } from "../../lib/http";
 import { type Attestation, worldApi } from "../../lib/world";
 import { Amount } from "../ui/Amount";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
+
+function approvalErrorMessage(failure: unknown) {
+  if (
+    failure instanceof ApiError &&
+    ["WORLD_EXPIRED", "ATTESTATION_EXPIRED"].includes(failure.code)
+  )
+    return "This approval expired. Cancel and start a fresh approval.";
+  return failure instanceof Error ? failure.message : messageOf(failure);
+}
 
 export default function HumanApprovalSheet({
   requestId,
@@ -90,7 +99,7 @@ export default function HumanApprovalSheet({
         throw new Error("World has not verified this share. Start a fresh approval.");
       if (!cancelled.current) await onVerified(result.attestation);
     } catch (failure) {
-      setError(messageOf(failure));
+      setError(approvalErrorMessage(failure));
       completed.current = false;
     }
   }
@@ -158,15 +167,19 @@ export default function HumanApprovalSheet({
               try {
                 await approval.verify(proof);
               } catch (failure) {
-                setError(
-                  "World did not verify this share. Check its status or cancel and start again.",
-                );
+                setError(approvalErrorMessage(failure));
                 throw failure;
               }
             }}
             onSuccess={complete}
             onError={() =>
-              setError("World ID verification did not finish. Try again or cancel this approval.")
+              setError(
+                (current) =>
+                  current ??
+                  (challenge.rpContext.expires_at * 1000 <= Date.now()
+                    ? "This approval expired. Cancel and start a fresh approval."
+                    : "World ID verification did not finish. Check its status or cancel and start again."),
+              )
             }
           />
         )}

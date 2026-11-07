@@ -2,8 +2,9 @@ import type { HumanApprovalChallenge, Proposal } from "@rickshare/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useState } from "react";
 import { toWalletCall, useWallet } from "../../auth/wallet";
-import { messageOf } from "../../lib/http";
+import { ApiError, messageOf } from "../../lib/http";
 import { approveCall, planKeys } from "../../lib/plan";
+import { approvalCutoff, isProposalExpired, useProposalExpiryNow } from "../../lib/proposal-expiry";
 import { memberOf, prepareMoneyAction, tripKeys } from "../../lib/trips";
 import { type Attestation, verifyWithWorld, worldApi } from "../../lib/world";
 import { Loader } from "../brand/Loader";
@@ -12,6 +13,8 @@ import { Button } from "../ui/Button";
 import { useToast } from "../ui/Toast";
 
 const HumanApprovalSheet = lazy(() => import("./HumanApprovalSheet"));
+const expiredMessage =
+  "This proposal expired. Ask the planner for a new proposal, then approve again.";
 type Phase = "idle" | "verifying" | "human" | "signing" | "declining";
 
 const approveLabel: Record<Phase, string> = {
@@ -43,6 +46,8 @@ export function ShareActions({
     challenge: HumanApprovalChallenge;
   } | null>(null);
   const me = memberOf(trip, wallet.address);
+  const now = useProposalExpiryNow([proposal]);
+  const expired = isProposalExpired(proposal, now);
   const busy = phase !== "idle" || linkingWorld;
 
   const refresh = () =>
@@ -50,9 +55,24 @@ export function ShareActions({
       queryClient.invalidateQueries({ queryKey: planKeys.proposals(trip.id) }),
       queryClient.invalidateQueries({ queryKey: tripKeys.one(trip.id) }),
       queryClient.invalidateQueries({ queryKey: tripKeys.money(trip.id) }),
+      queryClient.invalidateQueries({ queryKey: ["trips", trip.id, "itinerary"] }),
     ]);
 
+  function handleError(error: unknown) {
+    if (error instanceof ApiError && error.code === "PROPOSAL_EXPIRED") {
+      showToast(expiredMessage, { tone: "error" });
+      void refresh();
+      return;
+    }
+    showToast(messageOf(error), { tone: "error" });
+  }
+
+  function requireUnexpired() {
+    if (isProposalExpired(proposal)) throw new ApiError("PROPOSAL_EXPIRED", expiredMessage, 409);
+  }
+
   async function submitApproval(attestation: Attestation) {
+    requireUnexpired();
     if (!me) throw new Error("Your trip membership changed. Refresh the trip.");
     setPhase("signing");
     const share = proposal.shares.find(
@@ -64,7 +84,7 @@ export function ShareActions({
         proposalId: proposal.id,
         member: me.address,
         amount: share.amount,
-        deadline: proposal.deadline,
+        deadline: new Date(approvalCutoff(proposal)).toISOString(),
       }),
     );
     onApproved(me.address);
@@ -73,6 +93,10 @@ export function ShareActions({
   }
 
   function approve() {
+    if (isProposalExpired(proposal)) {
+      handleError(new ApiError("PROPOSAL_EXPIRED", expiredMessage, 409));
+      return;
+    }
     if (!me) return;
     if (!me.worldLinked) {
       // Approvals need a World identity linked once; start that, then approve again.
@@ -88,6 +112,7 @@ export function ShareActions({
       : verifyWithWorld(() => worldApi.startApproval(trip.id, proposal.id));
     verification
       .then(async (result) => {
+        requireUnexpired();
         if (result.status === "awaiting_proof") {
           if (!result.humanApproval || !("requestId" in result))
             throw new Error("World did not return a human approval request. Try again.");
@@ -114,7 +139,7 @@ export function ShareActions({
       })
       .catch((error: unknown) => {
         if (resumeRequest) clearWorldReturn();
-        showToast(messageOf(error), { tone: "error" });
+        handleError(error);
       })
       .finally(() => setPhase((current) => (current === "human" ? current : "idle")));
   }
@@ -129,6 +154,7 @@ export function ShareActions({
   async function decline() {
     setPhase("declining");
     try {
+      requireUnexpired();
       const transactions = await prepareMoneyAction(trip.id, {
         action: "reject",
         proposalId: proposal.id,
@@ -138,7 +164,7 @@ export function ShareActions({
       showToast("Marked not for you");
       await refresh();
     } catch (error) {
-      showToast(messageOf(error), { tone: "error" });
+      handleError(error);
     } finally {
       setPhase("idle");
     }
@@ -147,10 +173,10 @@ export function ShareActions({
   return (
     <>
       <div className="flex gap-2.5">
-        <Button fullWidth disabled={busy} onClick={approve}>
+        <Button fullWidth disabled={busy || expired} onClick={approve}>
           {linkingWorld ? "Verifying with World…" : approveLabel[phase]}
         </Button>
-        <Button variant="secondary" disabled={busy} onClick={() => void decline()}>
+        <Button variant="secondary" disabled={busy || expired} onClick={() => void decline()}>
           {phase === "declining" ? "Declining…" : "Not for me"}
         </Button>
       </div>
@@ -163,7 +189,7 @@ export function ShareActions({
               try {
                 await submitApproval(attestation);
               } catch (error) {
-                showToast(messageOf(error), { tone: "error" });
+                handleError(error);
               } finally {
                 setHumanApproval(null);
                 setPhase("idle");

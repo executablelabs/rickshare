@@ -6,7 +6,7 @@ import { encodeFunctionData } from "viem";
 import { toWalletCall, useWallet } from "../../auth/wallet";
 import { formatUsd } from "../../lib/format-usd";
 import { ApiError } from "../../lib/http";
-import { memberOf, prepareMoneyAction, tripKeys, useMoney } from "../../lib/trips";
+import { type Money, memberOf, prepareMoneyAction, tripKeys, useMoney } from "../../lib/trips";
 import { parseUsd, toUsdInput } from "../../lib/usd-input";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
@@ -86,9 +86,37 @@ export function useMoneyFlow(trip: Trip) {
       }
       next();
       let timeout: ReturnType<typeof setTimeout> | undefined;
+      let unsubscribe: (() => void) | undefined;
       try {
+        // Policy confirmation depends on this member's indexed limits, not unrelated
+        // list/invite/balance RPC requests finishing. Keep the broad refresh in flight.
+        const policyUpdated =
+          action.action === "policy"
+            ? new Promise<void>((resolve) => {
+                const check = () => {
+                  const members = [
+                    queryClient.getQueryData<Trip>(tripKeys.one(trip.id))?.members,
+                    queryClient.getQueryData<Money>(tripKeys.money(trip.id))?.members,
+                  ];
+                  if (
+                    members.some((rows) =>
+                      rows?.some(
+                        (member) =>
+                          member.address.toLowerCase() === wallet.address?.toLowerCase() &&
+                          member.policy.autoApproveMax === action.autoApproveMax &&
+                          member.policy.totalCap === action.totalCap,
+                      ),
+                    )
+                  )
+                    resolve();
+                };
+                unsubscribe = queryClient.getQueryCache().subscribe(check);
+                check();
+              })
+            : undefined;
+        const refreshed = queryClient.invalidateQueries({ queryKey: tripKeys.list });
         await Promise.race([
-          queryClient.invalidateQueries({ queryKey: tripKeys.list }),
+          policyUpdated ?? refreshed,
           new Promise<never>((_resolve, reject) => {
             timeout = setTimeout(
               () =>
@@ -105,6 +133,7 @@ export function useMoneyFlow(trip: Trip) {
         ]);
       } finally {
         clearTimeout(timeout);
+        unsubscribe?.();
       }
       batch.current = undefined;
     });
