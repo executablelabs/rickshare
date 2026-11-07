@@ -1,4 +1,4 @@
-import { Address, UsdcAmount } from "@rickshare/shared";
+import { Address, HumanApprovalChallenge, UsdcAmount } from "@rickshare/shared";
 import { z } from "zod";
 import { api } from "./api";
 import { ApiError, readApi } from "./http";
@@ -15,9 +15,19 @@ const Attestation = z.object({
   signature: z.string(),
 });
 const RequestState = z.object({
-  status: z.enum(["pending", "processing", "verified", "cancelled", "failed", "expired"]),
+  status: z.enum([
+    "pending",
+    "processing",
+    "awaiting_proof",
+    "processing_proof",
+    "verified",
+    "cancelled",
+    "failed",
+    "expired",
+  ]),
   errorCode: z.string().nullable(),
   attestation: Attestation.nullable(),
+  humanApproval: HumanApprovalChallenge.nullable().optional().default(null),
 });
 export type Attestation = z.infer<typeof Attestation>;
 
@@ -73,6 +83,7 @@ export async function verifyWithWorld(start: () => Promise<z.infer<typeof Starte
       await sleep(POLL_MS);
       const state = await worldApi.request(started.requestId);
       if (state.status === "verified") return state;
+      if (state.status === "awaiting_proof") return { ...state, requestId: started.requestId };
       if (state.status !== "pending" && state.status !== "processing")
         throw new Error(
           state.status === "cancelled"

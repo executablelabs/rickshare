@@ -1,4 +1,4 @@
-import { Address } from "@rickshare/shared";
+import { Address, WorldProofEnvironment } from "@rickshare/shared";
 import { z } from "zod";
 
 const blankToUndefined = (value: unknown) => (value === "" ? undefined : value);
@@ -44,6 +44,38 @@ export const configSchema = z.object({
   WORLD_CLIENT_ID: optionalText,
   WORLD_CLIENT_SECRET: optionalText,
   WORLD_REDIRECT_URI: optionalUrl,
+  WORLD_PROOF_ENVIRONMENT: z.preprocess(
+    blankToUndefined,
+    WorldProofEnvironment.default("production"),
+  ),
+  WORLD_HUMAN_APPROVAL_ENABLED: z.preprocess(
+    blankToUndefined,
+    z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+  ),
+  WORLD_APP_ID: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^app_[a-zA-Z0-9_-]+$/)
+      .optional(),
+  ),
+  WORLD_RP_ID: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^rp_[a-zA-Z0-9_-]+$/)
+      .optional(),
+  ),
+  WORLD_SIGNING_KEY: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^(?:0x)?[a-fA-F0-9]{64}$/)
+      .optional(),
+  ),
   WORLD_MAX_AUTH_AGE_SECONDS: z.preprocess(
     blankToUndefined,
     z.coerce.number().int().min(1).max(900).default(300),

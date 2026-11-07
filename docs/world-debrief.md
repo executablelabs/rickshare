@@ -2,6 +2,8 @@
 
 ## Implemented protocol
 
+An opt-in proof-based human-in-the-loop layer is now implemented on top of the existing linked-identity check. See [WORLD-HUMAN-APPROVAL.md](WORLD-HUMAN-APPROVAL.md) for its pinned published SDKs, action/nonce/signal binding, replay protection and separate RP configuration. The notes below describe the original OIDC layer and its original verification scope.
+
 The supplied Track A plan specifies fresh OIDC authentication, a wallet-to-subject
 link and backend EIP-712 attestations. The implementation follows that protocol.
 World's live discovery endpoint was inspected at
@@ -12,8 +14,8 @@ The current public World documentation also describes a separate proof-based
 human-in-the-loop product at
 https://docs.world.org/agents/human-in-the-loop/integrate.md. That product uses
 RP-signed IDKit proofs rather than this plan's OIDC auth_time/sub flow. This repo
-does not claim to have integrated or verified that distinct SDK or an Agent Pass
-sponsor requirement through the OIDC implementation.
+does not claim that OIDC by itself integrates that distinct SDK or satisfies an
+Agent Pass sponsor requirement. The opt-in proof layer is documented separately.
 
 ## Required external setup
 

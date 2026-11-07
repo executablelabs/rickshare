@@ -16,3 +16,14 @@ test("invalid ports, addresses and keys fail configuration validation", () => {
   expect(configSchema.safeParse({ GAS_SPONSOR_MAX_FEE_USDC: "-1" }).success).toBe(false);
   expect(configSchema.safeParse({ GAS_SPONSOR_DAILY_BUDGET_USDC: "1e6" }).success).toBe(false);
 });
+
+test("World human approval is opt-in and uses separate app and RP credentials", () => {
+  expect(configSchema.parse({}).WORLD_HUMAN_APPROVAL_ENABLED).toBe(false);
+  expect(
+    configSchema.parse({ WORLD_HUMAN_APPROVAL_ENABLED: "true" }).WORLD_HUMAN_APPROVAL_ENABLED,
+  ).toBe(true);
+  expect(configSchema.safeParse({ WORLD_HUMAN_APPROVAL_ENABLED: "yes" }).success).toBe(false);
+  expect(configSchema.safeParse({ WORLD_APP_ID: "oidc_client" }).success).toBe(false);
+  expect(configSchema.safeParse({ WORLD_RP_ID: "app_wrong" }).success).toBe(false);
+  expect(configSchema.safeParse({ WORLD_SIGNING_KEY: "not-a-key" }).success).toBe(false);
+});

@@ -1,26 +1,30 @@
 import { createHash, randomBytes } from "node:crypto";
-import { approvalTypedData } from "@rickshare/shared";
+import { approvalTypedData, HumanApprovalChallenge } from "@rickshare/shared";
 import { and, eq, gt, lte } from "drizzle-orm";
 import { type Address, getAddress, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { AppDatabase } from "../../db/client";
-import { worldFlows, worldIdentities } from "../../db/schema";
+import { worldFlows, worldIdentities, worldProofNullifiers } from "../../db/schema";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import type { AuthService } from "../auth/service";
-import type { ApprovalReader } from "./chain";
+import type { ApprovalContext, ApprovalReader } from "./chain";
 import { seal, unseal } from "./crypto";
 import type { WorldProvider } from "./oidc";
+import { type HumanProofProvider, humanApprovalAction } from "./proof";
 import { Attestation } from "./schemas";
 
 type WorldOptions = {
   secret: string;
   verifierKey: Hex;
   attestationTtlSeconds: number;
+  maxAuthAgeSeconds?: number;
   issuer: string;
   clientId: string;
   now?: () => number;
   onLinked?: (address: Address) => void;
+  humanApprovalsEnabled?: boolean;
+  proofs?: HumanProofProvider;
 };
 
 export class WorldApprovalService {
@@ -50,6 +54,12 @@ export class WorldApprovalService {
     const session = this.auth.requireSession(token);
     if (!token) throw new AppError("UNAUTHENTICATED", "Sign in to continue.", 401);
     if (purchase) {
+      if (this.options.humanApprovalsEnabled && !this.options.proofs)
+        throw new AppError(
+          "WORLD_HUMAN_NOT_CONFIGURED",
+          "World human approval is not configured yet.",
+          503,
+        );
       if (!this.isLinked(session.address))
         throw new AppError(
           "WORLD_NOT_LINKED",
@@ -205,26 +215,41 @@ export class WorldApprovalService {
             "The configured verifier does not match this vault.",
             503,
           );
-        let deadline = BigInt(
-          Math.floor(this.now() / 1000) + Math.min(this.options.attestationTtlSeconds, 900),
-        );
-        if (deadline > context.deadline) deadline = context.deadline;
-        if (deadline > context.quoteExpiresAt) deadline = context.quoteExpiresAt;
-        if (deadline <= BigInt(Math.floor(this.now() / 1000)))
-          throw new AppError("PROPOSAL_EXPIRED", "Request a new purchase quote.", 409);
-        const signature = await this.account.signTypedData(
-          approvalTypedData({ ...context, deadline }),
-        );
-        const attestation: Attestation = {
-          vaultAddress: context.vaultAddress,
-          proposalId: context.proposalId.toString(),
-          member: context.member,
-          amount: context.amount.toString(),
-          nonce: context.nonce.toString(),
-          deadline: deadline.toString(),
-          chainId: context.chainId,
-          signature,
-        };
+        if (this.options.humanApprovalsEnabled) {
+          if (!this.options.proofs)
+            throw new AppError(
+              "WORLD_HUMAN_NOT_CONFIGURED",
+              "World human approval is not configured.",
+              503,
+            );
+          const expiresAt = Math.min(
+            row.expiresAt,
+            (identity.authenticatedAt + (this.options.maxAuthAgeSeconds ?? 300)) * 1000,
+            Number(context.deadline) * 1000,
+            Number(context.quoteExpiresAt) * 1000,
+          );
+          if (expiresAt <= this.now())
+            throw new AppError(
+              "WORLD_EXPIRED",
+              "Complete a fresh World authentication request.",
+              401,
+            );
+          const challenge = this.options.proofs.challenge(context, row.id, expiresAt);
+          const awaiting = this.db
+            .update(worldFlows)
+            .set({
+              status: "awaiting_proof",
+              result: JSON.stringify(challenge),
+              expiresAt,
+            })
+            .where(and(eq(worldFlows.id, row.id), eq(worldFlows.status, "processing")))
+            .returning()
+            .get();
+          if (!awaiting)
+            throw new AppError("WORLD_CANCELLED", "This World request was cancelled.", 409);
+          return { status: "awaiting_proof" } as const;
+        }
+        const attestation = await this.attest(context);
         const completed = this.db
           .update(worldFlows)
           .set({ status: "verified", result: JSON.stringify(attestation) })
@@ -246,6 +271,129 @@ export class WorldApprovalService {
     }
   }
 
+  private async attest(context: ApprovalContext): Promise<Attestation> {
+    if (context.verifier.toLowerCase() !== this.account.address.toLowerCase())
+      throw new AppError(
+        "VERIFIER_MISMATCH",
+        "The configured verifier does not match this vault.",
+        503,
+      );
+    let deadline = BigInt(
+      Math.floor(this.now() / 1000) + Math.min(this.options.attestationTtlSeconds, 900),
+    );
+    if (deadline > context.deadline) deadline = context.deadline;
+    if (deadline > context.quoteExpiresAt) deadline = context.quoteExpiresAt;
+    if (deadline <= BigInt(Math.floor(this.now() / 1000)))
+      throw new AppError("PROPOSAL_EXPIRED", "Request a new purchase quote.", 409);
+    return {
+      vaultAddress: context.vaultAddress,
+      proposalId: context.proposalId.toString(),
+      member: context.member,
+      amount: context.amount.toString(),
+      nonce: context.nonce.toString(),
+      deadline: deadline.toString(),
+      chainId: context.chainId,
+      signature: await this.account.signTypedData(approvalTypedData({ ...context, deadline })),
+    };
+  }
+
+  async finishProof(token: string | undefined, requestId: string, proof: unknown) {
+    const session = this.auth.requireSession(token);
+    if (!token) throw new AppError("UNAUTHENTICATED", "Sign in to continue.", 401);
+    if (!this.options.humanApprovalsEnabled || !this.options.proofs)
+      throw new AppError("WORLD_HUMAN_NOT_CONFIGURED", "World human approval is not enabled.", 503);
+    const row = this.db
+      .update(worldFlows)
+      .set({ status: "processing_proof" })
+      .where(
+        and(
+          eq(worldFlows.id, this.auth.digest(requestId)),
+          eq(worldFlows.sessionHash, this.auth.digest(token)),
+          eq(worldFlows.address, session.address.toLowerCase()),
+          eq(worldFlows.kind, "approve"),
+          eq(worldFlows.status, "awaiting_proof"),
+          gt(worldFlows.expiresAt, this.now()),
+        ),
+      )
+      .returning()
+      .get();
+    if (!row)
+      throw new AppError(
+        "WORLD_FLOW_INVALID",
+        "This human approval expired or was already used.",
+        409,
+      );
+    try {
+      if (!row.result || !row.vault || !row.proposalId)
+        throw new AppError("WORLD_FLOW_INVALID", "The human approval is incomplete.", 400);
+      const challenge = HumanApprovalChallenge.parse(JSON.parse(row.result));
+      const nullifierId = await this.options.proofs.verify(proof, challenge);
+      this.auth.requireSession(token);
+      if (row.expiresAt <= this.now())
+        throw new AppError("WORLD_EXPIRED", "Start a fresh World approval.", 401);
+      const context = await this.reader(
+        getAddress(row.vault),
+        BigInt(row.proposalId),
+        session.address,
+      );
+      if (
+        context.member.toLowerCase() !== session.address.toLowerCase() ||
+        context.vaultAddress.toLowerCase() !== row.vault ||
+        context.proposalId.toString() !== row.proposalId ||
+        humanApprovalAction(context, row.id) !== challenge.action
+      )
+        throw new AppError(
+          "APPROVAL_CONTEXT_MISMATCH",
+          "The purchase changed. Start a fresh approval.",
+          409,
+        );
+      const attestation = await this.attest(context);
+      this.auth.requireSession(token);
+      this.db.transaction((transaction) => {
+        const pending = transaction
+          .select()
+          .from(worldFlows)
+          .where(eq(worldFlows.id, row.id))
+          .get();
+        if (pending?.status !== "processing_proof" || pending.expiresAt <= this.now())
+          throw new AppError(
+            "WORLD_CANCELLED",
+            "This World request was cancelled or expired.",
+            409,
+          );
+        const consumed = transaction
+          .insert(worldProofNullifiers)
+          .values({
+            id: nullifierId,
+            requestId: row.id,
+            consumedAt: this.now(),
+          })
+          .onConflictDoNothing()
+          .returning()
+          .get();
+        if (!consumed)
+          throw new AppError("WORLD_PROOF_REPLAY", "This human approval was already used.", 409);
+        transaction
+          .update(worldFlows)
+          .set({ status: "verified", result: JSON.stringify(attestation) })
+          .where(eq(worldFlows.id, row.id))
+          .run();
+      });
+      return { status: "verified" } as const;
+    } catch (error) {
+      const failure =
+        error instanceof AppError
+          ? error
+          : new AppError("WORLD_PROOF_INVALID", "Human approval could not be verified.", 401);
+      this.db
+        .update(worldFlows)
+        .set({ status: "failed", result: null, errorCode: failure.code })
+        .where(and(eq(worldFlows.id, row.id), eq(worldFlows.status, "processing_proof")))
+        .run();
+      throw failure;
+    }
+  }
+
   status(token: string | undefined, requestId: string) {
     const session = this.auth.requireSession(token);
     if (!token) throw new AppError("UNAUTHENTICATED", "Sign in to continue.", 401);
@@ -261,12 +409,30 @@ export class WorldApprovalService {
       )
       .get();
     if (!row) throw new AppError("WORLD_FLOW_INVALID", "This World request was not found.", 404);
-    if (row.expiresAt <= this.now() && (row.status === "pending" || row.status === "processing"))
-      return { status: "expired", errorCode: "WORLD_EXPIRED", attestation: null };
-    const attestation = row.result ? Attestation.parse(JSON.parse(row.result)) : null;
+    if (
+      row.expiresAt <= this.now() &&
+      ["pending", "processing", "awaiting_proof", "processing_proof"].includes(row.status)
+    )
+      return {
+        status: "expired",
+        errorCode: "WORLD_EXPIRED",
+        attestation: null,
+        humanApproval: null,
+      };
+    const attestation =
+      row.result && row.status === "verified" ? Attestation.parse(JSON.parse(row.result)) : null;
+    const humanApproval =
+      row.result && ["awaiting_proof", "processing_proof"].includes(row.status)
+        ? HumanApprovalChallenge.parse(JSON.parse(row.result))
+        : null;
     if (attestation && BigInt(attestation.deadline) <= BigInt(Math.floor(this.now() / 1000)))
-      return { status: "expired", errorCode: "ATTESTATION_EXPIRED", attestation: null };
-    return { status: row.status, errorCode: row.errorCode, attestation };
+      return {
+        status: "expired",
+        errorCode: "ATTESTATION_EXPIRED",
+        attestation: null,
+        humanApproval: null,
+      };
+    return { status: row.status, errorCode: row.errorCode, attestation, humanApproval };
   }
 
   cancel(token: string | undefined, requestId: string) {
@@ -276,13 +442,19 @@ export class WorldApprovalService {
       .from(worldFlows)
       .where(eq(worldFlows.id, this.auth.digest(requestId)))
       .get();
-    if (!row || (row.status !== "pending" && row.status !== "processing"))
+    if (
+      !row ||
+      !["pending", "processing", "awaiting_proof", "processing_proof"].includes(row.status)
+    )
       throw new AppError("WORLD_FLOW_FINISHED", "This World request is already finished.", 409);
-    this.db
+    const cancelled = this.db
       .update(worldFlows)
       .set({ status: "cancelled", errorCode: "WORLD_CANCELLED", result: null })
-      .where(eq(worldFlows.id, row.id))
-      .run();
+      .where(and(eq(worldFlows.id, row.id), eq(worldFlows.status, row.status)))
+      .returning()
+      .get();
+    if (!cancelled)
+      throw new AppError("WORLD_FLOW_FINISHED", "This World request already finished.", 409);
     return { status: "cancelled" } as const;
   }
 }

@@ -88,6 +88,7 @@ Web deployment: [rickshare.xyz](https://rickshare.xyz). See [Railway and local H
 Factory deployment confirmed at block `70991387`. The [deployment record](packages/shared/src/deployments/arcTestnet.json) contains the transaction hash and configured public role addresses.
 
 ## Sponsor integrations
+- **World human-in-the-loop:** opt-in, action-bound IDKit proofs after fresh linked-identity authentication, with durable nullifier consumption before releasing the member's approval attestation. Setup and live acceptance requirements: [docs/WORLD-HUMAN-APPROVAL.md](docs/WORLD-HUMAN-APPROVAL.md).
 - **World ID Agent Pass:** step-up authentication before each approval above a member's limit. Denied, cancelled and expired paths are handled. Integration notes: `docs/world-debrief.md`.
 - **ENSv2:** per-trip names, member and agent subnames, agent limited to the `itinerary` record via Enhanced Access Control, names expire at trip end.
 - **Arc:** USDC vault with per-share consent, escrow on delivery and pro-rata settlement. Arc Studio project: <link>.
