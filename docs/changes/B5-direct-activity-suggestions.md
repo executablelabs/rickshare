@@ -16,7 +16,7 @@ None. Quote validation, booking consent, merchant selection, financial approval 
 
 - Full bun run check: pass, 490 existing tests, with VITEST_MAX_WORKERS=2 for local worker contention.
 - Existing agent suite: 63 tests and 168 assertions pass, including saved destination/date context, tool validation, consent and merchant binding.
-- Prompt review: stated per-person, per-activity and whole-trip budgets remain distinct; fewer than three suggestions are allowed when budget or coverage is limited; missing dates do not block ideas.
+- Prompt review: stated per-person, per-activity and whole-trip budgets remain distinct; fewer than three suggestions are allowed when budget or coverage is limited; missing dates do not block ideas. Date/time clarification is restricted to preparing purchases or dated itinerary entries.
 - Automatic approval review blocked the live-model smoke command with "blocked by policy" and no further reason. The updated prompt's real-model behavior was not verified by that command.
 - No test files added or modified, per the user's explicit instruction.
 
