@@ -195,7 +195,13 @@ function Plan() {
             <ActivitySelection key={trip.id} messages={messages} />
             <div ref={end} />
           </div>
-          <Composer value={draft} onChange={setDraft} onSend={send} disabled={thinking} />
+          <Composer
+            value={draft}
+            onChange={setDraft}
+            onSend={send}
+            disabled={thinking}
+            location={trip.location ?? null}
+          />
         </div>
         <ReadyChecklist />
       </div>
