@@ -170,12 +170,24 @@ export class WorldApprovalService {
         401,
       );
     if (input.error || !input.code) {
-      this.db
-        .update(worldFlows)
-        .set({ status: "cancelled", errorCode: "WORLD_CANCELLED" })
-        .where(eq(worldFlows.id, row.id))
-        .run();
-      return { status: "cancelled" } as const;
+      const errors: Record<string, string> = {
+        access_denied: "WORLD_ACCESS_DENIED",
+        server_error: "WORLD_PROVIDER_ERROR",
+        temporarily_unavailable: "WORLD_PROVIDER_UNAVAILABLE",
+        login_required: "WORLD_LOGIN_REQUIRED",
+        interaction_required: "WORLD_INTERACTION_REQUIRED",
+        user_cancelled: "WORLD_CANCELLED",
+        interaction_cancelled: "WORLD_CANCELLED",
+      };
+      const errorCode = input.error
+        ? Object.hasOwn(errors, input.error)
+          ? (errors[input.error] ?? "WORLD_PROVIDER_ERROR")
+          : "WORLD_PROVIDER_ERROR"
+        : "WORLD_CALLBACK_INCOMPLETE";
+      const status = errorCode === "WORLD_CANCELLED" ? "cancelled" : "failed";
+      logger.error(errorCode);
+      this.db.update(worldFlows).set({ status, errorCode }).where(eq(worldFlows.id, row.id)).run();
+      return { status };
     }
     try {
       const identity = await this.provider.exchange({
@@ -458,11 +470,19 @@ export class WorldApprovalService {
       )
       .get();
     if (!row) throw new AppError("WORLD_FLOW_INVALID", "This World request was not found.", 404);
+    const metadata = {
+      kind: row.kind,
+      purchase:
+        row.kind === "approve" && row.vault && row.proposalId
+          ? { vaultAddress: row.vault, proposalId: row.proposalId }
+          : null,
+    };
     if (
       row.expiresAt <= this.now() &&
       ["pending", "processing", "awaiting_proof", "processing_proof"].includes(row.status)
     )
       return {
+        ...metadata,
         status: "expired",
         errorCode: "WORLD_EXPIRED",
         attestation: null,
@@ -476,12 +496,19 @@ export class WorldApprovalService {
         : null;
     if (attestation && BigInt(attestation.deadline) <= BigInt(Math.floor(this.now() / 1000)))
       return {
+        ...metadata,
         status: "expired",
         errorCode: "ATTESTATION_EXPIRED",
         attestation: null,
         humanApproval: null,
       };
-    return { status: row.status, errorCode: row.errorCode, attestation, humanApproval };
+    return {
+      ...metadata,
+      status: row.status,
+      errorCode: row.errorCode,
+      attestation,
+      humanApproval,
+    };
   }
 
   cancel(token: string | undefined, requestId: string) {

@@ -314,6 +314,7 @@ test("the World callback returns manual approval to its trip for same-tab recove
   const destination = new URL(response.headers.get("Location") ?? "");
   expect(destination.pathname).toBe(`/trips/${vault.toLowerCase()}/plan`);
   expect(destination.searchParams.get("world_request")).toBe(request.requestId);
+  expect(destination.searchParams.get("world_proposal_id")).toBe("1");
   expect(destination.searchParams.get("world_status")).toBe("awaiting_proof");
   expect(f.service.status(f.token, request.requestId).attestation).toBeNull();
 });
@@ -332,13 +333,14 @@ test("a different World subject cannot approve an already linked wallet", async 
   });
 });
 
-test("cancelled and expired flows never return an approval signature", async () => {
+test("denied and expired flows never return an approval signature", async () => {
   const f = await fixture();
   await f.link();
   const cancelled = await f.service.start(f.token, { vault, proposalId: 1n });
   await f.service.finish(f.token, { state: cancelled.requestId, error: "access_denied" });
   expect(f.service.status(f.token, cancelled.requestId)).toMatchObject({
-    status: "cancelled",
+    status: "failed",
+    errorCode: "WORLD_ACCESS_DENIED",
     attestation: null,
   });
   const expired = await f.service.start(f.token, { vault, proposalId: 1n });
@@ -401,6 +403,8 @@ test("the HTTP World callback returns to the web origin and polling exposes no i
   expect(new URL(callback.headers.get("Location") ?? "").origin).toBe("http://localhost:5173");
   const status = await app.request(`/world/requests/${request.requestId}`, { headers });
   expect(await status.json()).toEqual({
+    kind: "link",
+    purchase: null,
     status: "verified",
     errorCode: null,
     attestation: null,
