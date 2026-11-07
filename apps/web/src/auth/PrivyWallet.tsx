@@ -7,7 +7,13 @@ import { createTransactionSender } from "./transactions";
 import { WalletContext } from "./wallet";
 
 const chain = config.VITE_ARC_RPC_URL
-  ? { ...arcTestnet, rpcUrls: { default: { http: [config.VITE_ARC_RPC_URL] } } }
+  ? {
+      ...arcTestnet,
+      rpcUrls: {
+        default: { http: [config.VITE_ARC_RPC_URL] },
+        privyWalletOverride: { http: [config.VITE_ARC_RPC_URL] },
+      },
+    }
   : arcTestnet;
 
 export default function PrivyWallet({ appId, children }: { appId: string; children: ReactNode }) {
