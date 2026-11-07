@@ -2,13 +2,13 @@
 
 ## Summary
 
-Add the published World human-in-the-loop React/IDKit proof flow to manual member-share approval. Fresh OIDC authentication still has to match the wallet's linked World identity. In proof mode, the API withholds the contract attestation until the exact share's production Proof of Human verifies and its nullifier is consumed atomically.
+Add the published World human-in-the-loop React/IDKit proof flow to manual member-share approval. Fresh OIDC authentication still has to match the wallet's linked World identity. In proof mode, the API withholds the contract attestation until the exact share's Proof of Human verifies in the configured environment and its nullifier is consumed atomically.
 
 ## Interfaces touched
 
 - Additive request states `awaiting_proof` and `processing_proof`, public `humanApproval` challenge metadata, and authenticated same-origin `POST /world/requests/:requestId/proof`.
 - Additive `world_proof_nullifiers` table and migration `0010_world_human_approvals`.
-- API-only `WORLD_HUMAN_APPROVAL_ENABLED`, `WORLD_APP_ID`, `WORLD_RP_ID` and `WORLD_SIGNING_KEY`, all listed in `.env.example`.
+- API-only `WORLD_HUMAN_APPROVAL_ENABLED`, `WORLD_PROOF_ENVIRONMENT`, `WORLD_APP_ID`, `WORLD_RP_ID` and `WORLD_SIGNING_KEY`, all listed in `.env.example`. Proof environment defaults to production and supports explicit staging for the World simulator; OIDC configuration is independent.
 - Shared challenge schema and SDK-backed proof sheet. Existing contract interfaces and member spending limits are unchanged.
 
 ## Dependencies
@@ -16,6 +16,8 @@ Add the published World human-in-the-loop React/IDKit proof flow to manual membe
 The official React approval hook, IDKit widget and server signing helper provide the published World proof protocol. AI SDK 5 is a UI-message peer dependency only. SQLite supplies the durable pause for the existing Hono/Bun application; the Vercel Workflow server factory is not installed.
 
 ## Verification
+
+The checks below passed before the staging follow-up. For that follow-up, tests were neither added nor run locally at the owner's request; the change was checked with lint, typechecking and configuration inspection.
 
 - Full `bun run check` against GitHub main `41331b7`: lint, all typechecks and 508 tests pass (197 API, 189 web, 98 contract, 18 shared, 6 merchant). On this Windows host, supported local Vitest options `--maxWorkers=2 --testTimeout=120000` were supplied without changing committed test configuration or assertions.
 - Targeted API identity, proof, signature, binding, replay and cancellation checks pass with stubbed World verification.

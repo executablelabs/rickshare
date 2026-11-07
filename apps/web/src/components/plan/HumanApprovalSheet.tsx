@@ -152,7 +152,7 @@ export default function HumanApprovalSheet({
             action_description={`Approve my ${formatUsd(BigInt(challenge.share.amount))} share for Rickshare purchase ${challenge.share.proposalId}`}
             rp_context={challenge.rpContext}
             preset={proofOfHuman({ signal: challenge.signal })}
-            environment="production"
+            environment={challenge.environment ?? "production"}
             allow_legacy_proofs={false}
             handleVerify={async (proof) => {
               try {

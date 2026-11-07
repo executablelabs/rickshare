@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { HumanApprovalChallenge } from "@rickshare/shared";
+import { HumanApprovalChallenge, WorldProofEnvironment } from "@rickshare/shared";
 import { signRequest } from "@worldcoin/idkit-server";
 import { getAddress, keccak256, stringToHex, toHex } from "viem";
 import { z } from "zod";
@@ -10,7 +10,7 @@ const Field = z.string().regex(/^0x[a-fA-F0-9]{1,64}$/);
 export const WorldHumanProof = z
   .object({
     protocol_version: z.literal("4.0"),
-    environment: z.literal("production"),
+    environment: WorldProofEnvironment,
     nonce: z.string().min(1).max(128),
     action: HumanApprovalChallenge.shape.action,
     session_id: z.never().optional(),
@@ -67,6 +67,7 @@ export class WorldHumanProofProvider implements HumanProofProvider {
       appId: string;
       rpId: string;
       signingKey: string;
+      environment?: WorldProofEnvironment;
       fetcher?: (url: string, init?: RequestInit) => Promise<Response>;
       now?: () => number;
     },
@@ -80,6 +81,7 @@ export class WorldHumanProofProvider implements HumanProofProvider {
     const signed = signRequest({ signingKeyHex: this.options.signingKey, action, ttl });
     return HumanApprovalChallenge.parse({
       appId: this.options.appId,
+      environment: this.options.environment ?? "production",
       action,
       signal: `rickshare-member:${context.member.toLowerCase()}`,
       rpContext: {
@@ -107,9 +109,12 @@ export class WorldHumanProofProvider implements HumanProofProvider {
     if (!parsed.success)
       throw new AppError("WORLD_PROOF_INVALID", "World returned an invalid human approval.", 400);
     const proof = parsed.data;
+    const environment = this.options.environment ?? "production";
     const credential = proof.responses[0];
     if (
       !credential ||
+      proof.environment !== environment ||
+      (challenge.environment ?? "production") !== environment ||
       proof.action !== challenge.action ||
       proof.nonce !== challenge.rpContext.nonce ||
       BigInt(credential.signal_hash) !== BigInt(worldSignalHash(challenge.signal)) ||
@@ -128,7 +133,7 @@ export class WorldHumanProofProvider implements HumanProofProvider {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ...proof, environment: "production" }),
+          body: JSON.stringify(proof),
           signal: AbortSignal.timeout(10_000),
           redirect: "error",
         },
@@ -145,7 +150,7 @@ export class WorldHumanProofProvider implements HumanProofProvider {
     const verification = z
       .object({
         success: z.literal(true),
-        environment: z.literal("production"),
+        environment: z.literal(environment),
         action: z.string().optional(),
         results: z
           .array(
@@ -174,6 +179,7 @@ export class WorldHumanProofProvider implements HumanProofProvider {
     return createHash("sha256")
       .update(
         JSON.stringify([
+          environment,
           this.options.rpId,
           challenge.action,
           BigInt(credential.nullifier).toString(),

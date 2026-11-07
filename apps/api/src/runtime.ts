@@ -145,6 +145,7 @@ export function createRuntime(options: RuntimeOptions = {}) {
                   appId: config.WORLD_APP_ID,
                   rpId: config.WORLD_RP_ID,
                   signingKey: config.WORLD_SIGNING_KEY,
+                  environment: config.WORLD_PROOF_ENVIRONMENT,
                 }),
               }
             : {}),

@@ -6,7 +6,7 @@ Manual share approval has three stages when `WORLD_HUMAN_APPROVAL_ENABLED=true`:
 
 1. Fresh World OIDC authentication must match the identity already linked to the signed-in wallet.
 2. The member reviews the exact share and proves humanity using the World human-in-the-loop React hook and the IDKit 4.0 Proof of Human widget.
-3. The API verifies the action-bound proof, re-reads the chain context, atomically consumes its nullifier and releases a short-lived EIP-712 attestation. The member's own wallet still sends `approve`.
+3. The API verifies the action-bound proof in the configured environment, re-reads the chain context, atomically consumes its nullifier and releases a short-lived EIP-712 attestation. The member's own wallet still sends `approve`.
 
 Existing automatic approvals operate only within the limits that the member already authorized. The proof does not give the agent a payer key or complete the separate Arc-vault-to-x402 payment adapter.
 
@@ -29,6 +29,7 @@ Set these on the Railway **API** service:
 
 ```dotenv
 WORLD_HUMAN_APPROVAL_ENABLED=true
+WORLD_PROOF_ENVIRONMENT=production
 WORLD_APP_ID=app_...
 WORLD_RP_ID=rp_...
 WORLD_SIGNING_KEY=...
@@ -40,13 +41,23 @@ Deploy the API, migration and web integration together, then enable the flag aft
 
 The SDK webhook uses the signed-in session cookie, so it must use the same-origin `/api` proxy. Production already does this. For local live verification, use the documented Caddy/web-proxy setup in `DEPLOYMENT.md`. A cross-origin development API shows a configuration message instead of sending an unauthenticated proof.
 
+### Staging with the World simulator
+
+Set `WORLD_PROOF_ENVIRONMENT=staging` on the API service to use the [World simulator](https://simulator.worldcoin.org/). The API includes the selected environment in each challenge, and the web widget uses that value. Existing challenges without an environment are treated as production; start a fresh approval after switching environments.
+
+The app ID, RP ID, signing key and `https://developer.world.org/api/v4/verify/{rp_id}` endpoint stay the same. Both the submitted proof and the verifier's response must match the server-selected environment. Production and staging are mutually exclusive per deployment; the browser cannot choose which the API accepts. Sandbox is a separate World environment and is not enabled by this setting.
+
+This setting affects IDKit proofs only. Fresh OIDC authentication and wallet-linked identity checks still use `WORLD_ISSUER=https://auth.world.org`; changing the proof environment does not create a simulator-only OIDC login or remove that step. The Proof of Human credential requirement is unchanged.
+
+The hosted API's proof environment is set to staging, with `WORLD_HUMAN_APPROVAL_ENABLED=false` until the reviewed API and web changes are deployed. Changing the variable alone does not activate the proof flow. To return to production proofs, set `WORLD_PROOF_ENVIRONMENT=production` and deploy/restart the API; pending staging challenges must be restarted.
+
 ## Binding and replay protection
 
 The server derives each action from the request ID, chain, vault, proposal, member, share amount, approval nonce, proposal deadline and quote expiry. The proof signal is the namespaced canonical member address (`rickshare-member:0x...`), encoded as UTF-8 rather than an ambiguous raw hex input. The member cannot supply a different action or obtain an arbitrary RP signature.
 
-The backend accepts one production World ID 4.0 Proof of Human credential, forwards the complete validated result to the pinned RP verification endpoint, and requires both overall and credential-level verification success. Staging, sandbox, legacy and session proofs are rejected. It checks the action, RP nonce, wallet signal and expiry before verification, then checks the on-chain operation again before signing.
+The backend accepts one World ID 4.0 Proof of Human credential in its configured environment, forwards the complete validated result to the pinned RP verification endpoint, and requires both overall and credential-level verification success in that same environment. Proofs from another environment, sandbox, legacy and session proofs are rejected. It checks the action, RP nonce, wallet signal and expiry before verification, then checks the on-chain operation again before signing.
 
-Nullifiers are normalized as integers and hashed with the RP/action before durable one-time consumption. Consumption and the verified attestation are committed atomically. A cancellation, changed share/nonce, expired session or request, replay, or malformed verifier response exposes no approval signature. Raw World proofs and identity tokens are not persisted or logged by this flow.
+Nullifiers are normalized as integers and hashed with the environment, RP and action before durable one-time consumption. Consumption and the verified attestation are committed atomically. A cancellation, changed share/nonce, expired session or request, replay, or malformed verifier response exposes no approval signature. Raw World proofs and identity tokens are not persisted or logged by this flow.
 
 Migration `0010_world_human_approvals` adds the consumption table without changing vault contracts or existing identity links. API restarts preserve a pending proof challenge; expired challenges require a new approval attempt. Same-tab OIDC callbacks return to the proposal's trip with its opaque request ID; clicking approval again resumes that stored request rather than requiring another identity round trip. A lost proof-webhook response can be checked against server status before retrying a wallet action.
 
