@@ -208,15 +208,48 @@ export async function submitActivityQuote(
       "This quote expired. Review new quotes before booking.",
       409,
     );
-  return readApi(
-    await api.trips[":tripId"].proposals.$post(
-      { param: { tripId }, json: { quote: review.quote, shares: review.shares } },
-      { init: { signal: requestSignal(signal, 45_000) } },
-    ),
-    z.object({
-      proposalId: z.string(),
-      transactionHash: z.string().optional(),
-      indexed: z.boolean().optional(),
-    }),
+  const submitted = z.object({
+    proposalId: z.string(),
+    transactionHash: z.string().optional(),
+    indexed: z.boolean().optional(),
+  });
+  const response = await api.trips[":tripId"].proposals.$post(
+    { param: { tripId }, json: { quote: review.quote, shares: review.shares } },
+    { init: { signal: requestSignal(signal, 15_000) } },
+  );
+  if (response.status !== 202) return readApi(response, submitted);
+  await readApi(
+    response,
+    z
+      .object({ status: z.literal("processing"), quoteHash: z.string() })
+      .refine((value) => value.quoteHash.toLowerCase() === review.quote.quoteHash.toLowerCase()),
+  );
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    signal?.throwIfAborted();
+    const state = await readApi(
+      await api.trips[":tripId"]["proposal-submissions"][":quoteHash"].$get(
+        { param: { tripId, quoteHash: review.quote.quoteHash } },
+        { init: { signal: requestSignal(signal, 10_000) } },
+      ),
+      z.discriminatedUnion("status", [
+        submitted.extend({ status: z.literal("confirmed") }),
+        z.object({ status: z.literal("processing") }),
+        z.object({ status: z.literal("unconfirmed"), transactionHash: z.string().nullable() }),
+      ]),
+    );
+    if (state.status === "confirmed") return state;
+    if (state.status === "unconfirmed")
+      throw new ApiError(
+        "SUBMISSION_UNCONFIRMED",
+        "The purchase request is still being reconciled. Check the previous attempt; keep the same quote.",
+        409,
+      );
+  }
+  throw new ApiError(
+    "SUBMISSION_PENDING",
+    "The purchase request is still processing. Check the previous attempt; keep the same quote.",
+    409,
   );
 }

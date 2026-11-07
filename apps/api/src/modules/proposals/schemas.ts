@@ -10,6 +10,9 @@ export const ProposalParams = z.object({
     .max(78),
 });
 export const TripProposalParams = ProposalParams.omit({ proposalId: true });
+export const SubmissionParams = TripProposalParams.extend({
+  quoteHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+});
 export const ProposalInput = z
   .object({
     quote: SignedQuote,

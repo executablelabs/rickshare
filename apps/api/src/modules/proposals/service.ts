@@ -12,6 +12,7 @@ type Submission = { tripId: string; quote: unknown; shares: { member: string; am
 
 export class ProposalService {
   private queue: Promise<unknown> = Promise.resolve();
+  private active = new Map<string, { fingerprint: string; task: Promise<SubmittedProposal> }>();
   constructor(
     private readonly db: AppDatabase,
     private readonly chain: ProposalChain,
@@ -22,9 +23,92 @@ export class ProposalService {
   ) {}
 
   submitProposal(input: Submission): Promise<SubmittedProposal> {
-    const task = this.queue.then(() => this.submit(input));
+    const parsed = SignedQuote.safeParse(input.quote);
+    if (!parsed.success)
+      return Promise.reject(
+        new AppError("INVALID_QUOTE", "A vault-bound signed merchant quote is required.", 400),
+      );
+    const submission: Submission = {
+      tripId: input.tripId,
+      quote: parsed.data,
+      shares: input.shares.map((share) => ({ ...share })),
+    };
+    const key = `${submission.tripId.toLowerCase()}:${parsed.data.quoteHash.toLowerCase()}`;
+    const fingerprint = JSON.stringify(
+      { quote: parsed.data, shares: submission.shares },
+      (_key, value: unknown) => (typeof value === "bigint" ? value.toString() : value),
+    );
+    const active = this.active.get(key);
+    if (active) {
+      if (active.fingerprint !== fingerprint)
+        return Promise.reject(
+          new AppError(
+            "QUOTE_ALREADY_SUBMITTED",
+            "This quote is already being submitted with different terms.",
+            409,
+          ),
+        );
+      return active.task;
+    }
+    const task = this.queue
+      .then(() => this.submit(submission))
+      .finally(() => this.active.delete(key));
+    this.active.set(key, { fingerprint, task });
     this.queue = task.catch(() => undefined);
     return task;
+  }
+
+  submissionStatus(tripId: string, quoteHash: string) {
+    const vault = tripId.toLowerCase();
+    const digest = quoteHash.toLowerCase();
+    const row = this.db
+      .select()
+      .from(proposalSubmissions)
+      .where(and(eq(proposalSubmissions.quoteHash, digest), eq(proposalSubmissions.vault, vault)))
+      .get();
+    if (row?.proposalId && row.transactionHash)
+      return {
+        status: "confirmed" as const,
+        proposalId: row.proposalId,
+        transactionHash: asHex(row.transactionHash),
+      };
+    // A durable Proposed event recovers a response lost after broadcast, without sending again.
+    const event = row
+      ? this.db
+          .select()
+          .from(chainEvents)
+          .where(
+            and(
+              eq(chainEvents.vault, vault),
+              eq(chainEvents.name, "Proposed"),
+              sql`lower(json_extract(${chainEvents.payload}, '$.quoteHash')) = ${digest}`,
+            ),
+          )
+          .get()
+      : undefined;
+    if (event?.proposalId) {
+      this.db
+        .update(proposalSubmissions)
+        .set({
+          status: "confirmed",
+          proposalId: event.proposalId,
+          transactionHash: event.transactionHash,
+        })
+        .where(eq(proposalSubmissions.quoteHash, digest))
+        .run();
+      return {
+        status: "confirmed" as const,
+        proposalId: event.proposalId,
+        transactionHash: asHex(event.transactionHash),
+      };
+    }
+    if (this.active.has(`${vault}:${digest}`)) return { status: "processing" as const };
+    if (row) return { status: "unconfirmed" as const, transactionHash: row.transactionHash };
+    throw new AppError(
+      "SUBMISSION_NOT_FOUND",
+      "No recorded submission was found. Retry the same reviewed quote.",
+      404,
+    );
   }
 
   private async submit(input: Submission): Promise<SubmittedProposal> {
