@@ -12,6 +12,7 @@ import { createTavilySearch } from "./modules/agent/sources";
 import type { AgentPorts } from "./modules/agent/tools";
 import { createApprovalReader } from "./modules/approvals/chain";
 import { WorldOidcProvider } from "./modules/approvals/oidc";
+import { WorldHumanProofProvider } from "./modules/approvals/proof";
 import { WorldApprovalService } from "./modules/approvals/service";
 import { AuthService } from "./modules/auth/service";
 import { assertArcChain, createArcClient } from "./modules/chain/clients";
@@ -137,6 +138,16 @@ export function createRuntime(options: RuntimeOptions = {}) {
           attestationTtlSeconds: config.ATTESTATION_TTL_SECONDS,
           issuer: config.WORLD_ISSUER,
           clientId: config.WORLD_CLIENT_ID,
+          humanApprovalsEnabled: config.WORLD_HUMAN_APPROVAL_ENABLED,
+          ...(config.WORLD_APP_ID && config.WORLD_RP_ID && config.WORLD_SIGNING_KEY
+            ? {
+                proofs: new WorldHumanProofProvider({
+                  appId: config.WORLD_APP_ID,
+                  rpId: config.WORLD_RP_ID,
+                  signingKey: config.WORLD_SIGNING_KEY,
+                }),
+              }
+            : {}),
           onLinked: (address) => {
             const projections = runtime.indexer();
             for (const row of db()

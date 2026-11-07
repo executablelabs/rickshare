@@ -6,10 +6,11 @@ import { createSiweMessage } from "viem/siwe";
 import { z } from "zod";
 import { createApp } from "../../app";
 import { type AppDatabase, createDatabase } from "../../db/client";
-import { worldFlows, worldIdentities } from "../../db/schema";
+import { worldFlows, worldIdentities, worldProofNullifiers } from "../../db/schema";
 import { AuthService } from "../auth/service";
 import type { ApprovalContext } from "./chain";
 import type { VerifiedIdentity, WorldProvider } from "./oidc";
+import { type HumanProofProvider, WorldHumanProofProvider, worldSignalHash } from "./proof";
 import { WorldApprovalService } from "./service";
 
 const alice = privateKeyToAccount(`0x${"01".repeat(32)}`);
@@ -22,7 +23,7 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.$client.close();
 });
 
-async function fixture() {
+async function fixture(proofs?: HumanProofProvider, humanApprovalsEnabled = Boolean(proofs)) {
   let now = Date.now();
   let subject = "linked-world-subject";
   const db = createDatabase(":memory:");
@@ -75,6 +76,8 @@ async function fixture() {
     issuer: "https://id.worldcoin.org",
     clientId: "app_test",
     now: () => now,
+    humanApprovalsEnabled,
+    ...(proofs ? { proofs } : {}),
   });
   const link = async () => {
     const request = await service.start(token);
@@ -133,6 +136,186 @@ test("World linking and fresh approval produce the exact wallet-bound contract s
   await expect(
     f.service.finish(f.token, { state: request.requestId, code: "approval-code" }),
   ).rejects.toThrow("already used");
+});
+
+function proofProvider(verify: HumanProofProvider["verify"] = async () => "one-time-proof") {
+  const provider = new WorldHumanProofProvider({
+    appId: "app_test",
+    rpId: "rp_test",
+    signingKey: `0x${"04".repeat(32)}`,
+  });
+  return { challenge: provider.challenge.bind(provider), verify };
+}
+
+async function awaitingProof(f: Awaited<ReturnType<typeof fixture>>) {
+  await f.link();
+  const request = await f.service.start(f.token, { vault, proposalId: 1n });
+  expect(await f.service.finish(f.token, { state: request.requestId, code: "fresh-code" })).toEqual(
+    { status: "awaiting_proof" },
+  );
+  expect(f.service.status(f.token, request.requestId).attestation).toBeNull();
+  return request.requestId;
+}
+
+test("human approval issues no contract signature until the bound proof verifies", async () => {
+  const f = await fixture(proofProvider());
+  const requestId = await awaitingProof(f);
+  expect(f.service.status(f.token, requestId).humanApproval?.share.amount).toBe("10000000");
+  await f.service.finishProof(f.token, requestId, {});
+  const result = f.service.status(f.token, requestId);
+  expect(result.status).toBe("verified");
+  const attestation = result.attestation;
+  if (!attestation) throw new Error("No proof-backed attestation");
+  expect(
+    await verifyTypedData({
+      ...approvalTypedData({ ...f.context, deadline: BigInt(attestation.deadline) }),
+      address: signer.address,
+      signature: attestation.signature as `0x${string}`,
+    }),
+  ).toBe(true);
+  expect(f.db.select().from(worldProofNullifiers).all()).toHaveLength(1);
+  await expect(f.service.finishProof(f.token, requestId, {})).rejects.toMatchObject({
+    code: "WORLD_FLOW_INVALID",
+  });
+});
+
+test("a share or nonce change after World authentication invalidates the human approval", async () => {
+  const f = await fixture(proofProvider());
+  const requestId = await awaitingProof(f);
+  f.context.amount += 1n;
+  await expect(f.service.finishProof(f.token, requestId, {})).rejects.toMatchObject({
+    code: "APPROVAL_CONTEXT_MISMATCH",
+  });
+  expect(f.service.status(f.token, requestId).attestation).toBeNull();
+  expect(f.db.select().from(worldProofNullifiers).all()).toHaveLength(0);
+});
+
+test("proof replay cannot authorize another flow even when the proof provider reports success", async () => {
+  const f = await fixture(proofProvider());
+  const first = await awaitingProof(f);
+  await f.service.finishProof(f.token, first, {});
+  const second = await awaitingProof(f);
+  await expect(f.service.finishProof(f.token, second, {})).rejects.toMatchObject({
+    code: "WORLD_PROOF_REPLAY",
+  });
+  expect(f.service.status(f.token, second).attestation).toBeNull();
+  expect(f.db.select().from(worldProofNullifiers).all()).toHaveLength(1);
+});
+
+test("a different session or expired flow cannot submit the human proof", async () => {
+  const f = await fixture(proofProvider());
+  const requestId = await awaitingProof(f);
+  const other = await f.login();
+  await expect(f.service.finishProof(other.token, requestId, {})).rejects.toMatchObject({
+    code: "WORLD_FLOW_INVALID",
+  });
+  f.advance(300_001);
+  await expect(f.service.finishProof(f.token, requestId, {})).rejects.toMatchObject({
+    code: "WORLD_FLOW_INVALID",
+  });
+  expect(f.service.status(f.token, requestId).attestation).toBeNull();
+});
+
+test("cancelling during proof verification prevents a late signature from being exposed", async () => {
+  let complete: (value: string) => void = () => {
+    throw new Error("Proof verification did not begin");
+  };
+  const f = await fixture(
+    proofProvider(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    ),
+  );
+  const requestId = await awaitingProof(f);
+  const verifying = f.service.finishProof(f.token, requestId, {});
+  f.service.cancel(f.token, requestId);
+  complete("late-proof");
+  await expect(verifying).rejects.toMatchObject({ code: "WORLD_CANCELLED" });
+  expect(f.service.status(f.token, requestId)).toMatchObject({
+    status: "cancelled",
+    attestation: null,
+  });
+  expect(f.db.select().from(worldProofNullifiers).all()).toHaveLength(0);
+});
+
+test("enabled human approval fails closed when RP configuration is absent", async () => {
+  const f = await fixture(undefined, true);
+  await f.link();
+  await expect(f.service.start(f.token, { vault, proposalId: 1n })).rejects.toMatchObject({
+    code: "WORLD_HUMAN_NOT_CONFIGURED",
+  });
+});
+
+test("human proof mode still requires the wallet's linked World identity first", async () => {
+  const f = await fixture(proofProvider());
+  await f.link();
+  const request = await f.service.start(f.token, { vault, proposalId: 1n });
+  f.setSubject("different-person");
+  expect(
+    await f.service.finish(f.token, { state: request.requestId, code: "wrong-person" }),
+  ).toEqual({ status: "failed" });
+  expect(f.service.status(f.token, request.requestId)).toMatchObject({
+    errorCode: "WORLD_IDENTITY_MISMATCH",
+    attestation: null,
+    humanApproval: null,
+  });
+});
+
+test("the proof webhook requires the original session and allowed origin", async () => {
+  const f = await fixture(proofProvider());
+  const requestId = await awaitingProof(f);
+  const challenge = f.service.status(f.token, requestId).humanApproval;
+  if (!challenge) throw new Error("No human challenge");
+  const app = createApp({ db: f.db, auth: f.auth, world: f.service });
+  const body = JSON.stringify({
+    protocol_version: "4.0",
+    environment: "production",
+    action: challenge.action,
+    nonce: challenge.rpContext.nonce,
+    responses: [
+      {
+        identifier: "proof_of_human",
+        issuer_schema_id: 1,
+        signal_hash: worldSignalHash(challenge.signal),
+        nullifier: "0x01",
+        expires_at_min: 9999999999,
+        proof: ["0x01", "0x02", "0x03", "0x04", "0x05"],
+      },
+    ],
+  });
+  const headers = { Cookie: `rickshare_session=${f.token}`, "content-type": "application/json" };
+  const wrongOrigin = await app.request(`/world/requests/${requestId}/proof`, {
+    method: "POST",
+    headers: { ...headers, Origin: "https://attacker.example" },
+    body,
+  });
+  expect(wrongOrigin.status).toBe(403);
+  expect(f.service.status(f.token, requestId).attestation).toBeNull();
+  const response = await app.request(`/world/requests/${requestId}/proof`, {
+    method: "POST",
+    headers: { ...headers, Origin: "http://localhost:5173" },
+    body,
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ status: "verified" });
+});
+
+test("the World callback returns manual approval to its trip for same-tab recovery", async () => {
+  const f = await fixture(proofProvider());
+  await f.link();
+  const request = await f.service.start(f.token, { vault, proposalId: 1n });
+  const app = createApp({ db: f.db, auth: f.auth, world: f.service });
+  const response = await app.request(`/world/callback?state=${request.requestId}&code=human-code`, {
+    headers: { Cookie: `rickshare_session=${f.token}` },
+  });
+  expect(response.status).toBe(302);
+  const destination = new URL(response.headers.get("Location") ?? "");
+  expect(destination.pathname).toBe(`/trips/${vault.toLowerCase()}/plan`);
+  expect(destination.searchParams.get("world_request")).toBe(request.requestId);
+  expect(destination.searchParams.get("world_status")).toBe("awaiting_proof");
+  expect(f.service.status(f.token, request.requestId).attestation).toBeNull();
 });
 
 test("a different World subject cannot approve an already linked wallet", async () => {
@@ -217,5 +400,10 @@ test("the HTTP World callback returns to the web origin and polling exposes no i
   expect(callback.status).toBe(302);
   expect(new URL(callback.headers.get("Location") ?? "").origin).toBe("http://localhost:5173");
   const status = await app.request(`/world/requests/${request.requestId}`, { headers });
-  expect(await status.json()).toEqual({ status: "verified", errorCode: null, attestation: null });
+  expect(await status.json()).toEqual({
+    status: "verified",
+    errorCode: null,
+    attestation: null,
+    humanApproval: null,
+  });
 });

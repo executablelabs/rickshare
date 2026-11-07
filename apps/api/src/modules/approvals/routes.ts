@@ -1,9 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { getCookie } from "hono/cookie";
 import { AppError } from "../../lib/errors";
 import { requireOrigin, requireSession, SESSION_COOKIE } from "../auth/middleware";
 import type { AuthEnv, AuthService } from "../auth/service";
+import { WorldHumanProof } from "./proof";
 import { ApprovalParams, WorldCallback, WorldRequestParams } from "./schemas";
 import type { WorldApprovalService } from "./service";
 
@@ -41,6 +43,9 @@ export function createApprovalRoutes(auth: () => AuthService, world: () => World
         const input = context.req.valid("query");
         const result = await world().finish(getCookie(context, SESSION_COOKIE), input);
         const url = new URL(auth().origin);
+        const state = world().status(getCookie(context, SESSION_COOKIE), input.state);
+        const vault = state.humanApproval?.share.vaultAddress ?? state.attestation?.vaultAddress;
+        if (vault) url.pathname = `/trips/${vault.toLowerCase()}/plan`;
         url.searchParams.set("world_request", input.state);
         url.searchParams.set("world_status", result.status);
         return context.redirect(url.toString());
@@ -56,6 +61,27 @@ export function createApprovalRoutes(auth: () => AuthService, world: () => World
           world().status(getCookie(context, SESSION_COOKIE), context.req.valid("param").requestId),
         );
       },
+    )
+    .post(
+      "/world/requests/:requestId/proof",
+      requireSession(auth),
+      requireOrigin(auth),
+      bodyLimit({
+        maxSize: 65536,
+        onError: () => {
+          throw new AppError("INVALID_INPUT", "The World proof is too large.", 413);
+        },
+      }),
+      zValidator("param", WorldRequestParams, (result) => invalid(result.success)),
+      zValidator("json", WorldHumanProof, (result) => invalid(result.success)),
+      async (context) =>
+        context.json(
+          await world().finishProof(
+            getCookie(context, SESSION_COOKIE),
+            context.req.valid("param").requestId,
+            context.req.valid("json"),
+          ),
+        ),
     )
     .post(
       "/world/requests/:requestId/cancel",
