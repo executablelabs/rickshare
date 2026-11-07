@@ -16,6 +16,8 @@ import { isRpcRateLimit } from "./rpc";
 import { Catalog, QuoteInput, TicketBundle } from "./schemas";
 import type { MerchantStore, TicketRecord } from "./store";
 
+const QUOTE_VALIDITY_SECONDS = 24 * 60 * 60;
+
 type Options = {
   publicUrl: string;
   accounts: Map<string, PrivateKeyAccount>;
@@ -99,7 +101,7 @@ export class MerchantService {
     const now = Math.floor(this.now() / 1000);
     if (startsAt <= BigInt(now) || startsAt > endsAt)
       throw new MerchantError("INVALID_ACTIVITY_TIME", "The activity must start during the trip.");
-    const expiry = Math.min(now + 300, Number(startsAt));
+    const expiry = Math.min(now + QUOTE_VALIDITY_SECONDS, Number(startsAt));
     const terms: QuoteTerms = {
       quoteId: randomUUID(),
       itemId: item.id,

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getAddress, parseUnits } from "viem";
 import { config } from "./config";
 import { type AppDatabase, createDatabase } from "./db/client";
-import { indexedVaults, worldIdentities } from "./db/schema";
+import { indexedVaults } from "./db/schema";
 import { AppError } from "./lib/errors";
 import { logger } from "./lib/logger";
 import { createOpenRouterModel } from "./modules/agent/openrouter";
@@ -13,7 +13,7 @@ import type { AgentPorts } from "./modules/agent/tools";
 import { createApprovalReader } from "./modules/approvals/chain";
 import { WorldOidcProvider } from "./modules/approvals/oidc";
 import { WorldHumanProofProvider } from "./modules/approvals/proof";
-import { WorldApprovalService } from "./modules/approvals/service";
+import { findWorldIdentity, WorldApprovalService } from "./modules/approvals/service";
 import { AuthService } from "./modules/auth/service";
 import { assertArcChain, createArcClient } from "./modules/chain/clients";
 import { ChatCoordinator } from "./modules/chat/coordinator";
@@ -70,6 +70,8 @@ export function createRuntime(options: RuntimeOptions = {}) {
     database ??= createDatabase();
     return database;
   };
+  const identityLinked = (address: string) =>
+    !!findWorldIdentity(db(), config.WORLD_ISSUER, config.WORLD_CLIENT_ID, address);
   const runtime = {
     db,
     auth: () => {
@@ -98,14 +100,10 @@ export function createRuntime(options: RuntimeOptions = {}) {
         createIndexSource(
           getAddress(config.TRIP_FACTORY_ADDRESS),
           createArcClient(),
-          (address) =>
-            !!db()
-              .select()
-              .from(worldIdentities)
-              .where(eq(worldIdentities.address, address.toLowerCase()))
-              .get(),
+          identityLinked,
         ),
         BigInt(config.ARC_START_BLOCK),
+        identityLinked,
       );
       return indexer;
     },

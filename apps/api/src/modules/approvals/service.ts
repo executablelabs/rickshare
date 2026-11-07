@@ -4,7 +4,12 @@ import { and, eq, gt, lte } from "drizzle-orm";
 import { type Address, getAddress, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { AppDatabase } from "../../db/client";
-import { worldFlows, worldIdentities, worldProofNullifiers } from "../../db/schema";
+import {
+  worldFlows,
+  worldIdentities,
+  worldProofNullifiers,
+  worldScopedIdentities,
+} from "../../db/schema";
 import { AppError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import type { AuthService } from "../auth/service";
@@ -27,6 +32,35 @@ type WorldOptions = {
   proofs?: HumanProofProvider;
 };
 
+const sandboxIssuer = "https://sandbox.auth.world.org";
+
+function scopedIdentityId(issuer: string, clientId: string, address: string) {
+  return createHash("sha256")
+    .update(JSON.stringify([issuer, clientId, address.toLowerCase()]))
+    .digest("hex");
+}
+
+export function findWorldIdentity(
+  db: Pick<AppDatabase, "select">,
+  issuer: string | undefined,
+  clientId: string | undefined,
+  address: string,
+) {
+  if (issuer === sandboxIssuer) {
+    if (!clientId) return undefined;
+    return db
+      .select()
+      .from(worldScopedIdentities)
+      .where(eq(worldScopedIdentities.id, scopedIdentityId(issuer, clientId, address)))
+      .get();
+  }
+  return db
+    .select()
+    .from(worldIdentities)
+    .where(eq(worldIdentities.address, address.toLowerCase()))
+    .get();
+}
+
 export class WorldApprovalService {
   private readonly account;
   private readonly now: () => number;
@@ -43,11 +77,26 @@ export class WorldApprovalService {
   }
 
   isLinked(address: string) {
-    return !!this.db
-      .select()
-      .from(worldIdentities)
-      .where(eq(worldIdentities.address, address.toLowerCase()))
-      .get();
+    return !!this.linkedIdentity(address);
+  }
+
+  private linkedIdentity(address: string, db: Pick<AppDatabase, "select"> = this.db) {
+    return findWorldIdentity(db, this.options.issuer, this.options.clientId, address);
+  }
+
+  private identityOwner(subjectHash: string, db: Pick<AppDatabase, "select">) {
+    // The subject hash already includes the active issuer and client namespace.
+    const table = this.options.issuer === sandboxIssuer ? worldScopedIdentities : worldIdentities;
+    return db.select().from(table).where(eq(table.subjectHash, subjectHash)).get();
+  }
+
+  private flowId(requestId: string) {
+    // Pending callbacks, proof challenges and saved results cannot cross into sandbox.
+    return this.auth.digest(
+      this.options.issuer === sandboxIssuer
+        ? JSON.stringify([this.options.issuer, this.options.clientId, requestId])
+        : requestId,
+    );
   }
 
   async start(token: string | undefined, purchase?: { vault: Address; proposalId: bigint }) {
@@ -79,7 +128,7 @@ export class WorldApprovalService {
     this.db
       .insert(worldFlows)
       .values({
-        id: this.auth.digest(state),
+        id: this.flowId(state),
         address: session.address.toLowerCase(),
         sessionHash: this.auth.digest(token),
         nonce,
@@ -105,7 +154,7 @@ export class WorldApprovalService {
       .set({ status: "processing" })
       .where(
         and(
-          eq(worldFlows.id, this.auth.digest(input.state)),
+          eq(worldFlows.id, this.flowId(input.state)),
           eq(worldFlows.sessionHash, this.auth.digest(token)),
           eq(worldFlows.address, session.address.toLowerCase()),
           eq(worldFlows.status, "pending"),
@@ -146,16 +195,8 @@ export class WorldApprovalService {
         .digest("hex");
       if (row.kind === "link") {
         this.db.transaction((transaction) => {
-          const existing = transaction
-            .select()
-            .from(worldIdentities)
-            .where(eq(worldIdentities.address, row.address))
-            .get();
-          const owner = transaction
-            .select()
-            .from(worldIdentities)
-            .where(eq(worldIdentities.subjectHash, subjectHash))
-            .get();
+          const existing = this.linkedIdentity(row.address, transaction);
+          const owner = this.identityOwner(subjectHash, transaction);
           if (
             (existing && existing.subjectHash !== subjectHash) ||
             (owner && owner.address !== row.address)
@@ -165,11 +206,19 @@ export class WorldApprovalService {
               "This World identity is already linked to a different wallet.",
               409,
             );
-          transaction
-            .insert(worldIdentities)
-            .values({ address: row.address, subjectHash, linkedAt: this.now() })
-            .onConflictDoNothing()
-            .run();
+          const values = { address: row.address, subjectHash, linkedAt: this.now() };
+          if (this.options.issuer === sandboxIssuer) {
+            transaction
+              .insert(worldScopedIdentities)
+              .values({
+                ...values,
+                id: scopedIdentityId(this.options.issuer, this.options.clientId, row.address),
+              })
+              .onConflictDoNothing()
+              .run();
+          } else {
+            transaction.insert(worldIdentities).values(values).onConflictDoNothing().run();
+          }
           const completed = transaction
             .update(worldFlows)
             .set({ status: "verified" })
@@ -185,11 +234,7 @@ export class WorldApprovalService {
           logger.error("WORLD_METADATA_REFRESH_PENDING");
         }
       } else {
-        const linked = this.db
-          .select()
-          .from(worldIdentities)
-          .where(eq(worldIdentities.address, row.address))
-          .get();
+        const linked = this.linkedIdentity(row.address);
         if (!linked || linked.subjectHash !== subjectHash)
           throw new AppError(
             "WORLD_IDENTITY_MISMATCH",
@@ -284,7 +329,11 @@ export class WorldApprovalService {
     if (deadline > context.deadline) deadline = context.deadline;
     if (deadline > context.quoteExpiresAt) deadline = context.quoteExpiresAt;
     if (deadline <= BigInt(Math.floor(this.now() / 1000)))
-      throw new AppError("PROPOSAL_EXPIRED", "Request a new purchase quote.", 409);
+      throw new AppError(
+        "PROPOSAL_EXPIRED",
+        "This activity quote expired. Ask the planner for a new proposal.",
+        409,
+      );
     return {
       vaultAddress: context.vaultAddress,
       proposalId: context.proposalId.toString(),
@@ -307,7 +356,7 @@ export class WorldApprovalService {
       .set({ status: "processing_proof" })
       .where(
         and(
-          eq(worldFlows.id, this.auth.digest(requestId)),
+          eq(worldFlows.id, this.flowId(requestId)),
           eq(worldFlows.sessionHash, this.auth.digest(token)),
           eq(worldFlows.address, session.address.toLowerCase()),
           eq(worldFlows.kind, "approve"),
@@ -402,7 +451,7 @@ export class WorldApprovalService {
       .from(worldFlows)
       .where(
         and(
-          eq(worldFlows.id, this.auth.digest(requestId)),
+          eq(worldFlows.id, this.flowId(requestId)),
           eq(worldFlows.sessionHash, this.auth.digest(token)),
           eq(worldFlows.address, session.address.toLowerCase()),
         ),
@@ -440,7 +489,7 @@ export class WorldApprovalService {
     const row = this.db
       .select()
       .from(worldFlows)
-      .where(eq(worldFlows.id, this.auth.digest(requestId)))
+      .where(eq(worldFlows.id, this.flowId(requestId)))
       .get();
     if (
       !row ||

@@ -124,6 +124,7 @@ export function createIndexSource(
             })),
             status: statuses[proposal.status],
             deadline: new Date(Number(proposal.deadline) * 1000).toISOString(),
+            quoteExpiresAt: new Date(Number(proposal.quoteExpiresAt) * 1000).toISOString(),
             ticketHash: /^0x0+$/.test(proposal.ticketHash) ? null : proposal.ticketHash,
           });
         }),

@@ -1,5 +1,5 @@
 import { Proposal, Trip, TripEvent } from "@rickshare/shared";
-import { and, asc, eq, gt } from "drizzle-orm";
+import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { type Address, getAddress } from "viem";
 import type { AppDatabase } from "../../db/client";
 import {
@@ -33,6 +33,12 @@ export class IndexerService {
     readonly db: AppDatabase,
     private readonly source: IndexSource,
     private readonly startBlock = 0n,
+    private readonly identityLinked: (address: string) => boolean = (address) =>
+      !!db
+        .select()
+        .from(worldIdentities)
+        .where(eq(worldIdentities.address, address.toLowerCase()))
+        .get(),
   ) {
     this.cursorId = `${source.chainId}:${source.factory.toLowerCase()}`;
   }
@@ -126,10 +132,17 @@ export class IndexerService {
       ]),
     ];
     const logs = await this.source.events(vaults, from, to);
+    // Backfill the missing cutoff from chain once, including otherwise idle proposals.
+    const missingQuoteExpiries = this.db
+      .selectDistinct({ tripId: projectedProposals.tripId })
+      .from(projectedProposals)
+      .where(sql`json_extract(${projectedProposals.payload}, '$.quoteExpiresAt') IS NULL`)
+      .all();
     // Contract state changes emit vault events; idle batches need no repeated balance reads.
     const changedVaults = new Set([
       ...created.map((entry) => entry.vault.toLowerCase()),
       ...logs.map((log) => log.vault.toLowerCase()),
+      ...missingQuoteExpiries.map((entry) => entry.tripId.toLowerCase()),
     ]);
     const snapshots = await Promise.all(
       vaults
@@ -223,11 +236,7 @@ export class IndexerService {
                 .from(memberMetadata)
                 .where(eq(memberMetadata.id, `${tripId}:${member.address.toLowerCase()}`))
                 .get()?.displayName ?? member.displayName,
-            worldLinked: !!transaction
-              .select()
-              .from(worldIdentities)
-              .where(eq(worldIdentities.address, member.address.toLowerCase()))
-              .get(),
+            worldLinked: this.identityLinked(member.address),
           })),
         });
         const payload = JSON.stringify(trip);
@@ -320,7 +329,14 @@ export class IndexerService {
       )
       .get();
     if (!row) throw new AppError("TRIP_NOT_FOUND", "This trip has not been indexed.", 404);
-    return Trip.parse(JSON.parse(row.payload));
+    const trip = Trip.parse(JSON.parse(row.payload));
+    return {
+      ...trip,
+      members: trip.members.map((member) => ({
+        ...member,
+        worldLinked: this.identityLinked(member.address),
+      })),
+    };
   }
 
   refreshMetadata(tripId: string) {
@@ -364,11 +380,7 @@ export class IndexerService {
               .from(memberMetadata)
               .where(eq(memberMetadata.id, `${id}:${member.address.toLowerCase()}`))
               .get()?.displayName ?? member.displayName,
-          worldLinked: !!transaction
-            .select()
-            .from(worldIdentities)
-            .where(eq(worldIdentities.address, member.address.toLowerCase()))
-            .get(),
+          worldLinked: this.identityLinked(member.address),
         })),
       });
       if (JSON.stringify(trip) === row.payload) return null;
