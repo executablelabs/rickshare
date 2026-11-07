@@ -6,6 +6,7 @@ import { activityText } from "../../lib/activity-suggestions";
 import { cx } from "../../lib/cx";
 import { messageOf } from "../../lib/http";
 import { fetchTicket } from "../../lib/plan";
+import { isProposalExpired, useProposalExpiryNow } from "../../lib/proposal-expiry";
 import { RickshawMark } from "../brand/RickshawMark";
 import { useTripActions } from "../trips/TripActions";
 import { Avatar, displayNameOf } from "../ui/Avatar";
@@ -138,7 +139,9 @@ export function Feed({
         `A group dinner in ${location}`,
       ]
     : SUGGESTIONS;
-  const byId = new Map(proposals.map((proposal) => [proposal.id, proposal]));
+  const now = useProposalExpiryNow(proposals);
+  const activeProposals = proposals.filter((proposal) => !isProposalExpired(proposal, now));
+  const byId = new Map(activeProposals.map((proposal) => [proposal.id, proposal]));
   const attachedIds = new Set(messages.flatMap((message) => message.proposalIds));
 
   function proposalCard(proposal: Proposal) {
@@ -161,7 +164,7 @@ export function Feed({
     );
   }
 
-  if (messages.length === 0 && proposals.length === 0 && !thinking)
+  if (messages.length === 0 && activeProposals.length === 0 && !thinking)
     return (
       <section aria-labelledby="ask-title" className="travel-empty flex flex-col gap-4">
         <div className="flex items-center gap-3">
@@ -210,7 +213,7 @@ export function Feed({
           })}
         </li>
       ))}
-      {proposals
+      {activeProposals
         .filter((proposal) => !attachedIds.has(proposal.id))
         .map((proposal) => (
           <li key={`purchase:${proposal.id}`} className="lg:pl-11.5">

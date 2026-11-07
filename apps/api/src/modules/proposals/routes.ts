@@ -7,7 +7,7 @@ import { requireOrigin, requireSession } from "../auth/middleware";
 import type { AuthEnv, AuthService } from "../auth/service";
 import type { IndexerService } from "../indexer/service";
 import type { MerchantClient } from "./merchants";
-import { ProposalInput, ProposalParams, TripProposalParams } from "./schemas";
+import { ProposalInput, ProposalParams, SubmissionParams, TripProposalParams } from "./schemas";
 import type { ProposalService } from "./service";
 
 export function createProposalRoutes(
@@ -49,6 +49,17 @@ export function createProposalRoutes(
         return context.json({ proposals: indexer().proposals(tripId) });
       },
     )
+    .get(
+      "/trips/:tripId/proposal-submissions/:quoteHash",
+      requireSession(auth),
+      zValidator("param", SubmissionParams, (result) => invalid(result.success)),
+      (context) => {
+        const { tripId, quoteHash } = context.req.valid("param");
+        indexer().requireMember(tripId, context.get("session").address);
+        context.header("Cache-Control", "no-store");
+        return context.json(proposals().submissionStatus(tripId, quoteHash));
+      },
+    )
     .post(
       "/trips/:tripId/proposals",
       requireSession(auth),
@@ -59,7 +70,7 @@ export function createProposalRoutes(
         const { tripId } = context.req.valid("param");
         indexer().requireMember(tripId, context.get("session").address);
         const input = context.req.valid("json");
-        const result = await proposals().submitProposal({
+        const task = proposals().submitProposal({
           tripId,
           quote: input.quote,
           shares: input.shares.map((share) => ({
@@ -67,14 +78,34 @@ export function createProposalRoutes(
             amount: BigInt(share.amount),
           })),
         });
-        let indexed = true;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-          await indexer().sync();
-        } catch {
-          indexed = false;
-          logger.error("PROPOSAL_INDEX_PENDING");
+          const result = await Promise.race([
+            task,
+            new Promise<null>((resolve) => {
+              timer = setTimeout(() => resolve(null), 8000);
+            }),
+          ]);
+          if (!result) {
+            void task
+              .then(() => indexer().sync())
+              .catch(() => logger.error("PROPOSAL_COMPLETION_PENDING"));
+            return context.json(
+              { status: "processing" as const, quoteHash: input.quote.quoteHash },
+              202,
+            );
+          }
+          // Indexing continues independently; a confirmed purchase must not wait for a full sync.
+          const indexed = indexer()
+            .proposals(tripId)
+            .some((proposal) => proposal.id === result.proposalId);
+          void indexer()
+            .sync()
+            .catch(() => logger.error("PROPOSAL_INDEX_PENDING"));
+          return context.json({ ...result, indexed }, 201);
+        } finally {
+          clearTimeout(timer);
         }
-        return context.json({ ...result, indexed }, 201);
       },
     )
     .get(

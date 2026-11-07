@@ -46,6 +46,8 @@ export const Proposal = z.object({
   shares: z.array(z.object({ member: Address, amount: UsdcAmount, state: ShareState })),
   status: ProposalStatus,
   deadline: IsoDate,
+  // Older projections may not yet carry the signed quote's stricter approval cutoff.
+  quoteExpiresAt: IsoDate.optional(),
   ticketHash: Hex.nullable(),
   txHash: Hex,
 });

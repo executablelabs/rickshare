@@ -20,6 +20,14 @@ The verifier supports EOA and EIP-1271 wallet signatures through viem's Arc
 client. An ordinary login never authorizes a payment: A8 separately requires
 fresh World authentication before issuing an onchain approval attestation.
 
+World OIDC sandbox uses `https://sandbox.auth.world.org` with a separately registered
+client and matching credentials. Its links and request IDs are isolated from existing
+production World identities; users must explicitly link a sandbox identity after the
+switch. IDKit proof environment is configured separately. Operator-only
+`WORLD_PRODUCTION_ISSUER`, `WORLD_PRODUCTION_CLIENT_ID` and
+`WORLD_PRODUCTION_CLIENT_SECRET` may preserve the previous Railway values for rollback;
+the application does not read these backup variables.
+
 Every error uses `{ error: { code, message } }`. Integration endpoints fail with
 a configuration error when their required real credentials are missing; the
 health endpoint remains available without external credentials.

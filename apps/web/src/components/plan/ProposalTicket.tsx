@@ -1,8 +1,9 @@
 import { CalendarBlank, MapPin, Storefront } from "@phosphor-icons/react";
 import type { Member, Proposal } from "@rickshare/shared";
-import { type ReactNode, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { cx } from "../../lib/cx";
 import { formatWhen } from "../../lib/format-date";
+import { approvalCutoff, isProposalExpired, useProposalExpiryNow } from "../../lib/proposal-expiry";
 import { Amount } from "../ui/Amount";
 import { Avatar } from "../ui/Avatar";
 import { Chip } from "../ui/Chip";
@@ -44,7 +45,7 @@ export function ticketStatus(proposal: Proposal, viewer: string | undefined, now
     case "locked":
       return { label: "Everyone's in", tone: "stamp", mine } as const;
     default:
-      if (Date.parse(proposal.deadline) <= now)
+      if (isProposalExpired(proposal, now))
         return { label: "Expired", tone: "neutral", mine } as const;
       if (!mine) return { label: "Not for you", tone: "neutral", mine } as const;
       if (mine.state === "waiting")
@@ -75,19 +76,11 @@ export function ProposalTicket({
   className,
   pressed,
 }: ProposalTicketProps) {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    if (proposal.status !== "pending" || Date.parse(proposal.deadline) <= now) return;
-    const timer = window.setTimeout(
-      () => setNow(Date.now()),
-      Math.max(0, Math.min(Date.parse(proposal.deadline) - Date.now(), 2147483647)),
-    );
-    return () => window.clearTimeout(timer);
-  }, [proposal.deadline, proposal.status, now]);
+  const now = useProposalExpiryNow([proposal]);
   const status = ticketStatus(proposal, viewer, now);
   const waitingForYou = status.tone === "action";
 
-  if (!status.mine && proposal.status === "pending")
+  if (!status.mine && proposal.status === "pending" && !isProposalExpired(proposal, now))
     return (
       <article
         aria-label={proposal.title}
@@ -116,6 +109,13 @@ export function ProposalTicket({
         <div>
           <Chip tone={status.tone}>{status.label}</Chip>
         </div>
+        {proposal.status === "pending" &&
+          proposal.quoteExpiresAt &&
+          !isProposalExpired(proposal, now) && (
+            <p className="mt-1 text-xs text-ink-muted">
+              Approve by {formatWhen(new Date(approvalCutoff(proposal)).toISOString())}
+            </p>
+          )}
         <h3 className="mt-2 font-display text-xl font-semibold">{proposal.title}</h3>
         <p className="flex items-center gap-1.5 text-sm text-ink-muted">
           <Storefront aria-hidden="true" size={16} className="shrink-0" />

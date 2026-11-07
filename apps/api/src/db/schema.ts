@@ -85,6 +85,13 @@ export const worldIdentities = sqliteTable("world_identities", {
   linkedAt: integer("linked_at").notNull(),
 });
 
+export const worldScopedIdentities = sqliteTable("world_scoped_identities", {
+  id: text("id").primaryKey(),
+  address: text("address").notNull(),
+  subjectHash: text("subject_hash").notNull().unique(),
+  linkedAt: integer("linked_at").notNull(),
+});
+
 export const worldProofNullifiers = sqliteTable("world_proof_nullifiers", {
   id: text("id").primaryKey(),
   requestId: text("request_id").notNull().unique(),

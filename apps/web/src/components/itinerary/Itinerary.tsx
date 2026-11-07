@@ -5,6 +5,7 @@ import { useWallet } from "../../auth/wallet";
 import { formatDay } from "../../lib/format-date";
 import { useItinerary } from "../../lib/itinerary";
 import { useProposals } from "../../lib/plan";
+import { isProposalExpired, useProposalExpiryNow } from "../../lib/proposal-expiry";
 import { Loader } from "../brand/Loader";
 import { TravelError, TravelIntro } from "../brand/Travel";
 import { RouteDoodle, TapeLabel } from "../brand/TravelDetails";
@@ -18,11 +19,18 @@ export function Itinerary() {
   const wallet = useWallet();
   const itinerary = useItinerary(trip.id);
   const proposals = useProposals(trip.id);
-  const items = [...(itinerary.data ?? [])];
+  const now = useProposalExpiryNow(proposals.data ?? []);
+  const proposalsById = new Map((proposals.data ?? []).map((proposal) => [proposal.id, proposal]));
+  const items = (itinerary.data ?? []).filter((item) => {
+    const proposal = item.proposalId === null ? undefined : proposalsById.get(item.proposalId);
+    // Issued tickets remain visible even if the proposal projection is briefly stale.
+    return item.ticketUrls.length > 0 || !proposal || !isProposalExpired(proposal, now);
+  });
   // Selections submitted outside chat still belong in the trip outline while approvals finish.
   for (const proposal of proposals.data ?? [])
     if (
       ["pending", "locked", "fulfilled"].includes(proposal.status) &&
+      !isProposalExpired(proposal, now) &&
       !items.some((item) => item.proposalId === proposal.id)
     )
       items.push({
@@ -86,11 +94,13 @@ export function Itinerary() {
             <h2>{formatDay(day.startsAt)}</h2>
             <ol>
               {day.items.map((item) => {
-                const proposal = proposals.data.find((proposal) => proposal.id === item.proposalId);
+                const proposal =
+                  item.proposalId === null ? undefined : proposalsById.get(item.proposalId);
                 const mine = proposal?.shares.some(
                   (share) => share.member.toLowerCase() === wallet.address?.toLowerCase(),
                 );
                 const status = proposal?.status;
+                const expired = proposal ? isProposalExpired(proposal, now) : false;
                 return (
                   <li key={item.id}>
                     <article
@@ -119,26 +129,30 @@ export function Itinerary() {
                         <div>
                           <Chip
                             tone={
-                              status === "fulfilled"
-                                ? "stamp"
-                                : status === "rejected"
-                                  ? "declined"
-                                  : status === "pending" || status === "locked"
-                                    ? "waiting"
-                                    : "neutral"
+                              expired
+                                ? "neutral"
+                                : status === "fulfilled"
+                                  ? "stamp"
+                                  : status === "rejected"
+                                    ? "declined"
+                                    : status === "pending" || status === "locked"
+                                      ? "waiting"
+                                      : "neutral"
                             }
                           >
-                            {status === "fulfilled"
-                              ? "Booked"
-                              : status === "rejected"
-                                ? "Declined"
-                                : status === "refunded"
-                                  ? "Refunded"
-                                  : status === "locked"
-                                    ? "Waiting for ticket"
-                                    : status === "pending"
-                                      ? "Awaiting approvals"
-                                      : "Planned"}
+                            {expired
+                              ? "Expired"
+                              : status === "fulfilled"
+                                ? "Booked"
+                                : status === "rejected"
+                                  ? "Declined"
+                                  : status === "refunded"
+                                    ? "Refunded"
+                                    : status === "locked"
+                                      ? "Waiting for ticket"
+                                      : status === "pending"
+                                        ? "Awaiting approvals"
+                                        : "Planned"}
                           </Chip>
                         </div>
                         {proposal && (

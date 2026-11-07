@@ -54,7 +54,11 @@ export function createApprovalReader(factory: Address, client = createArcClient(
       );
     const now = BigInt(Math.floor(Date.now() / 1000));
     if (proposal.deadline <= now || proposal.quoteExpiresAt < now)
-      throw new AppError("PROPOSAL_EXPIRED", "Request a new purchase quote.", 409);
+      throw new AppError(
+        "PROPOSAL_EXPIRED",
+        "This activity quote expired. Ask the planner for a new proposal.",
+        409,
+      );
     return {
       chainId: arcTestnet.id,
       vaultAddress: vault,
