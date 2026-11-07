@@ -1,6 +1,6 @@
 import type { HumanApprovalChallenge, Proposal } from "@rickshare/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { toWalletCall, useWallet } from "../../auth/wallet";
 import { ApiError, messageOf } from "../../lib/http";
 import { approveCall, planKeys } from "../../lib/plan";
@@ -15,13 +15,14 @@ import { useToast } from "../ui/Toast";
 const HumanApprovalSheet = lazy(() => import("./HumanApprovalSheet"));
 const expiredMessage =
   "This proposal expired. Ask the planner for a new proposal, then approve again.";
-type Phase = "idle" | "verifying" | "human" | "signing" | "declining";
+type Phase = "idle" | "verifying" | "human" | "finishing" | "signing" | "declining";
 
 const approveLabel: Record<Phase, string> = {
   idle: "Approve my share",
   verifying: "Verifying with World…",
   human: "Waiting for human approval…",
-  signing: "Confirm in your wallet…",
+  finishing: "Finishing approval",
+  signing: "Confirm in wallet",
   declining: "Approve my share",
 };
 
@@ -41,6 +42,8 @@ export function ShareActions({
   const queryClient = useQueryClient();
   const showToast = useToast();
   const [phase, setPhase] = useState<Phase>("idle");
+  const sending = useRef(false);
+  const attemptedRequests = useRef(new Set<string>());
   const [humanApproval, setHumanApproval] = useState<{
     requestId: string;
     challenge: HumanApprovalChallenge;
@@ -71,25 +74,133 @@ export function ShareActions({
     if (isProposalExpired(proposal)) throw new ApiError("PROPOSAL_EXPIRED", expiredMessage, 409);
   }
 
-  async function submitApproval(attestation: Attestation) {
-    requireUnexpired();
-    if (!me) throw new Error("Your trip membership changed. Refresh the trip.");
-    setPhase("signing");
-    const share = proposal.shares.find(
-      (entry) => entry.member.toLowerCase() === me.address.toLowerCase(),
-    );
-    if (!share) throw new Error("This purchase no longer includes you. Refresh the plan.");
-    await wallet.sendTransaction(
-      approveCall(trip.vaultAddress, attestation, {
+  async function submitApproval(
+    attestation: Attestation,
+    requestId?: string,
+    active: () => boolean = () => true,
+  ) {
+    if (sending.current) return;
+    sending.current = true;
+    const submissionKey = `rickshare:approval:${trip.vaultAddress.toLowerCase()}:${proposal.id}:${wallet.address?.toLowerCase()}`;
+    try {
+      if (!me) throw new Error("Your trip membership changed. Refresh the trip.");
+      setPhase("finishing");
+      await queryClient.invalidateQueries(
+        { queryKey: planKeys.proposals(trip.id) },
+        { throwOnError: true },
+      );
+      if (!active()) return;
+      const current = queryClient
+        .getQueryData<Proposal[]>(planKeys.proposals(trip.id))
+        ?.find((entry) => entry.id === proposal.id);
+      if (!current) throw new Error("Refresh the plan before continuing in your wallet.");
+      const share = current.shares.find(
+        (entry) => entry.member.toLowerCase() === me.address.toLowerCase(),
+      );
+      if (!share) throw new Error("This purchase no longer includes you. Refresh the plan.");
+      if (
+        ["approved", "auto"].includes(share.state) ||
+        ["locked", "fulfilled"].includes(current.status)
+      ) {
+        window.localStorage.removeItem(submissionKey);
+        clearWorldReturn();
+        showToast(
+          current.status === "fulfilled"
+            ? "Ticket ready"
+            : current.status === "locked"
+              ? "Funds locked"
+              : current.shares.some(
+                    (entry) =>
+                      entry.state === "waiting" &&
+                      entry.member.toLowerCase() !== me.address.toLowerCase(),
+                  )
+                ? "Your share is approved. Waiting for other participants."
+                : "Your share is approved. Finishing approval.",
+        );
+        await refresh();
+        return;
+      }
+      if (current.status !== "pending" || share.state !== "waiting" || isProposalExpired(current))
+        throw new ApiError(
+          "APPROVAL_CONTEXT_MISMATCH",
+          "This share is no longer awaiting approval. Refresh the plan.",
+          409,
+        );
+      if (BigInt(attestation.deadline) <= BigInt(Math.floor(Date.now() / 1000))) {
+        throw new ApiError(
+          "ATTESTATION_EXPIRED",
+          "Your verification expired. Approve again to retry.",
+          409,
+        );
+      }
+      const call = approveCall(trip.vaultAddress, attestation, {
         proposalId: proposal.id,
         member: me.address,
         amount: share.amount,
-        deadline: new Date(approvalCutoff(proposal)).toISOString(),
-      }),
-    );
-    onApproved(me.address);
-    showToast("Share approved");
-    await refresh();
+        deadline: new Date(approvalCutoff(current)).toISOString(),
+      });
+      if (window.localStorage.getItem(submissionKey))
+        throw new Error(
+          "A wallet approval may still be pending. Check your wallet and refresh the plan before trying again.",
+        );
+      const attemptKey = requestId ? `${submissionKey}:request:${requestId}` : null;
+      const attestationKey = `${submissionKey}:attestation:${attestation.signature}`;
+      if (
+        (requestId && attemptedRequests.current.has(requestId)) ||
+        (attemptKey && window.localStorage.getItem(attemptKey)) ||
+        window.localStorage.getItem(attestationKey)
+      )
+        throw new Error(
+          "This World approval already reached your wallet. Check your wallet and refresh the plan.",
+        );
+      // A reload or uncertain receipt must not rebroadcast this purchase approval.
+      if (requestId && attemptKey) {
+        window.localStorage.setItem(attemptKey, "attempted");
+        attemptedRequests.current.add(requestId);
+      }
+      window.localStorage.setItem(attestationKey, "attempted");
+      window.localStorage.setItem(submissionKey, "pending");
+      setPhase("signing");
+      await wallet.sendTransaction(call);
+      setPhase("finishing");
+      window.localStorage.removeItem(submissionKey);
+      onApproved(me.address);
+      clearWorldReturn();
+      showToast("Share approved. Finishing approval.");
+      await refresh();
+      const updated = queryClient
+        .getQueryData<Proposal[]>(planKeys.proposals(trip.id))
+        ?.find((entry) => entry.id === proposal.id);
+      if (updated?.status === "locked") showToast("Funds locked");
+      else if (updated?.status === "fulfilled") showToast("Ticket ready");
+      else if (
+        updated?.status === "pending" &&
+        updated.shares.some(
+          (entry) =>
+            entry.state === "waiting" && entry.member.toLowerCase() !== me.address.toLowerCase(),
+        )
+      )
+        showToast("Waiting for other participants");
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        /user rejected|user denied|user cancel|cancelled in your wallet/i.test(error.message)
+      ) {
+        window.localStorage.removeItem(submissionKey);
+        clearWorldReturn();
+      }
+      if (
+        error instanceof Error &&
+        (/reverted|insufficient funds|exceeds balance/i.test(error.message) ||
+          error.message === "The transaction failed, so nothing in the trip changed. Try again.")
+      ) {
+        window.localStorage.removeItem(submissionKey);
+        clearWorldReturn();
+      }
+      throw error;
+    } finally {
+      sending.current = false;
+    }
   }
 
   function approve() {
