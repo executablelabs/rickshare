@@ -15,8 +15,8 @@ import { ProposalTicket } from "./ProposalTicket";
 import { ShareActions } from "./ShareActions";
 
 export const SUGGESTIONS = [
-  "Two days in Goa under $100 each",
-  "Something fun for Saturday morning",
+  "Fun things to do on our trip",
+  "Affordable activities for the group",
   "A dinner the whole group will like",
 ];
 
@@ -130,6 +130,14 @@ export function Feed({
   const { trip } = useTripActions();
   const wallet = useWallet();
   const [pressed, setPressed] = useState<string | undefined>();
+  const location = trip.location?.trim();
+  const suggestions = location
+    ? [
+        `Fun things to do in ${location}`,
+        `Affordable activities in ${location}`,
+        `A group dinner in ${location}`,
+      ]
+    : SUGGESTIONS;
   const byId = new Map(proposals.map((proposal) => [proposal.id, proposal]));
   const attachedIds = new Set(messages.flatMap((message) => message.proposalIds));
 
@@ -157,24 +165,26 @@ export function Feed({
     return (
       <section aria-labelledby="ask-title" className="travel-empty flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex size-11 items-center justify-center rounded-control bg-brand-sky text-ink">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-control bg-brand-sky text-ink">
             <Sparkle aria-hidden="true" size={20} />
           </span>
-          <h2 id="ask-title" className="text-xl">
-            Ask for ideas
+          <h2 id="ask-title" className="min-w-0 text-xl wrap-anywhere">
+            {location ? `Explore ${location}` : "Ask for ideas"}
           </h2>
         </div>
-        <p className="text-ink-muted">
-          Tell the planner what the group is into. It finds things to do with real prices and
-          proposes them here, and everyone approves their own share.
+        <p className="wrap-anywhere text-ink-muted">
+          {location
+            ? `Tell the planner what you'd love to do in ${location}.`
+            : "Share where you're headed and what the group enjoys."}{" "}
+          Choose your favorites, then approve your own share before booking.
         </p>
         <ul className="flex flex-wrap gap-2">
-          {SUGGESTIONS.map((suggestion) => (
+          {suggestions.map((suggestion) => (
             <li key={suggestion}>
               <button
                 type="button"
                 onClick={() => onSuggest(suggestion)}
-                className="min-h-11 rounded-pill bg-paper px-4 text-sm font-semibold text-ink ring-1 ring-inset ring-rule hover:ring-rule-strong"
+                className="min-h-11 rounded-pill bg-paper px-4 text-left text-sm font-semibold wrap-anywhere text-ink ring-1 ring-inset ring-rule hover:ring-rule-strong"
               >
                 {suggestion}
               </button>

@@ -9,13 +9,16 @@ export function Composer({
   onChange,
   onSend,
   disabled,
+  location,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSend: (text: string) => void;
   disabled: boolean;
+  location?: string | null;
 }) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const destination = location?.trim();
 
   // Grow with the text up to about five lines, then scroll.
   useEffect(() => {
@@ -53,7 +56,9 @@ export function Composer({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Ask for ideas, like two days in Goa under $100 each"
+          placeholder={
+            destination ? `Ask for ideas in ${destination}` : "Where are you headed? Ask for ideas"
+          }
           className="min-h-11 min-w-0 flex-1 resize-none bg-transparent py-2.5 text-base text-ink outline-none placeholder:text-ink-muted"
         />
         <button
