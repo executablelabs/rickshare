@@ -1,4 +1,4 @@
-import { Address } from "@rickshare/shared";
+import { Address, WorldProofEnvironment } from "@rickshare/shared";
 import { z } from "zod";
 
 const blankToUndefined = (value: unknown) => (value === "" ? undefined : value);
@@ -44,6 +44,10 @@ export const configSchema = z.object({
   WORLD_CLIENT_ID: optionalText,
   WORLD_CLIENT_SECRET: optionalText,
   WORLD_REDIRECT_URI: optionalUrl,
+  WORLD_PROOF_ENVIRONMENT: z.preprocess(
+    blankToUndefined,
+    WorldProofEnvironment.default("production"),
+  ),
   WORLD_HUMAN_APPROVAL_ENABLED: z.preprocess(
     blankToUndefined,
     z
