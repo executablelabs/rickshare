@@ -5,20 +5,11 @@ import { worldApi } from "../../lib/world";
 import HumanApprovalSheet from "./HumanApprovalSheet";
 
 const mocked = vi.hoisted(() => ({
-  verify: vi.fn(async (_proof: unknown) => {}),
   widget: undefined as
     | undefined
     | { handleVerify: (proof: unknown) => Promise<void>; onSuccess: () => Promise<void> },
 }));
 vi.mock("../../config", () => ({ config: { VITE_API_URL: "/api" } }));
-vi.mock("@worldcoin/human-in-the-loop-react", () => ({
-  useHumanApproval: (_message: unknown, _part: unknown) => ({
-    ready: true,
-    action: `rickshare:approve:${"a".repeat(64)}`,
-    state: { status: "idle" },
-    verify: mocked.verify,
-  }),
-}));
 vi.mock("@worldcoin/idkit", () => ({
   proofOfHuman: (input: unknown) => input,
   IDKitRequestWidget: (props: {
@@ -66,11 +57,11 @@ const attestation = {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  mocked.verify.mockReset().mockResolvedValue(undefined);
   mocked.widget = undefined;
 });
 
 test("the member sees their exact share and the wallet step waits for backend proof confirmation", async () => {
+  const verify = vi.spyOn(worldApi, "verifyApprovalProof").mockResolvedValue(undefined);
   vi.spyOn(worldApi, "request").mockResolvedValue({
     status: "verified",
     errorCode: null,
@@ -87,13 +78,13 @@ test("the member sees their exact share and the wallet step waits for backend pr
     />,
   );
   expect(await screen.findByText("$42.00")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Verify and approve my share" }));
-  expect(screen.getByText("World ID proof widget")).toBeInTheDocument();
+  expect(await screen.findByText("World ID proof widget")).toBeInTheDocument();
   expect(onVerified).not.toHaveBeenCalled();
   const widget = mocked.widget;
   if (!widget) throw new Error("No IDKit widget");
   await widget.handleVerify({ action: challenge.action });
-  expect(mocked.verify).toHaveBeenCalled();
+  expect(verify).toHaveBeenCalledTimes(1);
+  expect(verify).toHaveBeenCalledWith("r".repeat(32), { action: challenge.action });
   expect(onVerified).not.toHaveBeenCalled();
   await widget.onSuccess();
   await waitFor(() => expect(onVerified).toHaveBeenCalledWith(attestation));
@@ -114,7 +105,7 @@ test("cancelling prevents a late World success from triggering the wallet", asyn
       onCancel={onCancel}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Verify and approve my share" }));
+  expect(await screen.findByText("World ID proof widget")).toBeInTheDocument();
   const widget = mocked.widget;
   if (!widget) throw new Error("No IDKit widget");
   fireEvent.click(screen.getByRole("button", { name: "Cancel approval" }));
@@ -140,7 +131,7 @@ test("an SDK success alone cannot authorize the wallet without the backend attes
       onCancel={vi.fn()}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Verify and approve my share" }));
+  expect(await screen.findByText("World ID proof widget")).toBeInTheDocument();
   const widget = mocked.widget;
   if (!widget) throw new Error("No IDKit widget");
   await widget.onSuccess();
