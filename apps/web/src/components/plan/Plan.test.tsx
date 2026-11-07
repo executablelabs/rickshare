@@ -121,18 +121,18 @@ test("an empty plan offers ideas, and a sent message shows the planner's reply",
   });
   await renderPlan();
 
-  fireEvent.click(await screen.findByRole("button", { name: "Two days in Goa under $100 each" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Fun things to do on our trip" }));
   expect(screen.getByRole("textbox", { name: "Ask for ideas" })).toHaveValue(
-    "Two days in Goa under $100 each",
+    "Fun things to do on our trip",
   );
   fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
   expect(await screen.findByText("Paragliding fits Saturday morning.")).toBeInTheDocument();
-  expect(screen.getAllByText("Two days in Goa under $100 each")).toHaveLength(1);
+  expect(screen.getAllByText("Fun things to do on our trip")).toHaveLength(1);
   expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
   expect(calls.find((call) => call.route === `POST /trips/${tripId}/chat`)?.body).toEqual({
     requestId,
-    text: "Two days in Goa under $100 each",
+    text: "Fun things to do on our trip",
   });
 });
 
