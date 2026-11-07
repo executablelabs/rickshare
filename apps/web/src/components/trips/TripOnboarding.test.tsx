@@ -199,8 +199,28 @@ test("a deposit retry resumes after the successful approval without preparing it
 });
 
 test("my limits keeps a single approval within the total cap, then saves both", async () => {
+  const trip = tripFixture(tripId, me);
+  const policy = { autoApproveMax: "40000000", totalCap: "200000000" };
+  let reads = tripRoutes(tripId, me, trip);
+  const read = (route: string) => {
+    const handler = reads[route];
+    if (!handler) throw new Error(`Unstubbed trip read: ${route}`);
+    return handler();
+  };
+  sendTransaction.mockImplementationOnce(async () => {
+    // Rebuild both reads: tripRoutes snapshots the Money members when it is created.
+    reads = tripRoutes(tripId, me, {
+      ...trip,
+      members: trip.members.map((member) =>
+        member.address === me ? { ...member, policy } : member,
+      ),
+    });
+    return hash;
+  });
   const calls = stubApi({
-    ...tripRoutes(tripId, me),
+    ...reads,
+    [`GET /trips/${tripId}`]: () => read(`GET /trips/${tripId}`),
+    [`GET /trips/${tripId}/money`]: () => read(`GET /trips/${tripId}/money`),
     [`POST /trips/${tripId}/actions`]: () => ({
       body: { action: "policy", transactions: [tx(vault)] },
     }),
@@ -225,6 +245,9 @@ test("my limits keeps a single approval within the total cap, then saves both", 
     autoApproveMax: "40000000",
     totalCap: "200000000",
   });
+  expect(sendTransaction).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ to: getAddress(vault) }),
+  );
 });
 
 test("the organizer lets a friend in by signing the invite with a numeric deadline", async () => {
