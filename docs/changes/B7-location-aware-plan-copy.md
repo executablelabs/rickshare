@@ -24,6 +24,7 @@ Composer accepts an optional nullable location prop. No API, shared schema, data
 - Web typecheck: passed.
 - Browser preview: inspected the actual components at 390px and 1280px with Lisbon, Portugal, plus the missing-location fallback at 390px. Clicking a location suggestion populated the composer with that same destination. No browser errors or horizontal overflow; a 160-character location also wrapped without overflow.
 - No new tests or test-suite runs, as requested. This is an explicit exception to AGENTS.md's test and full-check requirements for this copy-only change; the existing send-flow test's copy literals were kept in sync.
+- CI identified one remaining old prompt in the mocked chat response. That fixture now matches the submitted generic prompt; the existing assertions are preserved.
 
 ## Follow-ups
 
