@@ -44,8 +44,9 @@ export function createApprovalRoutes(auth: () => AuthService, world: () => World
         const result = await world().finish(getCookie(context, SESSION_COOKIE), input);
         const url = new URL(auth().origin);
         const state = world().status(getCookie(context, SESSION_COOKIE), input.state);
-        const vault = state.humanApproval?.share.vaultAddress ?? state.attestation?.vaultAddress;
+        const vault = state.purchase?.vaultAddress;
         if (vault) url.pathname = `/trips/${vault.toLowerCase()}/plan`;
+        if (state.purchase) url.searchParams.set("world_proposal_id", state.purchase.proposalId);
         url.searchParams.set("world_request", input.state);
         url.searchParams.set("world_status", result.status);
         return context.redirect(url.toString());

@@ -15,6 +15,8 @@ const Attestation = z.object({
   signature: z.string(),
 });
 const RequestState = z.object({
+  kind: z.enum(["link", "approve"]).optional(),
+  purchase: z.object({ vaultAddress: Address, proposalId: UsdcAmount }).nullable().optional(),
   status: z.enum([
     "pending",
     "processing",
@@ -85,6 +87,20 @@ export const worldApi = {
   },
   async cancel(requestId: string) {
     await api.world.requests[":requestId"].cancel.$post({ param: { requestId } });
+  },
+  async verifyApprovalProof(requestId: string, proof: unknown) {
+    const response = await fetch(
+      api.world.requests[":requestId"].proof.$url({ param: { requestId } }),
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proof),
+      },
+    );
+    await readApi(response, z.object({ status: z.literal("verified") }));
+    if (response.status !== 200)
+      throw new ApiError("WORLD_VERIFICATION_FAILED", "World has not verified this share.", 409);
   },
 };
 

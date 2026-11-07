@@ -297,7 +297,10 @@ test("approving verifies with World, then sends the vault approve from the membe
   const ticket = await screen.findByRole("article", { name: "Tandem paragliding, Arambol" });
   fireEvent.click(within(ticket).getByRole("button", { name: "Approve my share" }));
 
-  expect(await screen.findByText("Share approved", {}, { timeout: 5000 })).toBeInTheDocument();
+  expect(
+    await screen.findByText("Share approved. Finishing approval.", {}, { timeout: 5000 }),
+  ).toBeInTheDocument();
+  expect(sendTransaction).toHaveBeenCalledTimes(1);
   expect(popup.location.href).toBe("https://id.worldcoin.org/authorize?x=1");
   expect(
     calls.some((call) => call.route === `POST /trips/${tripId}/proposals/7/approval/start`),

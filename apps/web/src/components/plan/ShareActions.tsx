@@ -1,6 +1,6 @@
 import type { HumanApprovalChallenge, Proposal } from "@rickshare/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
 import { toWalletCall, useWallet } from "../../auth/wallet";
 import { ApiError, messageOf } from "../../lib/http";
 import { approveCall, planKeys } from "../../lib/plan";
@@ -15,13 +15,14 @@ import { useToast } from "../ui/Toast";
 const HumanApprovalSheet = lazy(() => import("./HumanApprovalSheet"));
 const expiredMessage =
   "This proposal expired. Ask the planner for a new proposal, then approve again.";
-type Phase = "idle" | "verifying" | "human" | "signing" | "declining";
+type Phase = "idle" | "verifying" | "human" | "finishing" | "signing" | "declining";
 
 const approveLabel: Record<Phase, string> = {
   idle: "Approve my share",
   verifying: "Verifying with World…",
   human: "Waiting for human approval…",
-  signing: "Confirm in your wallet…",
+  finishing: "Finishing approval",
+  signing: "Confirm in wallet",
   declining: "Approve my share",
 };
 
@@ -41,6 +42,8 @@ export function ShareActions({
   const queryClient = useQueryClient();
   const showToast = useToast();
   const [phase, setPhase] = useState<Phase>("idle");
+  const sending = useRef(false);
+  const attemptedRequests = useRef(new Set<string>());
   const [humanApproval, setHumanApproval] = useState<{
     requestId: string;
     challenge: HumanApprovalChallenge;
@@ -71,83 +74,277 @@ export function ShareActions({
     if (isProposalExpired(proposal)) throw new ApiError("PROPOSAL_EXPIRED", expiredMessage, 409);
   }
 
-  async function submitApproval(attestation: Attestation) {
-    requireUnexpired();
-    if (!me) throw new Error("Your trip membership changed. Refresh the trip.");
-    setPhase("signing");
-    const share = proposal.shares.find(
-      (entry) => entry.member.toLowerCase() === me.address.toLowerCase(),
-    );
-    if (!share) throw new Error("This purchase no longer includes you. Refresh the plan.");
-    await wallet.sendTransaction(
-      approveCall(trip.vaultAddress, attestation, {
+  async function submitApproval(
+    attestation: Attestation,
+    requestId?: string,
+    active: () => boolean = () => true,
+  ) {
+    if (sending.current) return;
+    sending.current = true;
+    const submissionKey = `rickshare:approval:${trip.vaultAddress.toLowerCase()}:${proposal.id}:${wallet.address?.toLowerCase()}`;
+    try {
+      if (!me) throw new Error("Your trip membership changed. Refresh the trip.");
+      setPhase("finishing");
+      await queryClient.invalidateQueries(
+        { queryKey: planKeys.proposals(trip.id) },
+        { throwOnError: true },
+      );
+      if (!active()) return;
+      const current = queryClient
+        .getQueryData<Proposal[]>(planKeys.proposals(trip.id))
+        ?.find((entry) => entry.id === proposal.id);
+      if (!current) throw new Error("Refresh the plan before continuing in your wallet.");
+      const share = current.shares.find(
+        (entry) => entry.member.toLowerCase() === me.address.toLowerCase(),
+      );
+      if (!share) throw new Error("This purchase no longer includes you. Refresh the plan.");
+      if (
+        ["approved", "auto"].includes(share.state) ||
+        ["locked", "fulfilled"].includes(current.status)
+      ) {
+        window.localStorage.removeItem(submissionKey);
+        clearWorldReturn();
+        showToast(
+          current.status === "fulfilled"
+            ? "Ticket ready"
+            : current.status === "locked"
+              ? "Funds locked"
+              : current.shares.some(
+                    (entry) =>
+                      entry.state === "waiting" &&
+                      entry.member.toLowerCase() !== me.address.toLowerCase(),
+                  )
+                ? "Your share is approved. Waiting for other participants."
+                : "Your share is approved. Finishing approval.",
+        );
+        await refresh();
+        return;
+      }
+      if (current.status !== "pending" || share.state !== "waiting" || isProposalExpired(current))
+        throw new ApiError(
+          "APPROVAL_CONTEXT_MISMATCH",
+          "This share is no longer awaiting approval. Refresh the plan.",
+          409,
+        );
+      if (BigInt(attestation.deadline) <= BigInt(Math.floor(Date.now() / 1000))) {
+        throw new ApiError(
+          "ATTESTATION_EXPIRED",
+          "Your verification expired. Approve again to retry.",
+          409,
+        );
+      }
+      const call = approveCall(trip.vaultAddress, attestation, {
         proposalId: proposal.id,
         member: me.address,
         amount: share.amount,
-        deadline: new Date(approvalCutoff(proposal)).toISOString(),
-      }),
-    );
-    onApproved(me.address);
-    showToast("Share approved");
-    await refresh();
+        deadline: new Date(approvalCutoff(current)).toISOString(),
+      });
+      if (window.localStorage.getItem(submissionKey))
+        throw new Error(
+          "A wallet approval may still be pending. Check your wallet and refresh the plan before trying again.",
+        );
+      const attemptKey = requestId ? `${submissionKey}:request:${requestId}` : null;
+      const attestationKey = `${submissionKey}:attestation:${attestation.signature}`;
+      if (
+        (requestId && attemptedRequests.current.has(requestId)) ||
+        (attemptKey && window.localStorage.getItem(attemptKey)) ||
+        window.localStorage.getItem(attestationKey)
+      )
+        throw new Error(
+          "This World approval already reached your wallet. Check your wallet and refresh the plan.",
+        );
+      // A reload or uncertain receipt must not rebroadcast this purchase approval.
+      if (requestId && attemptKey) {
+        window.localStorage.setItem(attemptKey, "attempted");
+        attemptedRequests.current.add(requestId);
+      }
+      window.localStorage.setItem(attestationKey, "attempted");
+      window.localStorage.setItem(submissionKey, "pending");
+      setPhase("signing");
+      await wallet.sendTransaction(call);
+      setPhase("finishing");
+      window.localStorage.removeItem(submissionKey);
+      onApproved(me.address);
+      clearWorldReturn();
+      showToast("Share approved. Finishing approval.");
+      await refresh();
+      const updated = queryClient
+        .getQueryData<Proposal[]>(planKeys.proposals(trip.id))
+        ?.find((entry) => entry.id === proposal.id);
+      if (updated?.status === "locked") showToast("Funds locked");
+      else if (updated?.status === "fulfilled") showToast("Ticket ready");
+      else if (
+        updated?.status === "pending" &&
+        updated.shares.some(
+          (entry) =>
+            entry.state === "waiting" && entry.member.toLowerCase() !== me.address.toLowerCase(),
+        )
+      )
+        showToast("Waiting for other participants");
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        /user rejected|user denied|user cancel|cancelled in your wallet/i.test(error.message)
+      ) {
+        window.localStorage.removeItem(submissionKey);
+        clearWorldReturn();
+      }
+      if (
+        error instanceof Error &&
+        (/reverted|insufficient funds|exceeds balance/i.test(error.message) ||
+          error.message === "The transaction failed, so nothing in the trip changed. Try again.")
+      ) {
+        window.localStorage.removeItem(submissionKey);
+        clearWorldReturn();
+      }
+      throw error;
+    } finally {
+      sending.current = false;
+    }
   }
 
-  function approve() {
+  async function receiveApproval(
+    result: Awaited<ReturnType<typeof worldApi.request>> & { requestId?: string },
+    resume: boolean,
+    active: () => boolean = () => true,
+  ) {
+    if (result.kind === "link" && result.status === "verified") {
+      clearWorldReturn();
+      await refresh();
+      showToast(
+        "World identity linked. Approve your share to verify this purchase, then confirm in your wallet.",
+      );
+      return;
+    }
+    if (
+      result.purchase &&
+      (result.purchase.vaultAddress.toLowerCase() !== trip.vaultAddress.toLowerCase() ||
+        result.purchase.proposalId !== proposal.id)
+    )
+      throw new Error(
+        "This World request belongs to another purchase. Open that purchase to continue.",
+      );
+    if (resume) {
+      const params = new URLSearchParams(window.location.search);
+      if (
+        params.get("world_request") !== result.requestId ||
+        params.get("world_proposal_id") !== proposal.id ||
+        result.kind !== "approve" ||
+        !result.purchase
+      )
+        throw new Error("Open this purchase and explicitly approve your share to continue.");
+    }
+    if (result.status === "awaiting_proof" || result.status === "processing_proof") {
+      requireUnexpired();
+      if (!result.humanApproval || !result.requestId || !me)
+        throw new Error("World did not return a human approval request. Try again.");
+      const approvedShare = result.humanApproval.share;
+      const expectedShare = proposal.shares.find(
+        (share) => share.member.toLowerCase() === me.address.toLowerCase(),
+      );
+      if (
+        approvedShare.vaultAddress.toLowerCase() !== trip.vaultAddress.toLowerCase() ||
+        approvedShare.member.toLowerCase() !== me.address.toLowerCase() ||
+        approvedShare.proposalId !== proposal.id ||
+        !expectedShare ||
+        BigInt(approvedShare.amount) !== BigInt(expectedShare.amount)
+      )
+        throw new ApiError(
+          "APPROVAL_CONTEXT_MISMATCH",
+          "This World approval does not match your share. Start again.",
+          409,
+        );
+      const url = new URL(window.location.href);
+      url.searchParams.set("world_request", result.requestId);
+      url.searchParams.set("world_proposal_id", proposal.id);
+      window.history.replaceState(window.history.state, "", url.toString());
+      setHumanApproval({ requestId: result.requestId, challenge: result.humanApproval });
+      setPhase("human");
+      return;
+    }
+    if (result.status !== "verified" || !result.attestation)
+      throw new Error("World is still processing. Check approval status again in a moment.");
+    await submitApproval(result.attestation, result.requestId, active);
+  }
+
+  function recoveryError(error: unknown) {
+    if (
+      error instanceof ApiError &&
+      error.status < 500 &&
+      !["UNAUTHENTICATED", "NETWORK_ERROR"].includes(error.code)
+    ) {
+      clearWorldReturn();
+    }
+    handleError(error);
+  }
+
+  const resumeOnMount = useEffectEvent(async (requestId: string, active: () => boolean) => {
+    setPhase("finishing");
+    try {
+      while (active()) {
+        const result = await worldApi.request(requestId);
+        if (!active()) return;
+        if (result.status === "pending" || result.status === "processing") {
+          await new Promise((resolve) => window.setTimeout(resolve, 1500));
+          continue;
+        }
+        await receiveApproval({ ...result, requestId }, true, active);
+        return;
+      }
+    } catch (error) {
+      if (active()) recoveryError(error);
+    } finally {
+      if (active()) setPhase((current) => (current === "human" ? current : "idle"));
+    }
+  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestId = params.get("world_request");
+    if (!window.location.pathname.toLowerCase().includes(trip.vaultAddress.toLowerCase())) return;
+    if (!me?.address || !requestId || params.get("world_proposal_id") !== proposal.id) return;
+    let active = true;
+    void resumeOnMount(requestId, () => active);
+    return () => {
+      active = false;
+    };
+  }, [me?.address, proposal.id, trip.vaultAddress]);
+
+  function approve(restart = false) {
     if (isProposalExpired(proposal)) {
       handleError(new ApiError("PROPOSAL_EXPIRED", expiredMessage, 409));
       return;
     }
     if (!me) return;
-    if (!me.worldLinked) {
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("world_proposal_id");
+    const resumeRequest =
+      !restart && (!target || target === proposal.id) ? params.get("world_request") : null;
+    if (!me.worldLinked && !resumeRequest) {
       // Approvals need a World identity linked once; start that, then approve again.
       showToast("Verify with World first, then approve your share.");
       linkWorld();
       return;
     }
     setPhase("verifying");
-    const resumeRequest = new URLSearchParams(window.location.search).get("world_request");
     // Called straight from the click so the World popup is allowed to open.
     const verification = resumeRequest
       ? worldApi.request(resumeRequest).then((state) => ({ ...state, requestId: resumeRequest }))
       : verifyWithWorld(() => worldApi.startApproval(trip.id, proposal.id));
     verification
-      .then(async (result) => {
-        requireUnexpired();
-        if (result.status === "awaiting_proof") {
-          if (!result.humanApproval || !("requestId" in result))
-            throw new Error("World did not return a human approval request. Try again.");
-          const approvedShare = result.humanApproval.share;
-          const expectedShare = proposal.shares.find(
-            (share) => share.member.toLowerCase() === me.address.toLowerCase(),
-          );
-          if (
-            approvedShare.vaultAddress.toLowerCase() !== trip.vaultAddress.toLowerCase() ||
-            approvedShare.member.toLowerCase() !== me.address.toLowerCase() ||
-            approvedShare.proposalId !== proposal.id ||
-            !expectedShare ||
-            BigInt(approvedShare.amount) !== BigInt(expectedShare.amount)
-          )
-            throw new Error("This World approval does not match your share. Start again.");
-          setHumanApproval({ requestId: result.requestId, challenge: result.humanApproval });
-          setPhase("human");
-          if (resumeRequest) clearWorldReturn();
-          return;
-        }
-        if (!result.attestation) throw new Error("World did not return an approval. Try again.");
-        if (resumeRequest) clearWorldReturn();
-        await submitApproval(result.attestation);
-      })
+      .then((result) => receiveApproval(result, false))
       .catch((error: unknown) => {
-        if (resumeRequest) clearWorldReturn();
-        handleError(error);
+        recoveryError(error);
       })
       .finally(() => setPhase((current) => (current === "human" ? current : "idle")));
   }
 
   function clearWorldReturn() {
     const url = new URL(window.location.href);
+    const target = url.searchParams.get("world_proposal_id");
+    if (target && target !== proposal.id) return;
     url.searchParams.delete("world_request");
     url.searchParams.delete("world_status");
+    url.searchParams.delete("world_proposal_id");
     window.history.replaceState(window.history.state, "", url.toString());
   }
 
@@ -173,7 +370,7 @@ export function ShareActions({
   return (
     <>
       <div className="flex gap-2.5">
-        <Button fullWidth disabled={busy || expired} onClick={approve}>
+        <Button fullWidth disabled={busy || expired} onClick={() => approve()}>
           {linkingWorld ? "Verifying with World…" : approveLabel[phase]}
         </Button>
         <Button variant="secondary" disabled={busy || expired} onClick={() => void decline()}>
@@ -185,17 +382,23 @@ export function ShareActions({
           <HumanApprovalSheet
             key={humanApproval.requestId}
             {...humanApproval}
+            onRestart={() => {
+              clearWorldReturn();
+              setHumanApproval(null);
+              approve(true);
+            }}
             onVerified={async (attestation) => {
               try {
-                await submitApproval(attestation);
+                await submitApproval(attestation, humanApproval.requestId);
               } catch (error) {
-                handleError(error);
+                recoveryError(error);
               } finally {
                 setHumanApproval(null);
                 setPhase("idle");
               }
             }}
             onCancel={(error) => {
+              clearWorldReturn();
               if (error) showToast(error, { tone: "error" });
               setHumanApproval(null);
               setPhase("idle");
