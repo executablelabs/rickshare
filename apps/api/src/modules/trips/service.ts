@@ -175,6 +175,18 @@ export class TripService {
   }
 
   async get(actor: Address, vault: Address) {
+    try {
+      const trip = this.indexer.requireMember(vault, actor);
+      // Display indexed state immediately while the shared indexer refreshes in the background.
+      void this.indexer.sync().catch(() => logger.error("TRIP_INDEX_REFRESH_FAILED"));
+      return trip;
+    } catch (error) {
+      if (
+        !(error instanceof AppError) ||
+        (error.code !== "TRIP_NOT_FOUND" && error.code !== "NOT_MEMBER")
+      )
+        throw error;
+    }
     const info = await this.chain.info(vault, actor);
     if (!info.isMember)
       throw new AppError("NOT_MEMBER", "Join this trip before accessing it.", 403);
