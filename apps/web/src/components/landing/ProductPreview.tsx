@@ -17,7 +17,7 @@ import { ProposalTicket } from "../plan/ProposalTicket";
 import { Amount } from "../ui/Amount";
 import { Avatar } from "../ui/Avatar";
 import { AvatarStack } from "../ui/AvatarStack";
-import { exampleMembers, exampleTicket, exampleViewer } from "./example-trip";
+import { exampleMembers, exampleStartsAtLabel, exampleTicket, exampleViewer } from "./example-trip";
 import { Postcard, RouteDoodle } from "./TravelDetails";
 
 function WindowBar() {
@@ -70,6 +70,7 @@ export function HeroProduct() {
           </div>
           <ProposalTicket
             proposal={exampleTicket}
+            startsAtLabel={exampleStartsAtLabel}
             members={exampleMembers}
             viewer={exampleViewer}
             actions={
@@ -248,6 +249,7 @@ export function ApprovalProduct() {
       </div>
       <ProposalTicket
         proposal={proposal}
+        startsAtLabel={exampleStartsAtLabel}
         members={exampleMembers}
         viewer={exampleViewer}
         pressed={decision === "approved" ? exampleViewer : undefined}

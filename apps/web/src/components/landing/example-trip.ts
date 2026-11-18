@@ -7,6 +7,8 @@ export const exampleMembers = [
   { address: "0x00000000000000000000000000000000000000c3", displayName: "Gitau" },
 ] satisfies [unknown, unknown, unknown];
 export const exampleViewer = exampleMembers[2].address;
+// Render the illustrative time identically on the server and in every browser.
+export const exampleStartsAtLabel = "Dec 12, 10:00 AM (Goa time)";
 export const exampleTicket: Proposal = {
   id: "example",
   tripId: "example",
