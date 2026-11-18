@@ -58,6 +58,8 @@ export interface ProposalTicketProps {
   proposal: Proposal;
   members: Array<Pick<Member, "address" | "displayName">>;
   viewer: string | undefined;
+  /** Fixed display label for an illustrative ticket; real trips use the member's local time. */
+  startsAtLabel?: string;
   /** Approve and decline buttons, shown only while the viewer's share waits for them. */
   actions?: ReactNode;
   /** Extra footer content, such as a ticket link. */
@@ -71,6 +73,7 @@ export function ProposalTicket({
   proposal,
   members,
   viewer,
+  startsAtLabel,
   actions,
   footer,
   className,
@@ -123,7 +126,7 @@ export function ProposalTicket({
         </p>
         <p className="flex items-center gap-1.5 text-sm text-ink-muted">
           <CalendarBlank aria-hidden="true" size={16} className="shrink-0" />
-          {formatWhen(proposal.startsAt)}
+          {startsAtLabel ?? formatWhen(proposal.startsAt)}
         </p>
         {proposal.location && (
           <p className="flex items-center gap-1.5 text-sm text-ink-muted">
